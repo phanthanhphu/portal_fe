@@ -1,0 +1,208 @@
+/* ========== FORM ========== */
+.form-container {
+    background-color: #ffffff;
+    border: 1px solid #dee2e6;
+    border-radius: 1rem;
+    padding: 3rem 2.5rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+
+    max-width: 28rem;
+    width: 100%;
+    box-sizing: border-box;
+    font-family: 'Open Sans', sans-serif;
+    margin: auto;
+}
+
+/* About Youngone section */
+.about-youngone {
+    font-family: 'Open Sans', sans-serif;
+    color: #333333;
+    line-height: 1.6;
+}
+
+.about-youngone h2.display-4 {
+    font-weight: 700;
+    font-size: 2.75rem;
+    color: #007bff; /* màu xanh nổi bật */
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+.about-youngone ul.list-checked {
+    list-style: none;
+    padding-left: 0;
+}
+
+.list-checked-item {
+    position: relative;
+    padding-left: 2.5rem;
+    margin-bottom: 1.25rem;
+    font-size: 1.1rem;
+    color: #555555;
+}
+
+.list-checked-item .font-weight-bold {
+    font-weight: 700;
+    font-size: 1.2rem;
+    color: #222222;
+    margin-bottom: 0.25rem;
+    display: block;
+}
+
+/* Custom checkmark before each li */
+.list-checked-item::before {
+    content: "✔";  /* dấu tick */
+    position: absolute;
+    left: 0;
+    top: 0.2rem;
+    color: #28a745; /* màu xanh lá cho dấu tick */
+    font-size: 1.3rem;
+}
+
+/* Brand logos container */
+.brand-logos .col {
+    text-align: center;
+}
+
+.brand-logos img {
+    max-height: 3rem;
+    opacity: 0.7;
+    transition: opacity 0.3s ease;
+}
+
+.brand-logos img:hover {
+    opacity: 1;
+}
+
+/* Giữ nguyên form-container bạn đã có */
+.form-container {
+    background-color: #ffffff;
+    border: 1px solid #dee2e6;
+    border-radius: 1rem;
+    padding: 3rem 2.5rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+
+    max-width: 28rem;
+    width: 100%;
+    box-sizing: border-box;
+    font-family: 'Open Sans', sans-serif;
+    margin: auto;
+}
+
+/* Container form */
+.form-container {
+    background-color: #f9fafb; /* nền sáng, nhẹ nhàng */
+    border-radius: 1rem;
+    padding: 3rem 2.5rem;
+    box-shadow: 0 0.75rem 1.5rem rgba(0, 0, 0, 0.1);
+    font-family: 'Open Sans', sans-serif;
+    max-width: 420px;
+    margin: auto;
+}
+
+/* Tiêu đề form */
+.form-container h1.display-4 {
+    color: #2c3e50; /* màu xanh đậm */
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    text-align: center;
+}
+
+/* Đoạn text nhỏ dưới tiêu đề */
+.form-container p {
+    color: #6c757d; /* màu xám trung tính */
+    font-size: 1rem;
+    text-align: center;
+}
+
+/* Link "contact the admin" làm đậm, màu nổi bật */
+.form-container p strong {
+    color: #007bff; /* xanh dương */
+    cursor: pointer;
+}
+
+/* Label input */
+.input-label {
+    color: #34495e; /* xanh đậm nhạt hơn */
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    display: block;
+}
+
+/* Input fields */
+.form-control-lg {
+    border: 1.5px solid #ced4da;
+    border-radius: 0.5rem;
+    font-size: 1.1rem;
+    padding: 0.75rem 1rem;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Focus input */
+.form-control-lg:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 8px rgba(0, 123, 255, 0.3);
+    outline: none;
+}
+
+/* Link "Forgot Password?" */
+.input-label-secondary {
+    font-size: 0.9rem;
+    color: #007bff;
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+.input-label-secondary:hover {
+    color: #0056b3;
+    text-decoration: underline;
+}
+
+/* Checkbox label */
+.custom-control-label {
+    font-size: 1rem;
+    color: #6c757d;
+}
+
+/* Checkbox input */
+.custom-control-input:checked ~ .custom-control-label::before {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+/* Nút bấm đăng nhập */
+.btn-primary {
+    background-color: #007bff;
+    border-color: #007bff;
+    font-size: 1.2rem;
+    font-weight: 600;
+    padding: 0.75rem;
+    border-radius: 0.6rem;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.btn-primary:hover {
+    background-color: #0056b3;
+    border-color: #0056b3;
+    box-shadow: 0 4px 10px rgba(0, 86, 179, 0.4);
+}
+
+/* Icon hiện/ẩn mật khẩu */
+.input-group-text {
+    background-color: transparent;
+    border: none;
+    cursor: pointer;
+    color: #6c757d;
+}
+
+.input-group-text:hover {
+    color: #007bff;
+}
+
+/* Nền ngoài form đăng nhập */
+.col-lg-6.d-flex.justify-content-center.align-items-center.min-vh-lg-100 {
+    background: linear-gradient(135deg, #74ebd5 0%, #ACB6E5 100%);
+    min-height: 100vh;
+    padding: 2rem;
+}
+
