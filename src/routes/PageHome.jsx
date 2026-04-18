@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import companyLogo from "./youngone-logo.png";
+import companyBg from "./background.JPG";
 import "./PageHome.css";
 import FormsDepartmentPopup from "./FormsDepartmentPopup";
 import NoticeDepartmentPopup from "./NoticeDepartmentPopup";
@@ -12,9 +13,7 @@ const DEPARTMENTS_API_BASE = `${API_BASE_URL}/api/departments`;
 
 const FORMS_PAGE_PATH = "/forms";
 const NOTICES_PAGE_PATH = "/notices";
-const COMPANY_BG_URL =
-  "https://vieclamcantho.com.vn/public/upload/nhatuyendung/ahd/cong-ty-tnhh-broadpeak-soc-trang1650250382451.jpg";
-
+const COMPANY_BG_URL = companyBg;
 function toAbsoluteUrl(path) {
   if (!path) return "";
   if (path.startsWith("http://") || path.startsWith("https://")) return path;
@@ -1217,19 +1216,26 @@ const visibleNotices = useMemo(() => {
                 style={{ backgroundImage: `linear-gradient(120deg, rgba(7, 16, 39, 0.72), rgba(7, 16, 39, 0.34)), url(${COMPANY_BG_URL})` }}
               >
                 <div className="portal-hero__copy">
-                  <div className="portal-tag">YOUNGONE BSL</div>
-                  <h1>Manufacturing excellence in Can Tho.</h1>
-                  <p>
-                    Founded in 2017, BSL is a manufacturing facility of Youngone Corporation in
-                    An Nghiep Industrial Park, Can Tho, with 7 factories, 8,000+ skilled workers
-                    and more than 240 production lines.
-                  </p>
+                  <div className="portal-tag">YOUNGONE CORPORATION</div>
+                  <h1>Trusted performance manufacturing since 1974.</h1>
+
+                  <div className="portal-hero__intro">
+                    <p>
+                      Founded by Kihak Sung in 1974, Youngone Corporation was built on a love of
+                      nature and outdoor pursuits.
+                    </p>
+
+                    <p>
+                      For nearly 50 years, global outdoor and apparel brands have trusted
+                      Youngone for quality, reliability, service and continuous improvement.
+                    </p>
+                  </div>
 
                   <div className="portal-hero__chips">
-                    <span className="portal-chip">An Nghiep Industrial Park</span>
-                    <span className="portal-chip">7 factories</span>
-                    <span className="portal-chip">8,000+ workers</span>
-                    <span className="portal-chip">240+ lines</span>
+                    <span className="portal-chip">Founded in 1974</span>
+                    <span className="portal-chip">Outdoor expertise</span>
+                    <span className="portal-chip">Quality & reliability</span>
+                    <span className="portal-chip">Trusted for 50 years</span>
                   </div>
                 </div>
 
@@ -1258,12 +1264,6 @@ const visibleNotices = useMemo(() => {
                     <small>Lines</small>
                     <strong>240+</strong>
                   </div>
-                  <a href={NOTICES_PAGE_PATH} className="portal-hero__cta">
-                    <span>Mở notice page</span>
-                    <span className="portal-icon-inline">
-                      <IconArrowRight />
-                    </span>
-                  </a>
                 </div>
               </div>
             </div>
