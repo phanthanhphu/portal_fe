@@ -92,6 +92,8 @@ svg {
 
 .portal-page {
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .portal-shell {
@@ -452,7 +454,8 @@ svg {
 }
 
 .portal-main {
-  padding-bottom: 54px;
+  flex: 1;
+  padding-bottom: 28px;
 }
 
 .portal-hero {
@@ -1682,32 +1685,149 @@ svg {
 }
 
 /* ===== menu dropdown: show 6 items then scroll ===== */
-.portal-dropdown-list--apps {
-  max-height: 214px;
+.portal-menu-six .portal-dropdown-list--apps,
+.portal-menu-six .portal-dropdown-list--forms {
+  max-height: calc((var(--menu-visible-rows, 3) * 68px) + ((var(--menu-visible-rows, 3) - 1) * 10px));
   overflow-y: auto;
   align-content: start;
+  padding-right: 4px;
 }
 
 .portal-menu-six .fdp-grid,
 .portal-menu-six .ndp2-grid,
 .portal-menu-six .ndm-grid {
-  max-height: 252px !important;
+  max-height: calc((var(--menu-visible-items, 6) * 42px) + ((var(--menu-visible-items, 6) - 1) * 10px)) !important;
   overflow-y: auto !important;
   align-content: start;
   padding-right: 4px;
 }
 
+.portal-mobile-group__body--scroll-6 {
+  max-height: calc((var(--menu-visible-items, 6) * 42px) + ((var(--menu-visible-items, 6) - 1) * 10px));
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.portal-menu-six .portal-dropdown-list--apps::-webkit-scrollbar,
+.portal-menu-six .portal-dropdown-list--forms::-webkit-scrollbar,
 .portal-menu-six .fdp-grid::-webkit-scrollbar,
 .portal-menu-six .ndp2-grid::-webkit-scrollbar,
 .portal-menu-six .ndm-grid::-webkit-scrollbar,
-.portal-dropdown-list--apps::-webkit-scrollbar {
+.portal-mobile-group__body--scroll-6::-webkit-scrollbar {
   width: 8px;
 }
 
+.portal-menu-six .portal-dropdown-list--apps::-webkit-scrollbar-thumb,
+.portal-menu-six .portal-dropdown-list--forms::-webkit-scrollbar-thumb,
 .portal-menu-six .fdp-grid::-webkit-scrollbar-thumb,
 .portal-menu-six .ndp2-grid::-webkit-scrollbar-thumb,
 .portal-menu-six .ndm-grid::-webkit-scrollbar-thumb,
-.portal-dropdown-list--apps::-webkit-scrollbar-thumb {
+.portal-mobile-group__body--scroll-6::-webkit-scrollbar-thumb {
   border-radius: 999px;
   background: rgba(126, 148, 182, 0.28);
+}
+
+
+/* ===== footer and page edge toggle ===== */
+.portal-footer {
+  margin-top: auto;
+  background: rgba(248, 251, 255, 0.74);
+  border-top: 1px solid rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 -16px 36px rgba(18, 33, 61, 0.04);
+}
+
+.portal-footer__inner {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 0 18px;
+}
+
+.portal-footer__links {
+  display: flex;
+  align-items: center;
+  gap: 36px;
+  flex-wrap: wrap;
+}
+
+.portal-footer__link {
+  display: inline-flex;
+  align-items: center;
+  color: var(--portal-text-soft);
+  font-size: 0.92rem;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  transition: color 0.2s ease;
+}
+
+.portal-footer__link:hover {
+  color: var(--portal-primary);
+}
+
+.portal-footer__credit {
+  color: var(--portal-text-soft);
+  font-size: 0.88rem;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.portal-scroll-toggle {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 140;
+  width: 56px;
+  height: 56px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--portal-primary), var(--portal-sky));
+  color: #fff;
+  box-shadow: 0 22px 40px rgba(39, 73, 255, 0.28);
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+.portal-scroll-toggle:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 26px 46px rgba(39, 73, 255, 0.32);
+}
+
+.portal-scroll-toggle svg {
+  width: 22px;
+  height: 22px;
+}
+
+@media (max-width: 720px) {
+  .portal-footer__inner {
+    min-height: unset;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 10px;
+    padding: 14px 18px;
+  }
+
+  .portal-footer__links {
+    gap: 22px;
+  }
+
+  .portal-footer__link,
+  .portal-footer__credit {
+    font-size: 0.84rem;
+  }
+
+  .portal-scroll-toggle {
+    right: 16px;
+    bottom: 16px;
+    width: 52px;
+    height: 52px;
+  }
 }

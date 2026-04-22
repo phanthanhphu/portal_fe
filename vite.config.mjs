@@ -13,7 +13,7 @@ export default defineConfig(({ command, mode }) => {
   // Trong production: dùng biến env nếu có (cho deploy subpath)
   const base = isDev ? "/" : (env.VITE_APP_BASE_NAME || env.VITE_BASE_URL || "/");
 
-  const PORT = 3000;
+  const PORT = 3001;
 
   return {
     base,  // ← sửa quan trọng nhất ở đây

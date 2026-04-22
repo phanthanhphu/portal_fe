@@ -14,6 +14,9 @@ const DEPARTMENTS_API_BASE = `${API_BASE_URL}/api/departments`;
 const FORMS_PAGE_PATH = "/forms";
 const NOTICES_PAGE_PATH = "/notices";
 const COMPANY_BG_URL = companyBg;
+const MENU_MAX_VISIBLE_ITEMS = 6;
+const MENU_DESKTOP_ITEMS_PER_ROW = 2;
+
 function toAbsoluteUrl(path) {
   if (!path) return "";
   if (path.startsWith("http://") || path.startsWith("https://")) return path;
@@ -110,6 +113,14 @@ function IconChevronDown() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
       <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+
+function IconChevronUp() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="m6 15 6-6 6 6" />
     </svg>
   );
 }
@@ -501,7 +512,16 @@ function PreviewModal({ previewState, onClose, onDownload, onSelectSheet }) {
   );
 }
 
-function MenuDropdown({ label, icon, isOpen, onToggle, children, count }) {
+function MenuDropdown({
+  label,
+  icon,
+  isOpen,
+  onToggle,
+  children,
+  count,
+  popoverClassName = "",
+  popoverStyle = undefined,
+}) {
   return (
     <div className={`portal-nav-dropdown ${isOpen ? "is-open" : ""}`}>
       <button type="button" className="portal-nav-trigger" onClick={onToggle}>
@@ -512,12 +532,27 @@ function MenuDropdown({ label, icon, isOpen, onToggle, children, count }) {
           <IconChevronDown />
         </span>
       </button>
-      {isOpen ? <div className="portal-nav-popover">{children}</div> : null}
+      {isOpen ? (
+        <div
+          className={`portal-nav-popover ${popoverClassName}`.trim()}
+          style={popoverStyle}
+        >
+          {children}
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function MobileDropdown({ label, icon, isOpen, onToggle, children }) {
+function MobileDropdown({
+  label,
+  icon,
+  isOpen,
+  onToggle,
+  children,
+  bodyClassName = "",
+  bodyStyle = undefined,
+}) {
   return (
     <div className="portal-mobile-group">
       <button type="button" className="portal-mobile-group__trigger" onClick={onToggle}>
@@ -529,7 +564,14 @@ function MobileDropdown({ label, icon, isOpen, onToggle, children }) {
           <IconChevronDown />
         </span>
       </button>
-      {isOpen ? <div className="portal-mobile-group__body">{children}</div> : null}
+      {isOpen ? (
+        <div
+          className={`portal-mobile-group__body ${bodyClassName}`.trim()}
+          style={bodyStyle}
+        >
+          {children}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -588,6 +630,7 @@ export default function PageHome() {
   const [noticePopupOpen, setNoticePopupOpen] = useState(false);
   const [selectedNoticeDepartment, setSelectedNoticeDepartment] = useState(null);
   const [noticeWindowStart, setNoticeWindowStart] = useState(0);
+  const [isScrollAtTopZone, setIsScrollAtTopZone] = useState(true);
 
   const navRef = useRef(null);
 
@@ -1000,6 +1043,42 @@ const visibleNotices = useMemo(() => {
     return formatDateTime(notices[0].createdAt) || "Chưa có dữ liệu";
   }, [notices]);
 
+  const desktopDropdownStyle = {
+    "--menu-visible-items": String(MENU_MAX_VISIBLE_ITEMS),
+    "--menu-visible-rows": String(
+      Math.ceil(MENU_MAX_VISIBLE_ITEMS / MENU_DESKTOP_ITEMS_PER_ROW),
+    ),
+  };
+
+  const mobileDropdownStyle = {
+    "--menu-visible-items": String(MENU_MAX_VISIBLE_ITEMS),
+  };
+
+  useEffect(() => {
+    const handleScrollState = () => {
+      setIsScrollAtTopZone(window.scrollY <= 160);
+    };
+
+    handleScrollState();
+    window.addEventListener("scroll", handleScrollState, { passive: true });
+
+    return () => window.removeEventListener("scroll", handleScrollState);
+  }, []);
+
+  const handleTogglePageEdge = () => {
+    const targetTop = isScrollAtTopZone
+      ? Math.max(
+          document.documentElement.scrollHeight,
+          document.body.scrollHeight,
+        )
+      : 0;
+
+    window.scrollTo({
+      top: targetTop,
+      behavior: "smooth",
+    });
+  };
+
   return (
     <>
       <div className="portal-page">
@@ -1029,6 +1108,8 @@ const visibleNotices = useMemo(() => {
                 isOpen={openDropdown === "links"}
                 onToggle={() => setOpenDropdown((prev) => (prev === "links" ? null : "links"))}
                 count={apps.length || undefined}
+                popoverClassName="portal-menu-six"
+                popoverStyle={desktopDropdownStyle}
               >
                 <div className="portal-dropdown-head">
                   <strong>Liên kết nội bộ</strong>
@@ -1071,8 +1152,11 @@ const visibleNotices = useMemo(() => {
                 isOpen={openDropdown === "forms"}
                 onToggle={() => setOpenDropdown((prev) => (prev === "forms" ? null : "forms"))}
                 count={departments.length || undefined}
+                popoverClassName="portal-menu-six"
+                popoverStyle={desktopDropdownStyle}
               >
-                <FormsDepartmentPopup
+                <div className="portal-menu-six" style={desktopDropdownStyle}>
+                  <FormsDepartmentPopup
                   departments={departments}
                   loading={loadingDepartments}
                   error={errorDepartments}
@@ -1093,6 +1177,7 @@ const visibleNotices = useMemo(() => {
                     setSelectedFormsDepartment(null);
                   }}
                 />
+                </div>
               </MenuDropdown>
 
               <MenuDropdown
@@ -1101,8 +1186,11 @@ const visibleNotices = useMemo(() => {
                 isOpen={openDropdown === "notice"}
                 onToggle={() => setOpenDropdown((prev) => (prev === "notice" ? null : "notice"))}
                 count={departments.length || undefined}
+                popoverClassName="portal-menu-six"
+                popoverStyle={desktopDropdownStyle}
               >
-                <NoticeDepartmentPopup
+                <div className="portal-menu-six" style={desktopDropdownStyle}>
+                  <NoticeDepartmentPopup
                   departments={departments}
                   loading={loadingDepartments}
                   error={errorDepartments}
@@ -1123,6 +1211,7 @@ const visibleNotices = useMemo(() => {
                     setSelectedNoticeDepartment(null);
                   }}
                 />
+                </div>
               </MenuDropdown>
             </nav>
 
@@ -1153,6 +1242,8 @@ const visibleNotices = useMemo(() => {
                 onToggle={() =>
                   setOpenDropdown((prev) => (prev === "mobile-links" ? null : "mobile-links"))
                 }
+                bodyClassName="portal-mobile-group__body--scroll-6"
+                bodyStyle={mobileDropdownStyle}
               >
                 {apps.map((app) => (
                   <a
@@ -1174,6 +1265,8 @@ const visibleNotices = useMemo(() => {
                 onToggle={() =>
                   setOpenDropdown((prev) => (prev === "mobile-forms" ? null : "mobile-forms"))
                 }
+                bodyClassName="portal-mobile-group__body--scroll-6"
+                bodyStyle={mobileDropdownStyle}
               >
                 {departments.map((department) => (
                   <a
@@ -1193,6 +1286,8 @@ const visibleNotices = useMemo(() => {
                 onToggle={() =>
                   setOpenDropdown((prev) => (prev === "mobile-notice" ? null : "mobile-notice"))
                 }
+                bodyClassName="portal-mobile-group__body--scroll-6"
+                bodyStyle={mobileDropdownStyle}
               >
                 {departments.map((department) => (
                   <a
@@ -1467,43 +1562,35 @@ const visibleNotices = useMemo(() => {
             </div>
           </section>
 
-          <section className="portal-overview">
-            <div className="portal-shell">
-              <div className="portal-overview__head">
-                <h2>BSL at a glance</h2>
-                <span>Youngone Corporation manufacturing facility</span>
-              </div>
-
-              <div className="portal-overview-grid">
-                <OverviewCard
-                  icon={<IconBuilding />}
-                  title="Founded"
-                  value="2017"
-                  subtitle="BSL began operations in Can Tho in 2017."
-                />
-                <OverviewCard
-                  icon={<IconGrid />}
-                  title="Factories"
-                  value="7"
-                  subtitle="Expanded to seven factories and is now the biggest in the province."
-                />
-                <OverviewCard
-                  icon={<IconBuilding />}
-                  title="Workforce"
-                  value="8,000+"
-                  subtitle="More than 8,000 skilled workers support daily operations."
-                />
-                <OverviewCard
-                  icon={<IconSpark />}
-                  title="Production"
-                  value="240+"
-                  subtitle="Advanced machinery across over 240 production lines ensures quality and efficiency."
-                />
-              </div>
-            </div>
-          </section>
         </main>
+
+        <footer className="portal-footer">
+          <div className="portal-shell portal-footer__inner">
+            <div className="portal-footer__links">
+              <a href="/terms-and-conditions" className="portal-footer__link">
+                Terms & Conditions
+              </a>
+              <a href="/privacy-policy" className="portal-footer__link">
+                Privacy Policy
+              </a>
+            </div>
+
+            <div className="portal-footer__credit">
+              Phát triển bởi IT BSL
+            </div>
+          </div>
+        </footer>
       </div>
+
+      <button
+        type="button"
+        className="portal-scroll-toggle"
+        onClick={handleTogglePageEdge}
+        aria-label={isScrollAtTopZone ? "Cuộn xuống cuối trang" : "Cuộn lên đầu trang"}
+        title={isScrollAtTopZone ? "Xuống cuối trang" : "Lên đầu trang"}
+      >
+        {isScrollAtTopZone ? <IconChevronDown /> : <IconChevronUp />}
+      </button>
 
       <PreviewModal previewState={previewState} onClose={closePreview} onDownload={handleDownloadFile} onSelectSheet={handlePreviewSheetChange} />
     </>
