@@ -63,14 +63,6 @@ function useClickOutside(ref, callback) {
   }, [ref, callback]);
 }
 
-function IconHome() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M3 11.5 12 4l9 7.5" />
-      <path d="M5.5 10.5V20h13V10.5" />
-    </svg>
-  );
-}
 
 function IconLink() {
   return (
@@ -229,6 +221,27 @@ function getDownloadFileName(item) {
   if (rawName.includes(".")) return rawName;
   const extension = (item.fileType || inferFileType(item.fileUrl) || "file").toLowerCase();
   return `${rawName}.${extension}`;
+}
+
+function stripFileExtension(value) {
+  return String(value || "").replace(/\.[^/.]+$/, "").trim();
+}
+
+function getPreviewSubtitle(previewState) {
+  const title = previewState.item?.title || "";
+  const fileName = previewState.fileName || "";
+
+  if (!title) return "";
+  if (title === fileName) return "";
+
+  const normalizedTitle = stripFileExtension(title).toLowerCase();
+  const normalizedFileName = stripFileExtension(fileName).toLowerCase();
+
+  if (normalizedTitle && normalizedFileName && normalizedTitle === normalizedFileName) {
+    return "";
+  }
+
+  return title;
 }
 
 function escapeHtml(value) {
@@ -416,6 +429,8 @@ function PreviewModal({ previewState, onClose, onDownload, onSelectSheet }) {
   const activeSheet = previewState.workbookSheets.find(
     (sheet) => sheet.name === previewState.activeSheetName,
   ) || previewState.workbookSheets[0] || null;
+  const previewTitle = previewState.fileName || previewState.item?.title || previewState.item?.name || "Preview";
+  const previewSubtitle = getPreviewSubtitle(previewState);
 
   return (
     <div className="portal-modal-backdrop" onClick={onClose}>
@@ -423,8 +438,8 @@ function PreviewModal({ previewState, onClose, onDownload, onSelectSheet }) {
         <div className="portal-modal-head">
           <div>
             <div className="portal-modal-kicker">Preview</div>
-            <h3>{previewState.fileName || previewState.item?.title || previewState.item?.name}</h3>
-            {previewState.item?.title ? <p>{previewState.item.title}</p> : null}
+            <h3>{previewTitle}</h3>
+            {previewSubtitle ? <p>{previewSubtitle}</p> : null}
           </div>
           <button type="button" className="portal-modal-close" onClick={onClose}>
             ×
@@ -1095,13 +1110,6 @@ const visibleNotices = useMemo(() => {
             </a>
 
             <nav className="portal-nav">
-              <a href="/" className="portal-nav-home">
-                <span className="portal-nav-trigger__icon">
-                  <IconHome />
-                </span>
-                <span>Home</span>
-              </a>
-
               <MenuDropdown
                 label="Links"
                 icon={<IconLink />}
@@ -1228,13 +1236,6 @@ const visibleNotices = useMemo(() => {
 
           {mobileMenuOpen ? (
             <div className="portal-shell portal-mobile-menu">
-              <a href="/" className="portal-mobile-link">
-                <span className="portal-nav-trigger__icon">
-                  <IconHome />
-                </span>
-                <span>Home</span>
-              </a>
-
               <MobileDropdown
                 label="Links"
                 icon={<IconLink />}
@@ -1329,7 +1330,7 @@ const visibleNotices = useMemo(() => {
                   <div className="portal-hero__chips">
                     <span className="portal-chip">Founded in 1974</span>
                     <span className="portal-chip">Outdoor expertise</span>
-                    <span className="portal-chip">Quality & reliability</span>
+                    <span className="portal-chip">Quality &amp; reliability</span>
                     <span className="portal-chip">Trusted for 50 years</span>
                   </div>
                 </div>
@@ -1576,7 +1577,7 @@ const visibleNotices = useMemo(() => {
             </div>
 
             <div className="portal-footer__credit">
-              Phát triển bởi IT BSL
+              Developed by IT BSL
             </div>
           </div>
         </footer>

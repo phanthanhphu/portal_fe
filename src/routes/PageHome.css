@@ -22,7 +22,6 @@
   --portal-gap: 22px;
   --portal-left-top: 580px;
   --portal-left-bottom: 820px;
-  --portal-company-bg: url("https://vieclamcantho.com.vn/public/upload/nhatuyendung/ahd/cong-ty-tnhh-broadpeak-soc-trang1650250382451.jpg");
 }
 
 * {
@@ -48,10 +47,8 @@ body::before {
   position: fixed;
   inset: 0;
   z-index: -2;
-  background:
-    linear-gradient(180deg, rgba(248, 251, 255, 0.92), rgba(237, 243, 251, 0.96)),
-    var(--portal-company-bg) center / cover no-repeat;
-  opacity: 0.72;
+  background: linear-gradient(180deg, rgba(248, 251, 255, 0.96), rgba(237, 243, 251, 0.98));
+  opacity: 1;
 }
 
 body::after {
@@ -468,6 +465,9 @@ svg {
   min-height: 380px;
   padding: 44px;
   border-radius: var(--portal-radius-xl);
+  background:
+    radial-gradient(circle at 15% 18%, rgba(94, 198, 255, 0.3), transparent 28%),
+    linear-gradient(135deg, #102451 0%, #183f8f 46%, #2f94d6 100%);
   background-size: cover;
   background-position: center;
   box-shadow: var(--portal-shadow-lg);
@@ -482,8 +482,8 @@ svg {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(90deg, rgba(8, 19, 43, 0.44), transparent 60%),
-    radial-gradient(circle at top right, rgba(94, 198, 255, 0.18), transparent 24%);
+    linear-gradient(90deg, rgba(8, 19, 43, 0.22), transparent 64%),
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.16), transparent 28%);
   pointer-events: none;
 }
 
@@ -1829,5 +1829,126 @@ svg {
     bottom: 16px;
     width: 52px;
     height: 52px;
+  }
+}
+
+/* ===== requested cleanup: no Home menu, hero keeps image background, balanced company hero ===== */
+.portal-nav {
+  margin-left: auto;
+}
+
+.portal-hero__surface {
+  min-height: 430px;
+  align-items: center;
+}
+
+.portal-hero__copy h1 {
+  max-width: 560px;
+  letter-spacing: -0.055em;
+}
+
+.portal-hero__intro {
+  display: grid;
+  gap: 10px;
+}
+
+.portal-hero__card--company {
+  align-self: center;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  padding: 20px;
+}
+
+.portal-hero__logo-box {
+  grid-column: 1 / -1;
+  min-height: 128px;
+  padding: 22px;
+  background: rgba(255, 255, 255, 0.94);
+}
+
+.portal-hero__logo-copy strong {
+  font-size: 1.08rem;
+  letter-spacing: -0.02em;
+}
+
+.portal-hero__logo-copy span {
+  max-width: 360px;
+  color: var(--portal-text-soft);
+}
+
+.portal-hero-stat {
+  min-height: 118px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+}
+
+.portal-hero-stat small {
+  min-height: 18px;
+}
+
+.portal-hero-stat strong {
+  margin-top: 12px;
+  font-size: clamp(1.55rem, 2.1vw, 2.15rem);
+  white-space: nowrap;
+}
+
+.portal-modal-head p {
+  margin-top: 6px;
+}
+
+@media (max-width: 1280px) {
+  .portal-hero__card--company {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .portal-hero__card--company {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .portal-hero__surface {
+    min-height: 0;
+  }
+
+  .portal-hero__card--company {
+    grid-template-columns: 1fr;
+  }
+
+  .portal-hero-stat {
+    min-height: 92px;
+    text-align: left;
+    align-items: flex-start;
+  }
+}
+
+/* ===== corporation intro on the left side of hero ===== */
+.portal-hero__copy {
+  max-width: 760px;
+}
+
+.portal-hero__copy h1 {
+  max-width: 720px;
+  font-size: clamp(2.15rem, 3.4vw, 4.2rem);
+  line-height: 1.02;
+  letter-spacing: -0.055em;
+}
+
+.portal-hero__intro p {
+  max-width: 680px;
+}
+
+.portal-hero__chips {
+  max-width: 720px;
+}
+
+@media (max-width: 720px) {
+  .portal-hero__copy h1 {
+    font-size: 2.35rem;
+    line-height: 1.08;
   }
 }
