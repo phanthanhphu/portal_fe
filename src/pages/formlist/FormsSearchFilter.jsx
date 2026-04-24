@@ -110,20 +110,48 @@ export default function FormsSearchFilter({
           }}
         />
 
-        <Stack direction="row" spacing={1.5} sx={{ flexShrink: 0 }}>
+        <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
           <Button
             variant="contained"
             onClick={handleSearch}
             disabled={disabled}
-            sx={{ height: 38, minWidth: 100, textTransform: 'none' }}
+            sx={{
+              height: 34,
+              minWidth: 92,
+              px: 2.5,
+              borderRadius: 1.2,
+              textTransform: 'none',
+              fontWeight: 400,
+              backgroundColor: '#111827',
+              boxShadow: 'none',
+              '&:hover': {
+                backgroundColor: '#0b1220',
+                boxShadow: 'none',
+              },
+            }}
           >
             Search
           </Button>
+
           <Button
             variant="outlined"
             onClick={handleReset}
             disabled={disabled}
-            sx={{ height: 38, minWidth: 100, textTransform: 'none' }}
+            sx={{
+              height: 34,
+              minWidth: 92,
+              px: 2.5,
+              borderRadius: 1.2,
+              textTransform: 'none',
+              fontWeight: 400,
+              borderColor: '#111827',
+              color: '#111827',
+              '&:hover': {
+                borderColor: '#0b1220',
+                color: '#0b1220',
+                backgroundColor: 'rgba(17, 24, 39, 0.04)',
+              },
+            }}
           >
             Reset
           </Button>

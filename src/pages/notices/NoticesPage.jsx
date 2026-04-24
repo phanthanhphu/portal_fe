@@ -518,16 +518,17 @@ export default function NoticesPage() {
 
           <Button
             variant="contained"
-            startIcon={<Add />}
+            startIcon={<Add fontSize="small" />}
             onClick={() => setOpenAddDialog(true)}
             disabled={loading}
             sx={{
-              borderRadius: 999,
-              px: 3,
+              borderRadius: 1.2,
+              height: 34,
+              px: 1.25,
               textTransform: 'none',
-              fontWeight: 600,
-              background: 'linear-gradient(90deg, #3b82f6, #8b5cf6)',
-              '&:hover': { background: 'linear-gradient(90deg, #2563eb, #7c3aed)' },
+              fontWeight: 400,
+              backgroundColor: '#111827',
+              '&:hover': { backgroundColor: '#0b1220' },
             }}
           >
             Add Notice
@@ -571,14 +572,46 @@ export default function NoticesPage() {
             sx={{ flex: 1, minWidth: { xs: '100%', md: 220 }, '& .MuiInputBase-root': { height: 38 } }}
           />
 
-          <Stack direction="row" spacing={1.5} sx={{ flexShrink: 0 }}>
-            <Button variant="contained" onClick={handleSearch} sx={{ height: 38, minWidth: 100, textTransform: 'none' }}>
-              Search
-            </Button>
-            <Button variant="outlined" onClick={handleReset} sx={{ height: 38, minWidth: 100, textTransform: 'none' }}>
-              Reset
-            </Button>
-          </Stack>
+        <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
+          <Button
+            variant="contained"
+            onClick={handleSearch}
+            sx={{
+              height: 34,
+              minWidth: 92,
+              px: 2.5,
+              borderRadius: 1.2,
+              textTransform: 'none',
+              fontWeight: 400,
+              backgroundColor: '#111827',
+              '&:hover': { backgroundColor: '#0b1220' },
+            }}
+          >
+            Search
+          </Button>
+
+          <Button
+            variant="outlined"
+            onClick={handleReset}
+            sx={{
+              height: 34,
+              minWidth: 92,
+              px: 2.5,
+              borderRadius: 1.2,
+              textTransform: 'none',
+              fontWeight: 400,
+              borderColor: '#111827',
+              color: '#111827',
+              '&:hover': {
+                borderColor: '#0b1220',
+                color: '#0b1220',
+                backgroundColor: 'rgba(17, 24, 39, 0.04)',
+              },
+            }}
+          >
+            Reset
+          </Button>
+        </Stack>
         </Stack>
       </Paper>
 

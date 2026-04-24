@@ -189,13 +189,26 @@ export default function DepartmentManagement() {
 
   return (
     <Box sx={{ p: 2, background: "#f9fafb", minHeight: "100vh" }}>
-      <Stack direction="row" justifyContent="space-between" sx={{ mb: 2 }}>
+     <Stack direction="row" justifyContent="space-between" sx={{ mb: 2 }}>
         <Typography fontWeight={700}>Department</Typography>
 
         <Button
-          startIcon={<AddIcon />}
+          startIcon={<AddIcon fontSize="small" />}
           variant="contained"
           onClick={() => setAddDialogOpen(true)}
+          sx={{
+            height: 34,
+            px: 1.25,
+            borderRadius: 1.2,
+            textTransform: 'none',
+            fontWeight: 400,
+            backgroundColor: '#111827',
+            boxShadow: 'none',
+            '&:hover': {
+              backgroundColor: '#0b1220',
+              boxShadow: 'none',
+            },
+          }}
         >
           Add Department
         </Button>

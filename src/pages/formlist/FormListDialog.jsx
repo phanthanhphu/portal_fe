@@ -518,18 +518,16 @@ export default function FormListDialog() {
             disabled={loading}
             sx={{
               textTransform: 'none',
-              fontWeight: 600,
-              borderRadius: 999,               // bo tròn giống nút Add Notice
-              px: 3,
-              height: 38,
-              background: 'linear-gradient(90deg, #3b82f6, #8b5cf6)',  // gradient xanh - tím
-              boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
+              fontWeight: 400,
+              borderRadius: 1.2,
+              px: 1.25,
+              height: 34,
+              backgroundColor: '#111827',
+              boxShadow: 'none',
               '&:hover': {
-                background: 'linear-gradient(90deg, #2563eb, #7c3aed)',  // hover sáng hơn
-                transform: 'translateY(-1px)',
-                boxShadow: '0 8px 20px rgba(59, 130, 246, 0.4)',
+                backgroundColor: '#0b1220',
+                boxShadow: 'none',
               },
-              transition: 'all 0.2s ease',
             }}
           >
             Add Form
