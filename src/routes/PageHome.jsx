@@ -921,10 +921,6 @@ function DocumentTypeSection({
   onPreview,
   onDownload,
 }) {
-  const loaded = Array.isArray(forms);
-  const countText = loaded
-    ? `${forms.length} document`
-    : "Click the arrow to load";
 
   return (
     <div className="portal-dept-card portal-document-type-card">
@@ -935,7 +931,6 @@ function DocumentTypeSection({
           </span>
           <div>
             <strong>{type.name || "Document"}</strong>
-            <span>{countText}</span>
           </div>
         </div>
 
