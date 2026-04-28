@@ -25,7 +25,7 @@ export default function LoginPage() {
   const theme = useTheme();
   const navigate = useNavigate();
 
-  const DASHBOARD_PATH = useMemo(() => '/dashboard', []);
+  const APP_LINKS_PATH = useMemo(() => '/app-links', []);
   const LOGIN_PATH = useMemo(() => '/react/login', []);
 
   const [email, setEmail] = useState('');
@@ -35,8 +35,8 @@ export default function LoginPage() {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (token) navigate(DASHBOARD_PATH, { replace: true });
-  }, [navigate, DASHBOARD_PATH]);
+    if (token) navigate(APP_LINKS_PATH, { replace: true });
+  }, [navigate, APP_LINKS_PATH]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -61,7 +61,7 @@ export default function LoginPage() {
         localStorage.setItem('role', data.user?.role || '');
 
         toast.success('Login successful! Redirecting...');
-        navigate(DASHBOARD_PATH, { replace: true });
+        navigate(APP_LINKS_PATH, { replace: true });
 
         setTimeout(() => window.location.reload(), 120);
         return;
