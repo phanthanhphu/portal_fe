@@ -43,7 +43,7 @@ import axios from 'axios';
 import { API_BASE_URL } from '../../config';
 import AddFormDialog from './AddFormDialog';
 import EditFormDialog from './EditFormDialog';
-import FormsSearchFilter from './FormsSearchFilter';
+import DucumentsSearchFilter from './FormsSearchFilter';
 
 /* Axios client */
 const api = axios.create({
@@ -832,7 +832,7 @@ export default function FormListDialog() {
         setDisableDepartmentSearch(Boolean(response.data?.disableDepartmentSearch));
       } catch (error) {
         console.error('Error fetching forms:', error.response?.data || error.message);
-        setNotification({ open: true, message: 'Failed to load forms', severity: 'error' });
+        setNotification({ open: true, message: 'Failed to load ducuments', severity: 'error' });
       } finally {
         setLoading(false);
       }
@@ -893,7 +893,7 @@ export default function FormListDialog() {
     if (!canModifyItem(item, 'edit')) {
       setNotification({
         open: true,
-        message: 'Bạn chỉ được edit form thuộc phòng ban chính của bạn.',
+        message: 'Bạn chỉ được edit ducument thuộc phòng ban chính của bạn.',
         severity: 'error',
       });
       return;
@@ -907,7 +907,7 @@ export default function FormListDialog() {
     if (!canModifyItem(item, 'delete')) {
       setNotification({
         open: true,
-        message: 'Bạn chỉ được delete form thuộc phòng ban chính của bạn.',
+        message: 'Bạn chỉ được delete ducument thuộc phòng ban chính của bạn.',
         severity: 'error',
       });
       return;
@@ -928,7 +928,7 @@ export default function FormListDialog() {
     if (!canModifyItem(selectedDeleteItem, 'delete')) {
       setNotification({
         open: true,
-        message: 'Bạn chỉ được delete form thuộc phòng ban chính của bạn.',
+        message: 'Bạn chỉ được delete ducument thuộc phòng ban chính của bạn.',
         severity: 'error',
       });
       handleCancelDelete();
@@ -948,7 +948,7 @@ export default function FormListDialog() {
       handleCancelDelete();
       fetchData({}, { page });
     } catch (error) {
-      console.error('Delete form error:', error);
+      console.error('Delete ducument error:', error);
       setNotification({
         open: true,
         message: error?.response?.data?.message || error.message || 'Delete failed',
@@ -1140,7 +1140,7 @@ export default function FormListDialog() {
         <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
           <Stack spacing={0.35}>
             <Typography sx={{ fontSize: '1rem', fontWeight: 600, color: '#111827' }}>
-              Forms
+              Ducuments
             </Typography>
             <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary' }}>
               Total: {totalElements} • Sort:{' '}
@@ -1166,13 +1166,13 @@ export default function FormListDialog() {
               },
             }}
           >
-            Add Form
+            Add Ducument
           </Button>
         </Stack>
       </Paper>
 
       {/* Search Filter */}
-      <FormsSearchFilter
+      <DucumentsSearchFilter
         searchDeptName={searchDeptName}
         setSearchDeptName={setSearchDeptName}
         searchTypeId={searchTypeId}
@@ -1276,7 +1276,7 @@ export default function FormListDialog() {
                   <TableCell colSpan={headers.length} sx={{ py: 4 }}>
                     <Stack alignItems="center" spacing={1} sx={{ color: 'text.secondary' }}>
                       <InboxIcon sx={{ fontSize: 36, opacity: 0.5 }} />
-                      <Typography>No Forms Found</Typography>
+                      <Typography>No Ducuments Found</Typography>
                     </Stack>
                   </TableCell>
                 </TableRow>
@@ -1394,7 +1394,7 @@ export default function FormListDialog() {
                       <TableCell align="center" sx={{ py: 0.45, px: 0.7 }}>
                         <Stack direction="row" spacing={0.3} justifyContent="center">
                           <Tooltip
-                            title={editEnabled ? 'Edit Form' : 'Bạn chỉ được edit form thuộc phòng ban chính của bạn'}
+                            title={editEnabled ? 'Edit Ducument' : 'Bạn chỉ được edit ducument thuộc phòng ban chính của bạn'}
                             arrow
                           >
                             <span>
@@ -1409,7 +1409,7 @@ export default function FormListDialog() {
                             </span>
                           </Tooltip>
                           <Tooltip
-                            title={deleteEnabled ? 'Delete Form' : 'Bạn chỉ được delete form thuộc phòng ban chính của bạn'}
+                            title={deleteEnabled ? 'Delete Ducument' : 'Bạn chỉ được delete ducument thuộc phòng ban chính của bạn'}
                             arrow
                           >
                             <span>
@@ -1501,7 +1501,7 @@ export default function FormListDialog() {
         <DialogTitle sx={{ px: 1.5, py: 1.1, borderBottom: '1px solid #e5e7eb', backgroundColor: '#fff' }}>
           <Stack direction="row" alignItems="center" justifyContent="space-between">
             <Typography sx={{ fontSize: '0.95rem', fontWeight: 600, color: '#111827' }}>
-              Delete Form
+              Delete Ducument
             </Typography>
             <IconButton
               size="small"
@@ -1560,7 +1560,7 @@ export default function FormListDialog() {
                 {previewState.fileName || 'Preview File'}
               </Typography>
               <Typography fontSize={12} color="text.secondary">
-                {previewState.item?.title || 'Form File'}
+                {previewState.item?.title || 'Ducument File'}
               </Typography>
             </Box>
             <Stack direction="row" spacing={1}>
