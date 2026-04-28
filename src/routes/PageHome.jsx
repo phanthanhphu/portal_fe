@@ -34,6 +34,44 @@ function isEmbeddableFile(fileType, url) {
   return ["PDF", "PNG", "JPG", "JPEG", "WEBP", "GIF", "TXT"].includes(type);
 }
 
+function hasAttachedFile(item) {
+  return Boolean(String(item?.fileUrl || "").trim());
+}
+
+function getDisplayFileType(item) {
+  if (!hasAttachedFile(item)) return "NO FILE";
+
+  return String(item?.fileType || inferFileType(item?.fileUrl) || "FILE").toUpperCase();
+}
+
+const OFFICE_PREVIEW_TYPES = new Set(["DOC", "DOCX", "XLS", "XLSX", "CSV", "PPT", "PPTX"]);
+
+function isOfficePreviewFile(item, mimeType = "") {
+  const type = String(item?.fileType || inferFileType(item?.fileUrl) || "").toUpperCase();
+  const normalizedMime = String(mimeType || "").toLowerCase();
+
+  return (
+    OFFICE_PREVIEW_TYPES.has(type) ||
+    normalizedMime.includes("word") ||
+    normalizedMime.includes("excel") ||
+    normalizedMime.includes("spreadsheet") ||
+    normalizedMime.includes("presentation") ||
+    normalizedMime.includes("powerpoint")
+  );
+}
+
+function getPreviewDisplayType(previewState) {
+  const type = String(previewState.originalFileType || previewState.item?.fileType || inferFileType(previewState.item?.fileUrl) || "").toUpperCase();
+
+  if (previewState.previewKind === "pdf" && OFFICE_PREVIEW_TYPES.has(type)) {
+    return `${type} preview`;
+  }
+
+  if (previewState.previewKind === "office-fallback") return `${type || "Office"} preview`;
+
+  return "Preview";
+}
+
 function formatDateTime(createdAtArray) {
   if (!Array.isArray(createdAtArray) || createdAtArray.length < 6) return "";
   const [year, month, day, hour, minute] = createdAtArray;
@@ -200,6 +238,300 @@ function IconClock() {
   );
 }
 
+
+function OfficeAppIcon({ app, colorStart, colorMid, colorEnd, panelColor, letter }) {
+  const gradientId = `office-${app}-gradient`;
+  const panelGradientId = `office-${app}-panel-gradient`;
+  const shadowId = `office-${app}-shadow`;
+
+  return (
+    <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
+      <defs>
+        <linearGradient id={gradientId} x1="10" y1="8" x2="54" y2="58" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor={colorStart} />
+          <stop offset="0.52" stopColor={colorMid} />
+          <stop offset="1" stopColor={colorEnd} />
+        </linearGradient>
+        <linearGradient id={panelGradientId} x1="14" y1="18" x2="34" y2="44" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor={panelColor} />
+          <stop offset="1" stopColor={colorEnd} />
+        </linearGradient>
+        <filter id={shadowId} x="-20%" y="-20%" width="140%" height="150%" colorInterpolationFilters="sRGB">
+          <feDropShadow dx="0" dy="4" stdDeviation="3" floodOpacity="0.25" />
+        </filter>
+      </defs>
+
+      <rect
+        x="8"
+        y="7"
+        width="48"
+        height="50"
+        rx="13"
+        fill={`url(#${gradientId})`}
+        filter={`url(#${shadowId})`}
+      />
+
+      <path
+        d="M8 20C8 12.82 13.82 7 21 7h22c7.18 0 13 5.82 13 13v5H8v-5Z"
+        fill="#ffffff"
+        opacity="0.22"
+      />
+      <path d="M32 7h11c7.18 0 13 5.82 13 13v37H32V7Z" fill="#ffffff" opacity="0.12" />
+      <path d="M8 38h48v6H8v-6Z" fill="#000000" opacity="0.10" />
+
+      <rect
+        x="5"
+        y="18"
+        width="33"
+        height="31"
+        rx="6"
+        fill={`url(#${panelGradientId})`}
+        filter={`url(#${shadowId})`}
+      />
+
+      <text
+        x="21.5"
+        y="39.5"
+        textAnchor="middle"
+        fontSize="22"
+        fontWeight="800"
+        fill="#ffffff"
+        fontFamily="Arial, Helvetica, sans-serif"
+      >
+        {letter}
+      </text>
+    </svg>
+  );
+}
+
+function IconFileWord() {
+  return (
+    <OfficeAppIcon
+      app="word"
+      colorStart="#41A5FF"
+      colorMid="#185ABD"
+      colorEnd="#0F3D91"
+      panelColor="#256FE6"
+      letter="W"
+    />
+  );
+}
+
+function IconFileExcel() {
+  return (
+    <OfficeAppIcon
+      app="excel"
+      colorStart="#33C481"
+      colorMid="#107C41"
+      colorEnd="#0B5C2E"
+      panelColor="#168D4A"
+      letter="X"
+    />
+  );
+}
+
+function IconFilePowerPoint() {
+  return (
+    <OfficeAppIcon
+      app="powerpoint"
+      colorStart="#FF8A65"
+      colorMid="#D24726"
+      colorEnd="#B33116"
+      panelColor="#C43E1C"
+      letter="P"
+    />
+  );
+}
+
+function IconFilePdf() {
+  return (
+    <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="pdf-file-gradient" x1="14" y1="6" x2="54" y2="58" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#FF2B33" />
+          <stop offset="1" stopColor="#E91F2A" />
+        </linearGradient>
+        <filter id="pdf-file-shadow" x="-20%" y="-20%" width="140%" height="150%" colorInterpolationFilters="sRGB">
+          <feDropShadow dx="0" dy="4" stdDeviation="3" floodOpacity="0.22" />
+        </filter>
+      </defs>
+
+      <path
+        d="M12 5h27l13 13v34c0 4.42-3.58 8-8 8H20c-4.42 0-8-3.58-8-8V5Z"
+        fill="url(#pdf-file-gradient)"
+        filter="url(#pdf-file-shadow)"
+      />
+      <path d="M39 5v13h13L39 5Z" fill="#FF8A8F" opacity="0.88" />
+      <path d="M39 18h13v1.5c0 1.2-1 2.2-2.2 2.2H41.2c-1.2 0-2.2-1-2.2-2.2V18Z" fill="#C71925" opacity="0.22" />
+
+      <text
+        x="32"
+        y="40"
+        textAnchor="middle"
+        fontSize="16"
+        fontWeight="900"
+        fill="#ffffff"
+        fontFamily="Arial, Helvetica, sans-serif"
+        letterSpacing="0.5"
+      >
+        PDF
+      </text>
+    </svg>
+  );
+}
+
+function IconFileImage() {
+  return (
+    <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="image-file-gradient" x1="10" y1="8" x2="54" y2="56" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#A78BFA" />
+          <stop offset="1" stopColor="#7C3AED" />
+        </linearGradient>
+        <filter id="image-file-shadow" x="-20%" y="-20%" width="140%" height="150%" colorInterpolationFilters="sRGB">
+          <feDropShadow dx="0" dy="4" stdDeviation="3" floodOpacity="0.20" />
+        </filter>
+      </defs>
+      <rect x="8" y="8" width="48" height="48" rx="13" fill="url(#image-file-gradient)" filter="url(#image-file-shadow)" />
+      <circle cx="24" cy="23" r="5" fill="#ffffff" opacity="0.95" />
+      <path d="M15 46 28 33l8 8 5-5 9 10H15Z" fill="#ffffff" opacity="0.95" />
+    </svg>
+  );
+}
+
+function IconFileTextType() {
+  return (
+    <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="txt-file-gradient" x1="10" y1="8" x2="54" y2="56" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#667085" />
+          <stop offset="1" stopColor="#344054" />
+        </linearGradient>
+        <filter id="txt-file-shadow" x="-20%" y="-20%" width="140%" height="150%" colorInterpolationFilters="sRGB">
+          <feDropShadow dx="0" dy="4" stdDeviation="3" floodOpacity="0.18" />
+        </filter>
+      </defs>
+      <rect x="11" y="6" width="42" height="52" rx="10" fill="url(#txt-file-gradient)" filter="url(#txt-file-shadow)" />
+      <path d="M21 23h22M21 32h22M21 41h15" stroke="#ffffff" strokeWidth="4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconFileGeneric() {
+  return (
+    <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="generic-file-gradient" x1="10" y1="8" x2="54" y2="56" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#94A3B8" />
+          <stop offset="1" stopColor="#475569" />
+        </linearGradient>
+        <filter id="generic-file-shadow" x="-20%" y="-20%" width="140%" height="150%" colorInterpolationFilters="sRGB">
+          <feDropShadow dx="0" dy="4" stdDeviation="3" floodOpacity="0.18" />
+        </filter>
+      </defs>
+      <path d="M13 5h28l10 10v40c0 3.3-2.7 6-6 6H19c-3.3 0-6-2.7-6-6V5Z" fill="url(#generic-file-gradient)" filter="url(#generic-file-shadow)" />
+      <path d="M41 5v10h10L41 5Z" fill="#CBD5E1" opacity="0.9" />
+      <path d="M22 28h20M22 37h20M22 46h14" stroke="#ffffff" strokeWidth="4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconNoFile() {
+  return (
+    <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="nofile-gradient" x1="10" y1="8" x2="54" y2="56" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#CBD5E1" />
+          <stop offset="1" stopColor="#94A3B8" />
+        </linearGradient>
+      </defs>
+      <path d="M13 5h28l10 10v40c0 3.3-2.7 6-6 6H19c-3.3 0-6-2.7-6-6V5Z" fill="url(#nofile-gradient)" />
+      <path d="M41 5v10h10L41 5Z" fill="#E2E8F0" />
+      <path d="m22 42 20-20M22 22l20 20" stroke="#64748B" strokeWidth="5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function getFileTypeBadgeMeta(item) {
+  const type = getDisplayFileType(item);
+
+  if (["DOC", "DOCX"].includes(type)) {
+    return {
+      title: "Word file",
+      icon: <IconFileWord />,
+    };
+  }
+
+  if (["XLS", "XLSX", "CSV"].includes(type)) {
+    return {
+      title: "Excel file",
+      icon: <IconFileExcel />,
+    };
+  }
+
+  if (["PPT", "PPTX"].includes(type)) {
+    return {
+      title: "PowerPoint file",
+      icon: <IconFilePowerPoint />,
+    };
+  }
+
+  if (type === "PDF") {
+    return {
+      title: "PDF file",
+      icon: <IconFilePdf />,
+    };
+  }
+
+  if (["PNG", "JPG", "JPEG", "WEBP", "GIF"].includes(type)) {
+    return {
+      title: "Image file",
+      icon: <IconFileImage />,
+    };
+  }
+
+  if (type === "TXT") {
+    return {
+      title: "Text file",
+      icon: <IconFileTextType />,
+    };
+  }
+
+  if (type === "NO FILE") {
+    return {
+      title: "No file attached",
+      icon: <IconNoFile />,
+    };
+  }
+
+  return {
+    title: `${type || "File"} file`,
+    icon: <IconFileGeneric />,
+  };
+}
+
+function FileTypeBadge({ item }) {
+  const meta = getFileTypeBadgeMeta(item);
+
+  return (
+    <span
+      title={meta.title}
+      aria-label={meta.title}
+      style={{
+        width: 46,
+        height: 46,
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+        lineHeight: 0,
+      }}
+    >
+      {meta.icon}
+    </span>
+  );
+}
+
 const EMPTY_PREVIEW_STATE = {
   open: false,
   loading: false,
@@ -213,10 +545,12 @@ const EMPTY_PREVIEW_STATE = {
   workbookSheets: [],
   activeSheetName: "",
   textContent: "",
+  originalFileType: "",
 };
 
 function getDownloadFileName(item) {
   if (!item) return "tai-lieu";
+  if (!hasAttachedFile(item)) return "khong-co-file";
   const rawName = item.title || item.name || "tai-lieu";
   if (rawName.includes(".")) return rawName;
   const extension = (item.fileType || inferFileType(item.fileUrl) || "file").toLowerCase();
@@ -258,31 +592,105 @@ function getPreviewKind(item, mimeType = "") {
   const fileType = String(item?.fileType || inferFileType(item?.fileUrl) || "").toUpperCase();
 
   if (normalizedMime.startsWith("image/")) return "image";
-  if (normalizedMime.includes("pdf")) return "pdf";
+  if (normalizedMime.includes("pdf") || fileType === "PDF") return "pdf";
+
   if (
-    normalizedMime.includes("wordprocessingml") ||
-    normalizedMime.includes("msword") ||
-    fileType === "DOCX"
-  ) {
-    return "docx";
-  }
-  if (fileType === "DOC") return "doc";
-  if (
-    normalizedMime.includes("spreadsheetml") ||
+    ["DOC", "DOCX", "XLS", "XLSX", "PPT", "PPTX"].includes(fileType) ||
+    normalizedMime.includes("word") ||
     normalizedMime.includes("excel") ||
-    normalizedMime.includes("text/csv") ||
-    ["XLS", "XLSX", "CSV"].includes(fileType)
+    normalizedMime.includes("spreadsheet") ||
+    normalizedMime.includes("presentation") ||
+    normalizedMime.includes("powerpoint")
   ) {
-    return "spreadsheet";
+    return "office";
   }
+
+  if (normalizedMime.includes("text/csv") || fileType === "CSV") return "spreadsheet";
   if (normalizedMime.startsWith("text/") || fileType === "TXT") return "text";
   if (["PNG", "JPG", "JPEG", "WEBP", "GIF"].includes(fileType)) return "image";
-  if (fileType === "PDF") return "pdf";
+
   return "other";
+}
+
+function isOfficeFileForPreview(item) {
+  const fileType = String(item?.fileType || inferFileType(item?.fileUrl) || "").toUpperCase();
+
+  return ["DOC", "DOCX", "XLS", "XLSX", "PPT", "PPTX"].includes(fileType);
+}
+
+async function fetchPreviewBlob(fileUrl, accept = "*/*") {
+  const token = localStorage.getItem("token");
+  const headers = { Accept: accept };
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const response = await fetch(fileUrl, { headers });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch preview file: ${response.status}`);
+  }
+
+  const blob = await response.blob();
+  const mimeType = blob.type || response.headers.get("content-type") || "";
+  return { blob, mimeType };
+}
+
+async function buildOfficePreviewAsPdf(item) {
+  const previewUrl = item?.previewUrl || "";
+  const previewFileType = inferFileType(previewUrl);
+
+  if (previewUrl && previewFileType === "PDF") {
+    const { blob } = await fetchPreviewBlob(previewUrl, "application/pdf");
+    return {
+      previewKind: "pdf",
+      blobUrl: URL.createObjectURL(blob),
+      docHtml: "",
+      workbookSheets: [],
+      activeSheetName: "",
+      textContent: "",
+    };
+  }
+
+  const token = localStorage.getItem("token");
+  const headers = { Accept: "application/pdf" };
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const response = await fetch(
+    `${API_BASE_URL}/api/files/preview-pdf?fileUrl=${encodeURIComponent(item?.fileUrl || "")}`,
+    { headers },
+  );
+
+  if (!response.ok) {
+    let backendMessage = "";
+
+    try {
+      const errorData = await response.json();
+      backendMessage = errorData?.message || "";
+    } catch (error) {
+      try {
+        backendMessage = await response.text();
+      } catch (ignored) {
+        backendMessage = "";
+      }
+    }
+
+    throw new Error(
+      backendMessage || `Failed to convert Office file to PDF: ${response.status}`,
+    );
+  }
+
+  const pdfBlob = await response.blob();
+  return {
+    previewKind: "pdf",
+    blobUrl: URL.createObjectURL(pdfBlob),
+    docHtml: "",
+    workbookSheets: [],
+    activeSheetName: "",
+    textContent: "",
+  };
 }
 
 async function buildPreviewData(item, blob, mimeType = "") {
   const previewKind = getPreviewKind(item, mimeType);
+  const originalFileType = String(item?.fileType || inferFileType(item?.fileUrl) || "").toUpperCase();
 
   if (previewKind === "image" || previewKind === "pdf") {
     return {
@@ -292,64 +700,75 @@ async function buildPreviewData(item, blob, mimeType = "") {
       workbookSheets: [],
       activeSheetName: "",
       textContent: "",
+      originalFileType,
     };
   }
 
-  if (previewKind === "docx") {
-    const mammothModule = await import("mammoth/mammoth.browser");
-    const mammoth = mammothModule.default || mammothModule;
-    const arrayBuffer = await blob.arrayBuffer();
-    const result = await mammoth.convertToHtml({ arrayBuffer });
-    const messages = Array.isArray(result.messages)
-      ? result.messages
-          .map((message) => `<li>${escapeHtml(message.message || message.type || "")}</li>`)
-          .join("")
-      : "";
+  if (previewKind === "office") {
+    try {
+      return {
+        ...(await buildOfficePreviewAsPdf(item)),
+        originalFileType,
+      };
+    } catch (error) {
+      console.warn("Office PDF preview conversion failed:", error);
+    }
+
+    if (originalFileType === "DOCX") {
+      try {
+        const mammothModule = await import("mammoth/mammoth.browser");
+        const mammoth = mammothModule.default || mammothModule;
+        const arrayBuffer = await blob.arrayBuffer();
+        const result = await mammoth.convertToHtml({ arrayBuffer });
+        const messages = Array.isArray(result.messages)
+          ? result.messages
+              .map((message) => `<li>${escapeHtml(message.message || message.type || "")}</li>`)
+              .join("")
+          : "";
+
+        return {
+          previewKind: "docx",
+          blobUrl: "",
+          docHtml: `
+            <div class="portal-docx-preview__content">${result.value || "<p>Không có nội dung để hiển thị.</p>"}</div>
+            ${messages ? `<div class="portal-docx-preview__notes"><strong>Lưu ý định dạng</strong><ul>${messages}</ul></div>` : ""}
+          `,
+          workbookSheets: [],
+          activeSheetName: "",
+          textContent: "",
+          originalFileType,
+        };
+      } catch (error) {
+        console.warn("DOCX HTML fallback failed:", error);
+      }
+    }
+
+    if (["XLS", "XLSX"].includes(originalFileType)) {
+      try {
+        return {
+          ...(await buildSpreadsheetFallback(blob)),
+          originalFileType,
+        };
+      } catch (error) {
+        console.warn("Spreadsheet fallback failed:", error);
+      }
+    }
 
     return {
-      previewKind,
+      previewKind: "office-fallback",
       blobUrl: "",
-      docHtml: `
-        <div class="portal-docx-preview__content">${result.value || "<p>Không có nội dung để hiển thị.</p>"}</div>
-        ${messages ? `<div class="portal-docx-preview__notes"><strong>Lưu ý định dạng</strong><ul>${messages}</ul></div>` : ""}
-      `,
+      docHtml: "",
       workbookSheets: [],
       activeSheetName: "",
       textContent: "",
+      originalFileType,
     };
   }
 
   if (previewKind === "spreadsheet") {
-    const xlsxModule = await import("xlsx");
-    const XLSX = xlsxModule.default || xlsxModule;
-    const arrayBuffer = await blob.arrayBuffer();
-    const workbook = XLSX.read(arrayBuffer, { type: "array" });
-    const workbookSheets = (workbook.SheetNames || []).map((sheetName) => {
-      const sheet = workbook.Sheets[sheetName];
-      const rows = XLSX.utils.sheet_to_json(sheet, {
-        header: 1,
-        blankrows: false,
-        defval: "",
-        raw: false,
-      });
-
-      const normalizedRows = rows.slice(0, 80).map((row) =>
-        Array.from({ length: Math.min(16, Math.max(...rows.slice(0, 80).map((r) => (Array.isArray(r) ? r.length : 0)), 1)) }, (_, idx) => row[idx] ?? "")
-      );
-
-      return {
-        name: sheetName,
-        rows: normalizedRows,
-      };
-    });
-
     return {
-      previewKind,
-      blobUrl: "",
-      docHtml: "",
-      workbookSheets,
-      activeSheetName: workbookSheets[0]?.name || "",
-      textContent: "",
+      ...(await buildSpreadsheetFallback(blob)),
+      originalFileType,
     };
   }
 
@@ -362,17 +781,7 @@ async function buildPreviewData(item, blob, mimeType = "") {
       workbookSheets: [],
       activeSheetName: "",
       textContent,
-    };
-  }
-
-  if (previewKind === "doc") {
-    return {
-      previewKind,
-      blobUrl: "",
-      docHtml: "",
-      workbookSheets: [],
-      activeSheetName: "",
-      textContent: "",
+      originalFileType,
     };
   }
 
@@ -382,6 +791,47 @@ async function buildPreviewData(item, blob, mimeType = "") {
     docHtml: "",
     workbookSheets: [],
     activeSheetName: "",
+    textContent: "",
+    originalFileType,
+  };
+}
+
+async function buildSpreadsheetFallback(blob) {
+  const xlsxModule = await import("xlsx");
+  const XLSX = xlsxModule.default || xlsxModule;
+  const arrayBuffer = await blob.arrayBuffer();
+  const workbook = XLSX.read(arrayBuffer, { type: "array" });
+  const workbookSheets = (workbook.SheetNames || []).map((sheetName) => {
+    const sheet = workbook.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(sheet, {
+      header: 1,
+      blankrows: false,
+      defval: "",
+      raw: false,
+    });
+
+    const visibleRows = rows.slice(0, 120);
+    const maxColumnCount = Math.min(
+      20,
+      Math.max(...visibleRows.map((row) => (Array.isArray(row) ? row.length : 0)), 1),
+    );
+
+    const normalizedRows = visibleRows.map((row) =>
+      Array.from({ length: maxColumnCount }, (_, idx) => row[idx] ?? ""),
+    );
+
+    return {
+      name: sheetName,
+      rows: normalizedRows,
+    };
+  });
+
+  return {
+    previewKind: "spreadsheet",
+    blobUrl: "",
+    docHtml: "",
+    workbookSheets,
+    activeSheetName: workbookSheets[0]?.name || "",
     textContent: "",
   };
 }
@@ -403,6 +853,21 @@ function SearchInput({ value, onChange, placeholder }) {
 }
 
 function FileActions({ item, onPreview, onDownload, compact = false }) {
+  if (!hasAttachedFile(item)) {
+    return (
+      <div className={`portal-file-actions ${compact ? "is-compact" : ""}`}>
+        <button
+          type="button"
+          className="portal-btn portal-btn--ghost"
+          disabled
+          title="Mục này chưa có file đính kèm"
+        >
+          Không có file
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className={`portal-file-actions ${compact ? "is-compact" : ""}`}>
       <button
@@ -437,7 +902,7 @@ function PreviewModal({ previewState, onClose, onDownload, onSelectSheet }) {
       <div className="portal-modal-card" onClick={(e) => e.stopPropagation()}>
         <div className="portal-modal-head">
           <div>
-            <div className="portal-modal-kicker">Preview</div>
+            <div className="portal-modal-kicker">{getPreviewDisplayType(previewState)}</div>
             <h3>{previewTitle}</h3>
             {previewSubtitle ? <p>{previewSubtitle}</p> : null}
           </div>
@@ -512,9 +977,22 @@ function PreviewModal({ previewState, onClose, onDownload, onSelectSheet }) {
             </div>
           ) : previewState.previewKind === "text" ? (
             <pre className="portal-text-preview">{previewState.textContent || "Không có nội dung văn bản."}</pre>
-          ) : previewState.previewKind === "doc" ? (
+          ) : previewState.previewKind === "office-fallback" ? (
             <div className="portal-empty">
-              File .doc cũ chưa preview trực tiếp ổn định trên web. Bạn hãy đổi sang .docx hoặc PDF để xem read-only đẹp hơn.
+              <p>
+                Không thể hiển thị đúng định dạng file <strong>{previewState.originalFileType || "Office"}</strong> ở trình duyệt.
+              </p>
+              <p>
+                Hãy cấu hình backend API <strong>/api/files/preview-pdf</strong> để convert DOC/DOCX/XLS/XLSX/PPT/PPTX sang PDF,
+                hoặc tải file xuống để mở bằng ứng dụng phù hợp.
+              </p>
+              {previewState.item ? (
+                <div className="portal-file-actions" style={{ marginTop: 12 }}>
+                  <button type="button" className="portal-btn portal-btn--dark" onClick={() => onDownload(previewState.item)}>
+                    Tải file
+                  </button>
+                </div>
+              ) : null}
             </div>
           ) : (
             <div className="portal-empty">
@@ -628,6 +1106,7 @@ export default function PageHome() {
   const [departments, setDepartments] = useState([]);
   const [forms, setForms] = useState([]);
   const [notices, setNotices] = useState([]);
+  const [featuredPinnedNotice, setFeaturedPinnedNotice] = useState(null);
 
   const [loadingApps, setLoadingApps] = useState(false);
   const [loadingDepartments, setLoadingDepartments] = useState(false);
@@ -723,12 +1202,12 @@ export default function PageHome() {
 
     try {
       const params = new URLSearchParams({
+        userId: "",
         departmentName: "",
         title,
         description: "",
         page: "0",
         size: "80",
-        sort: "createdAt,desc",
       });
 
       const response = await fetch(`${FORMS_API_BASE}/search?${params.toString()}`, {
@@ -738,16 +1217,21 @@ export default function PageHome() {
       if (!response.ok) throw new Error("Failed to fetch forms");
       const data = await response.json();
 
-      const normalizedForms = (data.content || []).map((item) => ({
-        id: item.id,
-        title: item.title || "Biểu mẫu",
-        fileType: item.fileType || inferFileType(item.fileUrl),
-        fileUrl: toAbsoluteUrl(item.fileUrl),
-        previewUrl: item.previewUrl ? toAbsoluteUrl(item.previewUrl) : null,
-        departmentName: item.departmentName || "Chưa xác định",
-        division: item.division || "",
-        createdAt: item.createdAt || null,
-      }));
+      const normalizedForms = (data.content || []).map((item) => {
+        const fileUrl = item.fileUrl ? toAbsoluteUrl(item.fileUrl) : "";
+
+        return {
+          id: item.id,
+          title: item.title || "Biểu mẫu",
+          fileType: fileUrl ? (item.fileType || inferFileType(item.fileUrl)) : "NO FILE",
+          fileUrl,
+          previewUrl: item.previewUrl ? toAbsoluteUrl(item.previewUrl) : null,
+          departmentName: item.departmentName || "Chưa xác định",
+          division: item.division || "",
+          createdAt: item.createdAt || null,
+          updatedAt: item.updatedAt || null,
+        };
+      });
 
       setForms(normalizedForms);
     } catch (error) {
@@ -758,16 +1242,41 @@ export default function PageHome() {
     }
   };
 
+  const normalizeNoticeItem = (item) => {
+    if (!item) return null;
+
+    const fileUrl = item.fileUrl ? toAbsoluteUrl(item.fileUrl) : "";
+    const fileType = fileUrl ? (item.fileType || inferFileType(item.fileUrl)) : "NO FILE";
+
+    return {
+      id: item.id,
+      title: item.title || "Thông báo",
+      content: item.content || "",
+      pinned: !!item.pinned,
+      fileUrl,
+      previewUrl: fileUrl && isEmbeddableFile(fileType, fileUrl) ? fileUrl : (item.previewUrl ? toAbsoluteUrl(item.previewUrl) : null),
+      fileType,
+      departmentName: item.departmentName || "",
+      division: item.division || "",
+      createdAt: item.createdAt || null,
+      updatedAt: item.updatedAt || null,
+    };
+  };
+
+
   const fetchNotices = async () => {
     setLoadingNotices(true);
     setErrorNotices(null);
 
     try {
       const params = new URLSearchParams({
+        userId: "",
+        skipDepartmentFilter: "true",
+        includeFeaturedPinned: "true",
         title: "",
         content: "",
         page: "0",
-        size: "60",
+        size: "30",
       });
 
       const response = await fetch(`${NOTICES_API_BASE}/search?${params.toString()}`, {
@@ -777,30 +1286,16 @@ export default function PageHome() {
       if (!response.ok) throw new Error("Failed to fetch notices");
       const data = await response.json();
 
+      const normalizedFeaturedPinnedNotice = normalizeNoticeItem(data.featuredPinnedNotice);
       const normalizedNotices = (data.content || [])
-        .map((item) => {
-          const fileUrl = toAbsoluteUrl(item.fileUrl);
-          const fileType = inferFileType(item.fileUrl);
+        .map(normalizeNoticeItem)
+        .filter(Boolean);
 
-          return {
-            id: item.id,
-            title: item.title || "Thông báo",
-            content: item.content || "",
-            pinned: !!item.pinned,
-            fileUrl,
-            previewUrl: isEmbeddableFile(fileType, fileUrl) ? fileUrl : null,
-            fileType,
-            createdAt: item.createdAt || null,
-          };
-        })
-        .sort((a, b) => {
-          if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
-          return dateArrayToMillis(b.createdAt) - dateArrayToMillis(a.createdAt);
-        });
-
+      setFeaturedPinnedNotice(normalizedFeaturedPinnedNotice);
       setNotices(normalizedNotices);
     } catch (error) {
       setErrorNotices("Không tải được thông báo.");
+      setFeaturedPinnedNotice(null);
       setNotices([]);
     } finally {
       setLoadingNotices(false);
@@ -901,11 +1396,11 @@ export default function PageHome() {
   };
 
   const handleOpenPreview = async (item) => {
-    if (!item?.fileUrl) {
+    if (!hasAttachedFile(item)) {
       setPreviewState({
         ...EMPTY_PREVIEW_STATE,
         open: true,
-        error: "File này chưa có đường dẫn để xem.",
+        error: "Mục này chưa có file đính kèm.",
         item,
         fileName: getDownloadFileName(item),
       });
@@ -926,6 +1421,33 @@ export default function PageHome() {
     });
 
     try {
+      const originalFileType = String(item?.fileType || inferFileType(item?.fileUrl) || "").toUpperCase();
+
+      // Optimization:
+      // Office files should go directly to backend PDF preview.
+      // Do not download the original DOC/XLS/PPT to the browser first.
+      // This avoids double network work: browser download + backend convert.
+      if (isOfficeFileForPreview(item)) {
+        try {
+          const previewData = await buildOfficePreviewAsPdf(item);
+
+          setPreviewState({
+            open: true,
+            loading: false,
+            error: "",
+            item,
+            mimeType: "application/pdf",
+            fileName: getDownloadFileName(item),
+            originalFileType,
+            ...previewData,
+          });
+          return;
+        } catch (officeError) {
+          console.warn("Office PDF preview conversion failed:", officeError);
+          // Fall through to old browser-side fallback for DOCX/XLSX where possible.
+        }
+      }
+
       const { blob, mimeType } = await fetchProtectedFile(item.fileUrl);
       const previewData = await buildPreviewData(item, blob, mimeType);
 
@@ -949,8 +1471,18 @@ export default function PageHome() {
     }
   };
 
+
   const handleDownloadFile = async (item) => {
-    if (!item?.fileUrl) return;
+    if (!hasAttachedFile(item)) {
+      setPreviewState({
+        ...EMPTY_PREVIEW_STATE,
+        open: true,
+        error: "Mục này chưa có file đính kèm để tải xuống.",
+        item,
+        fileName: getDownloadFileName(item),
+      });
+      return;
+    }
 
     try {
       const { blob } = await fetchProtectedFile(item.fileUrl);
@@ -988,8 +1520,8 @@ export default function PageHome() {
   }, [forms]);
 
   const featuredNotice = useMemo(
-    () => notices.find((item) => item.pinned) || notices[0] || null,
-    [notices],
+    () => featuredPinnedNotice || notices[0] || null,
+    [featuredPinnedNotice, notices],
   );
 
   const searchableNotices = useMemo(
@@ -1049,14 +1581,17 @@ const visibleNotices = useMemo(() => {
   }, [departments]);
 
   const pinnedCount = useMemo(
-    () => notices.filter((item) => item.pinned).length,
-    [notices],
+    () => (featuredPinnedNotice?.pinned ? 1 : 0) + notices.filter((item) => item.pinned).length,
+    [featuredPinnedNotice, notices],
   );
 
   const latestNoticeTime = useMemo(() => {
-    if (!notices.length) return "Chưa có dữ liệu";
-    return formatDateTime(notices[0].createdAt) || "Chưa có dữ liệu";
-  }, [notices]);
+    const latestNotice = notices[0] || featuredPinnedNotice;
+
+    if (!latestNotice) return "Chưa có dữ liệu";
+
+    return formatDateTime(latestNotice.updatedAt || latestNotice.createdAt) || "Chưa có dữ liệu";
+  }, [featuredPinnedNotice, notices]);
 
   const desktopDropdownStyle = {
     "--menu-visible-items": String(MENU_MAX_VISIBLE_ITEMS),
@@ -1455,7 +1990,7 @@ const visibleNotices = useMemo(() => {
                                       <strong>{form.title}</strong>
                                       <div className="portal-meta-row">
                                         {form.division ? <span className="portal-meta-pill">{form.division}</span> : null}
-                                        <span className="portal-meta-pill">{form.fileType}</span>
+                                        <FileTypeBadge item={form} />
                                         {form.createdAt ? (
                                           <span className="portal-meta-pill">{formatDateTime(form.createdAt)}</span>
                                         ) : null}
@@ -1494,10 +2029,7 @@ const visibleNotices = useMemo(() => {
                           <h3>{featuredNotice.title}</h3>
                           <p>{featuredNotice.content}</p>
                           <div className="portal-meta-row">
-                            <span className="portal-meta-pill">
-                              <IconFileText />
-                              {featuredNotice.fileType}
-                            </span>
+                            <FileTypeBadge item={featuredNotice} />
                             {featuredNotice.createdAt ? (
                               <span className="portal-meta-pill">
                                 <IconClock />
@@ -1533,10 +2065,7 @@ const visibleNotices = useMemo(() => {
                                 <strong>{notice.title}</strong>
                                 <p>{notice.content}</p>
                                 <div className="portal-meta-row">
-                                  <span className="portal-meta-pill">
-                                    <IconFileText />
-                                    {notice.fileType}
-                                  </span>
+                                  <FileTypeBadge item={notice} />
                                   {notice.createdAt ? (
                                     <span className="portal-meta-pill">
                                       <IconClock />

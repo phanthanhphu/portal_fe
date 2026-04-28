@@ -38,10 +38,12 @@ export default function EditFormDialog({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [departmentId, setDepartmentId] = useState("");
-  const [file, setFile] = useState(null); // new file (if any)
+  const [file, setFile] = useState(null);
 
   const [departments, setDepartments] = useState([]);
   const [loadingDept, setLoadingDept] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
   const [saving, setSaving] = useState(false);
 
   const [snackbarOpen, setSnackbarOpen] = useState(false);
@@ -54,35 +56,106 @@ export default function EditFormDialog({
     setSnackbarOpen(true);
   };
 
+  const getLoggedInUserId = () => {
+    try {
+      const userStr = localStorage.getItem("user");
+
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        return user?.id || user?.userId || user?._id || "";
+      }
+    } catch (e) {
+      console.error("Cannot parse user from localStorage", e);
+    }
+
+    return localStorage.getItem("userId") || "";
+  };
+
+  /* =========================
+     LOAD DEPARTMENTS BY USER
+     ========================= */
+  const fetchDepartments = async () => {
+    setLoadingDept(true);
+
+    try {
+      const loggedInUserId = getLoggedInUserId();
+
+      if (!loggedInUserId) {
+        toast("Không tìm thấy userId của user đang đăng nhập", "error");
+        setDepartments([]);
+        setDepartmentId("");
+        setIsAdmin(false);
+        return;
+      }
+
+      const res = await fetch(
+        `${DEPT_API}/search?userId=${encodeURIComponent(loggedInUserId)}`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        }
+      );
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to load department list");
+      }
+
+      const data = await res.json();
+
+      const admin = Boolean(data?.isAdmin);
+      const list = Array.isArray(data?.departments) ? data.departments : [];
+
+      setIsAdmin(admin);
+      setDepartments(list);
+
+      if (admin) {
+        // Admin được phép đổi department của form.
+        // Giữ department hiện tại của form làm giá trị mặc định.
+        setDepartmentId(form?.departmentId || "");
+      } else {
+        // User thường không được chọn department.
+        // Department mặc định bắt buộc là phòng ban chính của user do API trả về.
+        setDepartmentId(list[0]?.id || "");
+      }
+    } catch (err) {
+      console.error(err);
+      toast(err.message || "Failed to load department list", "error");
+      setDepartments([]);
+      setDepartmentId("");
+      setIsAdmin(false);
+    } finally {
+      setLoadingDept(false);
+    }
+  };
+
   /* =========================
      LOAD FORM DATA + DEPARTMENTS
      ========================= */
   useEffect(() => {
-    if (!open || !form) return;
+    if (!open) {
+      setTitle("");
+      setDescription("");
+      setDepartmentId("");
+      setFile(null);
+      setDepartments([]);
+      setIsAdmin(false);
+      setLoadingDept(false);
+      setSaving(false);
+      return;
+    }
+
+    if (!form) return;
 
     setTitle(form.title || "");
     setDescription(form.description || "");
     setDepartmentId(form.departmentId || "");
-    setFile(null); // reset new file
+    setFile(null);
     setSaving(false);
+
+    fetchDepartments();
   }, [open, form]);
-
-  useEffect(() => {
-    const fetchDepartments = async () => {
-      setLoadingDept(true);
-      try {
-        const res = await fetch(DEPT_API);
-        const data = await res.json();
-        setDepartments(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error(err);
-        toast("Failed to load department list", "error");
-      }
-      setLoadingDept(false);
-    };
-
-    if (open) fetchDepartments();
-  }, [open]);
 
   /* =========================
      CLOSE
@@ -98,7 +171,7 @@ export default function EditFormDialog({
      ========================= */
   const validate = () => {
     if (!title.trim()) return "Title is required";
-    if (!departmentId) return "Please select a department";
+    if (!departmentId) return "Department is required";
     return null;
   };
 
@@ -117,13 +190,16 @@ export default function EditFormDialog({
       formData.append("description", description.trim());
       formData.append("departmentId", departmentId);
 
-      // Append new file only if selected (backend keeps old file if absent)
+      // Append new file only if selected. Backend keeps old file if absent.
       if (file) {
         formData.append("file", file);
       }
 
       const res = await fetch(`${API_BASE}/${form.id}`, {
         method: "PUT",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
         body: formData,
       });
 
@@ -194,7 +270,9 @@ export default function EditFormDialog({
             </IconButton>
           </Stack>
         </DialogTitle>
-        <br></br>
+
+        <br />
+
         <DialogContent sx={{ p: 3 }}>
           <Stack spacing={2.5}>
             <TextField
@@ -203,6 +281,7 @@ export default function EditFormDialog({
               onChange={(e) => setTitle(e.target.value)}
               fullWidth
               required
+              disabled={saving}
             />
 
             <TextField
@@ -212,23 +291,26 @@ export default function EditFormDialog({
               fullWidth
               multiline
               minRows={3}
+              disabled={saving}
             />
 
-            <TextField
-              select
-              label="Department *"
-              value={departmentId}
-              onChange={(e) => setDepartmentId(e.target.value)}
-              fullWidth
-              required
-              disabled={loadingDept}
-            >
-              {departments.map((dep) => (
-                <MenuItem key={dep.id} value={dep.id}>
-                  {dep.departmentName} ({dep.division})
-                </MenuItem>
-              ))}
-            </TextField>
+            {isAdmin && (
+              <TextField
+                select
+                label="Department *"
+                value={departmentId}
+                onChange={(e) => setDepartmentId(e.target.value)}
+                fullWidth
+                required
+                disabled={saving || loadingDept}
+              >
+                {departments.map((dep) => (
+                  <MenuItem key={dep.id} value={dep.id}>
+                    {dep.departmentName} ({dep.division})
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
 
             {/* File Section */}
             <Box>
@@ -237,6 +319,7 @@ export default function EditFormDialog({
                 component="label"
                 fullWidth
                 startIcon={<CloudUploadIcon />}
+                disabled={saving}
                 sx={{ py: 1.5, borderStyle: "dashed", borderWidth: 2 }}
               >
                 {file ? "Change file" : "Replace file (optional)"}
@@ -270,7 +353,12 @@ export default function EditFormDialog({
 
           <Button
             onClick={handleSubmit}
-            disabled={saving || !title.trim() || !departmentId}
+            disabled={
+              saving ||
+              loadingDept ||
+              !title.trim() ||
+              !departmentId
+            }
             variant="contained"
             sx={gradientBtnSx}
           >

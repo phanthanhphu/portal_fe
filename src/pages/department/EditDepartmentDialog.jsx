@@ -222,7 +222,7 @@ export default function EditDepartmentDialog({
             </IconButton>
           </Stack>
         </DialogTitle>
-
+        <br></br>
         <DialogContent sx={{ p: 2.5 }}>
           <Stack spacing={2}>
             <TextField

@@ -17,6 +17,7 @@ import {
   Divider,
   Tooltip,
   useMediaQuery,
+  MenuItem,
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import CloseIcon from '@mui/icons-material/Close';
@@ -88,6 +89,7 @@ export default function EditAppLinkDialog({
   onOk,
   currentItem = null,
   disabled = false,
+  isAdmin = false,
 }) {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
@@ -95,6 +97,11 @@ export default function EditAppLinkDialog({
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
   const [desc, setDesc] = useState('');
+
+  const [departmentId, setDepartmentId] = useState('');
+  const [departments, setDepartments] = useState([]);
+  const [loadingDepartments, setLoadingDepartments] = useState(false);
+
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
 
@@ -105,8 +112,77 @@ export default function EditAppLinkDialog({
   const [snackbarSeverity, setSnackbarSeverity] = useState('success');
   const [snackbarMessage, setSnackbarMessage] = useState('');
 
+  const getLoggedInUserId = () => {
+    try {
+      const userStr = localStorage.getItem('user');
+
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        return user?.id || user?.userId || user?._id || '';
+      }
+    } catch (e) {
+      console.error('Cannot parse user from localStorage', e);
+    }
+
+    return localStorage.getItem('userId') || '';
+  };
+
+  const toast = (msg, severity = 'success') => {
+    setSnackbarMessage(msg);
+    setSnackbarSeverity(severity);
+    setSnackbarOpen(true);
+  };
+
+  const fetchDepartmentsForAdmin = async () => {
+    if (!isAdmin) {
+      setDepartments([]);
+      setDepartmentId('');
+      return;
+    }
+
+    setLoadingDepartments(true);
+
+    try {
+      const loggedInUserId = getLoggedInUserId();
+
+      if (!loggedInUserId) {
+        toast('Không tìm thấy userId của user đang đăng nhập.', 'error');
+        setDepartments([]);
+        setDepartmentId('');
+        return;
+      }
+
+      const response = await apiClient.get('/api/departments/search', {
+        params: {
+          userId: loggedInUserId,
+          skipDepartmentFilter: true,
+        },
+      });
+
+      const list = Array.isArray(response.data?.departments)
+        ? response.data.departments
+        : [];
+
+      setDepartments(list);
+      setDepartmentId(currentItem?.departmentId || '');
+    } catch (err) {
+      console.error(err);
+      toast(err?.response?.data?.message || 'Không tải được danh sách phòng ban.', 'error');
+      setDepartments([]);
+      setDepartmentId(currentItem?.departmentId || '');
+    } finally {
+      setLoadingDepartments(false);
+    }
+  };
+
   useEffect(() => {
     if (!open) {
+      setName('');
+      setUrl('');
+      setDesc('');
+      setDepartmentId('');
+      setDepartments([]);
+      setLoadingDepartments(false);
       setConfirmOpen(false);
       setSnackbarOpen(false);
       setSnackbarMessage('');
@@ -119,13 +195,16 @@ export default function EditAppLinkDialog({
     setName(currentItem?.name || '');
     setUrl(currentItem?.url || '');
     setDesc(currentItem?.desc || '');
+    setDepartmentId(currentItem?.departmentId || '');
     setImageFile(null);
     setImagePreview(normalizeImageUrl(getImageField(currentItem)));
     setConfirmOpen(false);
     setSnackbarOpen(false);
     setSnackbarMessage('');
     setSnackbarSeverity('success');
-  }, [open, currentItem]);
+
+    fetchDepartmentsForAdmin();
+  }, [open, currentItem, isAdmin]);
 
   useEffect(() => {
     if (!imageFile) return;
@@ -136,12 +215,6 @@ export default function EditAppLinkDialog({
     return () => URL.revokeObjectURL(objectUrl);
   }, [imageFile]);
 
-  const toast = (msg, severity = 'success') => {
-    setSnackbarMessage(msg);
-    setSnackbarSeverity(severity);
-    setSnackbarOpen(true);
-  };
-
   const locked = saving || disabled;
 
   const validate = () => {
@@ -149,6 +222,7 @@ export default function EditAppLinkDialog({
     if (!url.trim()) return 'URL is required.';
     if (!/^https?:\/\/.+/i.test(url.trim())) return 'URL must start with http:// or https://';
     if (!desc.trim()) return 'Description is required.';
+    if (isAdmin && !departmentId) return 'Please select a department.';
     return null;
   };
 
@@ -186,18 +260,32 @@ export default function EditAppLinkDialog({
     setSaving(true);
 
     try {
+      const loggedInUserId = getLoggedInUserId();
+
+      if (!loggedInUserId) {
+        toast('Không tìm thấy userId của user đang đăng nhập.', 'error');
+        return;
+      }
+
       const formData = new FormData();
 
       if (imageFile) {
         formData.append('image', imageFile);
       }
 
+      const params = {
+        name: name.trim(),
+        url: url.trim(),
+        desc: desc.trim(),
+        userId: loggedInUserId,
+      };
+
+      if (isAdmin) {
+        params.departmentId = departmentId;
+      }
+
       const response = await apiClient.put(`/api/app-links/${currentItem.id}`, formData, {
-        params: {
-          name: name.trim(),
-          url: url.trim(),
-          desc: desc.trim(),
-        },
+        params,
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -426,6 +514,28 @@ export default function EditAppLinkDialog({
                   placeholder="http://localhost:3000/dashboard"
                 />
 
+                {isAdmin && (
+                  <TextField
+                    select
+                    label="Department"
+                    value={departmentId}
+                    onChange={(e) => setDepartmentId(e.target.value)}
+                    disabled={locked || loadingDepartments}
+                    size="small"
+                    fullWidth
+                    sx={{
+                      ...fieldSx,
+                      gridColumn: { xs: 'span 1', sm: 'span 2' },
+                    }}
+                  >
+                    {departments.map((department) => (
+                      <MenuItem key={department.id} value={department.id}>
+                        {department.departmentName} ({department.division})
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                )}
+
                 <TextField
                   label="Description"
                   value={desc}
@@ -559,7 +669,12 @@ export default function EditAppLinkDialog({
             Cancel
           </Button>
 
-          <Button onClick={handleSubmit} disabled={locked} variant="contained" sx={gradientBtnSx}>
+          <Button
+            onClick={handleSubmit}
+            disabled={locked || loadingDepartments}
+            variant="contained"
+            sx={gradientBtnSx}
+          >
             {saving ? <CircularProgress size={20} color="inherit" /> : 'Update'}
           </Button>
         </DialogActions>
@@ -613,6 +728,14 @@ export default function EditAppLinkDialog({
               </Typography>
               <Typography sx={{ fontSize: 12.5, color: 'text.secondary' }}>
                 • URL: <b>{url.trim() || '—'}</b>
+              </Typography>
+              <Typography sx={{ fontSize: 12.5, color: 'text.secondary' }}>
+                • Department:{' '}
+                <b>
+                  {isAdmin
+                    ? departments.find((department) => department.id === departmentId)?.departmentName || '—'
+                    : 'Your department'}
+                </b>
               </Typography>
               <Typography sx={{ fontSize: 12.5, color: 'text.secondary' }}>
                 • Description: <b>{desc.trim() || '—'}</b>

@@ -93,6 +93,21 @@ const getImageField = (item) => {
   return item?.icon || item?.image || item?.imageUrl || item?.filePath || item?.path || item?.thumbnail || '';
 };
 
+const getLoggedInUserId = () => {
+  try {
+    const userStr = localStorage.getItem('user');
+
+    if (userStr) {
+      const user = JSON.parse(userStr);
+      return user?.id || user?.userId || user?._id || '';
+    }
+  } catch (e) {
+    console.error('Cannot parse user from localStorage', e);
+  }
+
+  return localStorage.getItem('userId') || '';
+};
+
 /* =========================
    Headers
    ========================= */
@@ -102,6 +117,7 @@ const headers = [
   { label: 'Name', key: 'name', sortable: true, hideOnSmall: false },
   { label: 'URL', key: 'url', sortable: true, hideOnSmall: false },
   { label: 'Description', key: 'desc', sortable: true, hideOnSmall: true },
+  { label: 'Department', key: 'departmentName', sortable: true, hideOnSmall: true },
   { label: 'Actions', key: 'actions', sortable: false, hideOnSmall: false },
 ];
 
@@ -110,35 +126,69 @@ const headers = [
    ========================= */
 const fetchAppLinks = async (page = 0, size = 12, name = '', desc = '') => {
   try {
+    const loggedInUserId = getLoggedInUserId();
+
+    if (!loggedInUserId) {
+      throw new Error('Không tìm thấy userId của user đang đăng nhập');
+    }
+
     const params = new URLSearchParams();
+    params.append('userId', loggedInUserId);
+    params.append('skipDepartmentFilter', 'true');
+    params.append('page', String(page));
+    params.append('size', String(size));
+
     if (name?.trim()) params.append('name', name.trim());
     if (desc?.trim()) params.append('desc', desc.trim());
 
-    const baseUrl = params.toString() ? '/api/app-links/search' : '/api/app-links';
-    const url = `${baseUrl}${params.toString() ? `?${params.toString()}` : ''}`;
-
-    const response = await apiClient.get(url, { params: { page, size } });
+    const response = await apiClient.get(`/api/app-links/search?${params.toString()}`);
 
     const rawData = response.data;
     const content = Array.isArray(rawData) ? rawData : (rawData?.content || []);
     const totalElements = Array.isArray(rawData) ? rawData.length : (rawData?.totalElements || rawData?.length || 0);
     const totalPages = Array.isArray(rawData) ? 1 : (rawData?.totalPages || 1);
 
-    return { content, totalElements, totalPages };
+    return {
+      content,
+      totalElements,
+      totalPages,
+      isAdmin: Boolean(rawData?.isAdmin),
+      currentDepartmentId: rawData?.currentDepartmentId || '',
+      disableDepartmentSelect: Boolean(rawData?.disableDepartmentSelect),
+    };
   } catch (error) {
     console.error('Error fetching app links:', error.response?.data || error.message);
-    return { content: [], totalElements: 0, totalPages: 1 };
+
+    return {
+      content: [],
+      totalElements: 0,
+      totalPages: 1,
+      isAdmin: false,
+      currentDepartmentId: '',
+      disableDepartmentSelect: true,
+    };
   }
 };
 
 const deleteAppLink = async (id) => {
   try {
-    const response = await apiClient.delete(`/api/app-links/${id}`);
+    const loggedInUserId = getLoggedInUserId();
+
+    if (!loggedInUserId) {
+      throw new Error('Không tìm thấy userId của user đang đăng nhập');
+    }
+
+    const response = await apiClient.delete(`/api/app-links/${id}`, {
+      params: {
+        userId: loggedInUserId,
+      },
+    });
+
     return { success: true, message: response.data?.message || 'App Link deleted successfully' };
   } catch (error) {
     return {
       success: false,
-      message: error.response?.data?.message || 'Failed to delete App Link',
+      message: error.response?.data?.message || error.message || 'Failed to delete App Link',
     };
   }
 };
@@ -180,6 +230,7 @@ const SortIndicator = ({ active, direction }) => {
       </Box>
     );
   }
+
   if (direction === 'asc') {
     return (
       <Box sx={{ display: 'flex', flexDirection: 'column', ml: 0.2, lineHeight: 0 }}>
@@ -188,6 +239,7 @@ const SortIndicator = ({ active, direction }) => {
       </Box>
     );
   }
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', ml: 0.2, lineHeight: 0 }}>
       <ArrowUpward sx={{ fontSize: '0.7rem', color: '#d1d5db' }} />
@@ -296,6 +348,10 @@ export default function AppLinksPage() {
   const [totalElements, setTotalElements] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [currentDepartmentId, setCurrentDepartmentId] = useState('');
+  const [disableDepartmentSelect, setDisableDepartmentSelect] = useState(true);
+
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(isLargeScreen ? 20 : 12);
 
@@ -336,6 +392,9 @@ export default function AppLinksPage() {
       setData(finalData);
       setTotalElements(result.totalElements);
       setTotalPages(result.totalPages);
+      setIsAdmin(Boolean(result.isAdmin));
+      setCurrentDepartmentId(result.currentDepartmentId || '');
+      setDisableDepartmentSelect(Boolean(result.disableDepartmentSelect));
       setLoading(false);
     },
     [page, rowsPerPage, sortConfig, filterName, filterDesc]
@@ -344,11 +403,13 @@ export default function AppLinksPage() {
   // Initial load + check token
   useEffect(() => {
     const token = localStorage.getItem('token');
+
     if (!token) {
       setNotification({ open: true, message: 'Please login to access this page.', severity: 'error' });
       navigate('/login');
       return;
     }
+
     fetchData();
   }, [fetchData, navigate]);
 
@@ -367,20 +428,67 @@ export default function AppLinksPage() {
     navigate(`/app-links/${item.id}`);
   }, [navigate]);
 
+  const canModifyItem = useCallback((item, action = 'edit') => {
+    if (!item?.id) return false;
+    if (isAdmin) return true;
+
+    const key = action === 'delete' ? 'canDelete' : 'canEdit';
+
+    if (typeof item?.[key] === 'boolean') {
+      return item[key];
+    }
+
+    return Boolean(
+      currentDepartmentId &&
+      item?.departmentId &&
+      String(currentDepartmentId).trim() === String(item.departmentId).trim()
+    );
+  }, [isAdmin, currentDepartmentId]);
+
   const handleOpenEdit = useCallback((item) => {
-    if (!item?.id) return;
+    if (!canModifyItem(item, 'edit')) {
+      setNotification({
+        open: true,
+        message: 'Bạn chỉ được edit App Link thuộc phòng ban chính của bạn.',
+        severity: 'error',
+      });
+      return;
+    }
+
     setCurrentItem(item);
     setOpenEditDialog(true);
-  }, []);
+  }, [canModifyItem]);
 
   const handleDelete = (item) => {
+    if (!canModifyItem(item, 'delete')) {
+      setNotification({
+        open: true,
+        message: 'Bạn chỉ được delete App Link thuộc phòng ban chính của bạn.',
+        severity: 'error',
+      });
+      return;
+    }
+
     setSelectedItem(item);
     setDeleteDialogOpen(true);
   };
 
   const handleConfirmDelete = async () => {
     if (!selectedItem) return;
+
+    if (!canModifyItem(selectedItem, 'delete')) {
+      setNotification({
+        open: true,
+        message: 'Bạn chỉ được delete App Link thuộc phòng ban chính của bạn.',
+        severity: 'error',
+      });
+      setDeleteDialogOpen(false);
+      setSelectedItem(null);
+      return;
+    }
+
     setLoading(true);
+
     try {
       const { success, message } = await deleteAppLink(selectedItem.id);
       setNotification({ open: true, message, severity: success ? 'success' : 'error' });
@@ -589,6 +697,8 @@ export default function AppLinksPage() {
                 data.map((item, idx) => {
                   const zebra = idx % 2 === 0 ? '#ffffff' : '#fafafa';
                   const imageSrc = normalizeImageUrl(getImageField(item));
+                  const editEnabled = canModifyItem(item, 'edit');
+                  const deleteEnabled = canModifyItem(item, 'delete');
 
                   return (
                     <TableRow
@@ -709,35 +819,70 @@ export default function AppLinksPage() {
                         {item.desc || '-'}
                       </TableCell>
 
+                      <TableCell
+                        onClick={(e) => e.stopPropagation()}
+                        sx={{
+                          fontSize: '0.75rem',
+                          py: 0.45,
+                          px: 0.7,
+                          color: '#111827',
+                          whiteSpace: 'normal',
+                          wordBreak: 'break-word',
+                          display: { xs: 'none', md: 'table-cell' },
+                        }}
+                      >
+                        <Stack spacing={0.2}>
+                          <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: '#111827' }}>
+                            {item.departmentName || '-'}
+                          </Typography>
+                          {item.division && (
+                            <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary' }}>
+                              {item.division}
+                            </Typography>
+                          )}
+                        </Stack>
+                      </TableCell>
+
                       <TableCell align="center" onClick={(e) => e.stopPropagation()} sx={{ py: 0.45, px: 0.7 }}>
                         <Stack direction="row" spacing={0.4} justifyContent="center">
-                          <Tooltip title="Edit App Link" arrow>
-                            <IconButton
-                              color="primary"
-                              size="small"
-                              sx={{ p: 0.25 }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenEdit(item);
-                              }}
-                            >
-                              <Edit fontSize="small" />
-                            </IconButton>
+                          <Tooltip
+                            title={editEnabled ? 'Edit App Link' : 'Bạn chỉ được edit link thuộc phòng ban chính của bạn'}
+                            arrow
+                          >
+                            <span>
+                              <IconButton
+                                color="primary"
+                                size="small"
+                                sx={{ p: 0.25 }}
+                                disabled={loading || !editEnabled}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenEdit(item);
+                                }}
+                              >
+                                <Edit fontSize="small" />
+                              </IconButton>
+                            </span>
                           </Tooltip>
 
-                          <Tooltip title="Delete App Link" arrow>
-                            <IconButton
-                              color="error"
-                              size="small"
-                              sx={{ p: 0.25 }}
-                              disabled={loading}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDelete(item);
-                              }}
-                            >
-                              <Delete fontSize="small" />
-                            </IconButton>
+                          <Tooltip
+                            title={deleteEnabled ? 'Delete App Link' : 'Bạn chỉ được delete link thuộc phòng ban chính của bạn'}
+                            arrow
+                          >
+                            <span>
+                              <IconButton
+                                color="error"
+                                size="small"
+                                sx={{ p: 0.25 }}
+                                disabled={loading || !deleteEnabled}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDelete(item);
+                                }}
+                              >
+                                <Delete fontSize="small" />
+                              </IconButton>
+                            </span>
                           </Tooltip>
                         </Stack>
                       </TableCell>
@@ -790,6 +935,9 @@ export default function AppLinksPage() {
       {/* Dialogs */}
       <AddAppLinkDialog
         open={openAddDialog}
+        isAdmin={isAdmin}
+        currentDepartmentId={currentDepartmentId}
+        disableDepartmentSelect={disableDepartmentSelect}
         onCancel={() => setOpenAddDialog(false)}
         onOk={() => {
           setOpenAddDialog(false);
@@ -801,6 +949,9 @@ export default function AppLinksPage() {
       <EditAppLinkDialog
         open={openEditDialog}
         currentItem={currentItem}
+        isAdmin={isAdmin}
+        currentDepartmentId={currentDepartmentId}
+        disableDepartmentSelect={disableDepartmentSelect}
         onCancel={() => {
           setOpenEditDialog(false);
           setCurrentItem(null);
@@ -846,7 +997,13 @@ export default function AppLinksPage() {
           <Button onClick={handleCancelDelete} disabled={loading} sx={btnSx}>
             Cancel
           </Button>
-          <Button onClick={handleConfirmDelete} variant="contained" color="error" disabled={loading} sx={btnSx}>
+          <Button
+            onClick={handleConfirmDelete}
+            variant="contained"
+            color="error"
+            disabled={loading || !canModifyItem(selectedItem, 'delete')}
+            sx={btnSx}
+          >
             {loading ? <CircularProgress size={18} /> : 'Delete'}
           </Button>
         </DialogActions>

@@ -29,6 +29,7 @@ const API_URL = `${API_BASE_URL}/api/departments`;
 export default function DepartmentManagement() {
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Search states
   const [searchDivision, setSearchDivision] = useState("");
@@ -62,12 +63,37 @@ export default function DepartmentManagement() {
     }
   };
 
-  // Fetch departments
+  const getLoggedInUserId = () => {
+    try {
+      const userStr = localStorage.getItem("user");
+
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        return user?.id || user?.userId || user?._id || "";
+      }
+    } catch (e) {
+      console.error("Cannot parse user from localStorage", e);
+    }
+
+    return localStorage.getItem("userId") || "";
+  };
+
+  // Fetch departments by logged-in user.
+  // Admin: API returns all departments and isAdmin=true.
+  // Normal user: API returns only user's department and isAdmin=false.
   const fetchDepartments = useCallback(async (filters = {}) => {
     setLoading(true);
 
     try {
+      const loggedInUserId = getLoggedInUserId();
+
+      if (!loggedInUserId) {
+        throw new Error("Không tìm thấy userId của user đang đăng nhập");
+      }
+
       const params = new URLSearchParams();
+      params.append("userId", loggedInUserId);
+      params.append("skipDepartmentFilter", "true");
 
       if (filters.departmentName?.trim()) {
         params.append("departmentName", filters.departmentName.trim());
@@ -77,10 +103,13 @@ export default function DepartmentManagement() {
         params.append("division", filters.division.trim());
       }
 
-      const url = `${API_URL}/search${params.toString() ? `?${params.toString()}` : ""}`;
+      const url = `${API_URL}/search?${params.toString()}`;
 
       const res = await fetch(url, {
-        headers: { accept: "*/*" }
+        headers: {
+          accept: "*/*",
+          Authorization: `Bearer ${localStorage.getItem("token")}`
+        }
       });
 
       if (!res.ok) {
@@ -89,7 +118,16 @@ export default function DepartmentManagement() {
 
       const data = await res.json();
 
-      const mapped = (data || []).map((dep) => ({
+      const admin = Boolean(data?.isAdmin);
+      const list = Array.isArray(data?.departments)
+        ? data.departments
+        : Array.isArray(data)
+          ? data
+          : [];
+
+      setIsAdmin(admin);
+
+      const mapped = list.map((dep) => ({
         id: dep.id,
         departmentName: dep.departmentName,
         division: dep.division,
@@ -98,7 +136,6 @@ export default function DepartmentManagement() {
       }));
 
       setDepartments(mapped);
-
     } catch (error) {
       console.error(error);
       setNotification({
@@ -107,6 +144,7 @@ export default function DepartmentManagement() {
         severity: "error"
       });
       setDepartments([]);
+      setIsAdmin(false);
     } finally {
       setLoading(false);
     }
@@ -118,6 +156,15 @@ export default function DepartmentManagement() {
   }, [fetchDepartments]);
 
   const handleConfirmDelete = async () => {
+    if (!isAdmin) {
+      setNotification({
+        open: true,
+        message: "Bạn không có quyền xóa phòng ban",
+        severity: "error"
+      });
+      return;
+    }
+
     if (!selectedDepartment) return;
 
     setLoading(true);
@@ -125,7 +172,10 @@ export default function DepartmentManagement() {
     try {
       const res = await fetch(`${API_URL}/${selectedDepartment.id}`, {
         method: "DELETE",
-        headers: { accept: "*/*" }
+        headers: {
+          accept: "*/*",
+          Authorization: `Bearer ${localStorage.getItem("token")}`
+        }
       });
 
       if (!res.ok) {
@@ -135,7 +185,10 @@ export default function DepartmentManagement() {
       setDeleteDialogOpen(false);
       setSelectedDepartment(null);
 
-      await fetchDepartments();
+      await fetchDepartments({
+        division: searchDivision,
+        departmentName: searchDeptName
+      });
 
       setNotification({
         open: true,
@@ -154,12 +207,19 @@ export default function DepartmentManagement() {
     }
   };
 
+  const handleAdd = () => {
+    if (!isAdmin) return;
+    setAddDialogOpen(true);
+  };
+
   const handleEdit = (dep) => {
+    if (!isAdmin) return;
     setSelectedDepartment(dep);
     setEditDialogOpen(true);
   };
 
   const handleDelete = (dep) => {
+    if (!isAdmin) return;
     setSelectedDepartment(dep);
     setDeleteDialogOpen(true);
   };
@@ -189,29 +249,31 @@ export default function DepartmentManagement() {
 
   return (
     <Box sx={{ p: 2, background: "#f9fafb", minHeight: "100vh" }}>
-     <Stack direction="row" justifyContent="space-between" sx={{ mb: 2 }}>
+      <Stack direction="row" justifyContent="space-between" sx={{ mb: 2 }}>
         <Typography fontWeight={700}>Department</Typography>
 
-        <Button
-          startIcon={<AddIcon fontSize="small" />}
-          variant="contained"
-          onClick={() => setAddDialogOpen(true)}
-          sx={{
-            height: 34,
-            px: 1.25,
-            borderRadius: 1.2,
-            textTransform: 'none',
-            fontWeight: 400,
-            backgroundColor: '#111827',
-            boxShadow: 'none',
-            '&:hover': {
-              backgroundColor: '#0b1220',
-              boxShadow: 'none',
-            },
-          }}
-        >
-          Add Department
-        </Button>
+        {isAdmin && (
+          <Button
+            startIcon={<AddIcon fontSize="small" />}
+            variant="contained"
+            onClick={handleAdd}
+            sx={{
+              height: 34,
+              px: 1.25,
+              borderRadius: 1.2,
+              textTransform: "none",
+              fontWeight: 400,
+              backgroundColor: "#111827",
+              boxShadow: "none",
+              "&:hover": {
+                backgroundColor: "#0b1220",
+                boxShadow: "none",
+              },
+            }}
+          >
+            Add Department
+          </Button>
+        )}
       </Stack>
 
       <DepartmentSearch
@@ -278,14 +340,16 @@ export default function DepartmentManagement() {
                       </Box>
                     </Stack>
 
-                    <Stack direction="row">
-                      <IconButton onClick={() => handleEdit(dep)}>
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton onClick={() => handleDelete(dep)}>
-                        <DeleteIcon />
-                      </IconButton>
-                    </Stack>
+                    {isAdmin && (
+                      <Stack direction="row">
+                        <IconButton onClick={() => handleEdit(dep)}>
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton onClick={() => handleDelete(dep)}>
+                          <DeleteIcon />
+                        </IconButton>
+                      </Stack>
+                    )}
                   </Stack>
                 ))}
               </Paper>
@@ -294,37 +358,49 @@ export default function DepartmentManagement() {
         )}
       </Paper>
 
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
-        <DialogTitle>Delete Department</DialogTitle>
-        <DialogContent>
-          Are you sure you want to delete <b>{selectedDepartment?.departmentName}</b>?
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-          <Button color="error" onClick={handleConfirmDelete}>Delete</Button>
-        </DialogActions>
-      </Dialog>
+      {isAdmin && (
+        <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+          <DialogTitle>Delete Department</DialogTitle>
+          <DialogContent>
+            Are you sure you want to delete <b>{selectedDepartment?.departmentName}</b>?
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+            <Button color="error" onClick={handleConfirmDelete}>Delete</Button>
+          </DialogActions>
+        </Dialog>
+      )}
 
-      <EditDepartmentDialog
-        open={editDialogOpen}
-        department={selectedDepartment}
-        onClose={(updated) => {
-          setEditDialogOpen(false);
-          if (updated) {
-            fetchDepartments(); // Refresh data after edit
-          }
-        }}
-      />
+      {isAdmin && (
+        <EditDepartmentDialog
+          open={editDialogOpen}
+          department={selectedDepartment}
+          onClose={(updated) => {
+            setEditDialogOpen(false);
+            if (updated) {
+              fetchDepartments({
+                division: searchDivision,
+                departmentName: searchDeptName
+              });
+            }
+          }}
+        />
+      )}
 
-      <AddDepartmentDialog
-        open={addDialogOpen}
-        onClose={(created) => {
-          setAddDialogOpen(false);
-          if (created) {
-            fetchDepartments(); // Refresh data after adding
-          }
-        }}
-      />
+      {isAdmin && (
+        <AddDepartmentDialog
+          open={addDialogOpen}
+          onClose={(created) => {
+            setAddDialogOpen(false);
+            if (created) {
+              fetchDepartments({
+                division: searchDivision,
+                departmentName: searchDeptName
+              });
+            }
+          }}
+        />
+      )}
 
       <Snackbar
         open={notification.open}

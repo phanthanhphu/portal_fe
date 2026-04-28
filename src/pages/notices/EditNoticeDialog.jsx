@@ -50,6 +50,7 @@ export default function EditNoticeDialog({
 
   const [departments, setDepartments] = useState([]);
   const [loadingDept, setLoadingDept] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -64,14 +65,67 @@ export default function EditNoticeDialog({
     setSnackbarOpen(true);
   };
 
+  const getLoggedInUserId = () => {
+    try {
+      const userStr = localStorage.getItem('user');
+
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        return user?.id || user?.userId || user?._id || '';
+      }
+    } catch (e) {
+      console.error('Cannot parse user from localStorage', e);
+    }
+
+    return localStorage.getItem('userId') || '';
+  };
+
   const fetchDepartments = async () => {
     setLoadingDept(true);
+
     try {
-      const res = await axios.get(DEPT_API);
-      setDepartments(Array.isArray(res.data) ? res.data : []);
+      const loggedInUserId = getLoggedInUserId();
+
+      if (!loggedInUserId) {
+        toast('Không tìm thấy userId của user đang đăng nhập', 'error');
+        setDepartments([]);
+        setDepartmentId('');
+        setIsAdmin(false);
+        return;
+      }
+
+      const res = await axios.get(`${DEPT_API}/search`, {
+        params: {
+          userId: loggedInUserId
+        },
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      const admin = Boolean(res.data?.isAdmin);
+      const list = Array.isArray(res.data?.departments)
+        ? res.data.departments
+        : [];
+
+      setIsAdmin(admin);
+      setDepartments(list);
+
+      if (admin) {
+        // Admin được phép chọn lại department khi edit.
+        // Giữ department hiện tại của notice làm lựa chọn mặc định.
+        setDepartmentId(currentItem?.departmentId || '');
+      } else {
+        // User thường không được chọn department.
+        // Department mặc định bắt buộc là phòng ban chính của user do API trả về.
+        setDepartmentId(list[0]?.id || '');
+      }
     } catch (err) {
       console.error(err);
       toast('Không tải được danh sách phòng ban', 'error');
+      setDepartments([]);
+      setDepartmentId('');
+      setIsAdmin(false);
     } finally {
       setLoadingDept(false);
     }
@@ -85,6 +139,7 @@ export default function EditNoticeDialog({
       setFile(null);
       setDepartmentId('');
       setDepartments([]);
+      setIsAdmin(false);
       setLoadingDept(false);
       setSaving(false);
       setConfirmOpen(false);
@@ -101,20 +156,6 @@ export default function EditNoticeDialog({
 
     fetchDepartments();
   }, [open, currentItem]);
-
-  const getLoggedInUserId = () => {
-    try {
-      const userStr = localStorage.getItem('user');
-      if (userStr) {
-        const user = JSON.parse(userStr);
-        return user?.id || user?.userId || user?._id || '';
-      }
-    } catch (e) {
-      console.error('Cannot parse user from localStorage', e);
-    }
-
-    return localStorage.getItem('userId') || '';
-  };
 
   const getCurrentFileUrl = () => {
     return (
@@ -150,7 +191,7 @@ export default function EditNoticeDialog({
     if (!currentItem?.id) return 'Invalid Notice item';
     if (!title.trim()) return 'Title is required';
     if (!content.trim()) return 'Content is required';
-    if (!departmentId) return 'Please select a department';
+    if (!departmentId) return 'Department is required';
     return null;
   };
 
@@ -287,7 +328,7 @@ export default function EditNoticeDialog({
           </Stack>
         </DialogTitle>
 
-        <br></br>
+        <br />
 
         <DialogContent sx={{ p: 3 }}>
           <Stack spacing={2}>
@@ -313,22 +354,24 @@ export default function EditNoticeDialog({
               sx={fieldSx}
             />
 
-            <TextField
-              select
-              label="Department *"
-              value={departmentId}
-              onChange={(e) => setDepartmentId(e.target.value)}
-              disabled={locked || loadingDept}
-              size="small"
-              fullWidth
-              sx={fieldSx}
-            >
-              {departments.map((d) => (
-                <MenuItem key={d.id} value={d.id}>
-                  {d.departmentName} ({d.division})
-                </MenuItem>
-              ))}
-            </TextField>
+            {isAdmin && (
+              <TextField
+                select
+                label="Department *"
+                value={departmentId}
+                onChange={(e) => setDepartmentId(e.target.value)}
+                disabled={locked || loadingDept}
+                size="small"
+                fullWidth
+                sx={fieldSx}
+              >
+                {departments.map((d) => (
+                  <MenuItem key={d.id} value={d.id}>
+                    {d.departmentName} ({d.division})
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
 
             <Box>
               <Typography fontSize={13} fontWeight={600} mb={1}>
@@ -426,7 +469,13 @@ export default function EditNoticeDialog({
           <Button
             onClick={handleSubmit}
             variant="contained"
-            disabled={locked || !title.trim() || !content.trim() || !departmentId}
+            disabled={
+              locked ||
+              loadingDept ||
+              !title.trim() ||
+              !content.trim() ||
+              !departmentId
+            }
             sx={gradientBtnSx}
           >
             {saving ? <CircularProgress size={20} /> : 'Update'}

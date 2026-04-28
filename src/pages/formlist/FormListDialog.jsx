@@ -83,10 +83,25 @@ const formatDate = (arr) => {
 
 const getFileTypeFromUrl = (url) => {
   if (!url) return 'FILE';
-  const lower = url.toLowerCase();
-  if (lower.endsWith('.pdf')) return 'PDF';
-  if (lower.match(/\.(jpg|jpeg|png|gif|webp|bmp|svg)$/)) return 'IMAGE';
-  if (lower.match(/\.(doc|docx)$/)) return 'DOC';
+
+  try {
+    const cleanUrl = decodeURIComponent(String(url))
+      .split('?')[0]
+      .split('#')[0]
+      .toLowerCase();
+
+    if (cleanUrl.endsWith('.pdf')) return 'PDF';
+    if (cleanUrl.match(/\.(jpg|jpeg|png|gif|webp|bmp|svg)$/)) return 'IMAGE';
+    if (cleanUrl.endsWith('.doc')) return 'DOC';
+    if (cleanUrl.endsWith('.docx')) return 'DOCX';
+    if (cleanUrl.endsWith('.xls')) return 'XLS';
+    if (cleanUrl.endsWith('.xlsx')) return 'XLSX';
+    if (cleanUrl.endsWith('.ppt')) return 'PPT';
+    if (cleanUrl.endsWith('.pptx')) return 'PPTX';
+  } catch {
+    return 'FILE';
+  }
+
   return 'FILE';
 };
 
@@ -95,6 +110,10 @@ const getFileTypeColor = (type) => ({
   IMAGE: '#2563eb',
   DOC: '#16a34a',
   DOCX: '#16a34a',
+  XLS: '#15803d',
+  XLSX: '#15803d',
+  PPT: '#ea580c',
+  PPTX: '#ea580c',
   FILE: '#6b7280',
 }[String(type || '').toUpperCase()] || '#6b7280');
 
@@ -128,6 +147,434 @@ const getFullFileUrl = (fileUrl) => {
   return url;
 };
 
+const OFFICE_PREVIEW_TYPES = new Set(['DOC', 'DOCX', 'XLS', 'XLSX', 'PPT', 'PPTX']);
+const DIRECT_PREVIEW_TYPES = new Set(['PDF', 'IMAGE', 'PNG', 'JPG', 'JPEG', 'WEBP', 'GIF', 'TXT']);
+
+const getAuthHeaders = (accept = '*/*') => {
+  const token = localStorage.getItem('token');
+
+  return {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    Accept: accept,
+  };
+};
+
+const getFileExtensionFromValue = (value) => {
+  if (!value) return '';
+
+  try {
+    const decodedValue = decodeURIComponent(String(value));
+    const cleanValue = decodedValue
+      .split('?')[0]
+      .split('#')[0]
+      .replace(/\\/g, '/');
+
+    const fileName = cleanValue.split('/').pop() || cleanValue;
+    const dotIndex = fileName.lastIndexOf('.');
+
+    if (dotIndex < 0 || dotIndex === fileName.length - 1) {
+      return '';
+    }
+
+    return fileName.substring(dotIndex + 1).toUpperCase();
+  } catch {
+    const cleanValue = String(value)
+      .split('?')[0]
+      .split('#')[0]
+      .replace(/\\/g, '/');
+
+    const fileName = cleanValue.split('/').pop() || cleanValue;
+    const dotIndex = fileName.lastIndexOf('.');
+
+    return dotIndex >= 0 ? fileName.substring(dotIndex + 1).toUpperCase() : '';
+  }
+};
+
+const getFormFileTypeForPreview = (item) => {
+  const fullUrl = getFullFileUrl(item?.fileUrl);
+  const fileName = getFileName(item?.fileUrl);
+
+  const candidates = [
+    item?.fileType,
+    item?.type,
+    fileName,
+    fullUrl,
+    item?.fileUrl,
+    item?.previewUrl,
+  ];
+
+  for (const candidate of candidates) {
+    const directType = String(candidate || '').trim().toUpperCase();
+
+    if (OFFICE_PREVIEW_TYPES.has(directType) || DIRECT_PREVIEW_TYPES.has(directType)) {
+      return directType;
+    }
+
+    const extension = getFileExtensionFromValue(candidate);
+
+    if (extension) {
+      return extension;
+    }
+  }
+
+  return '';
+};
+
+const shouldConvertFormFileToPdf = (item) => {
+  return OFFICE_PREVIEW_TYPES.has(getFormFileTypeForPreview(item));
+};
+
+const getBlobErrorMessage = async (error, fallbackMessage) => {
+  try {
+    const data = error?.response?.data;
+
+    if (data instanceof Blob) {
+      const text = await data.text();
+
+      if (!text) return fallbackMessage;
+
+      try {
+        const json = JSON.parse(text);
+        return json?.message || fallbackMessage;
+      } catch {
+        return text || fallbackMessage;
+      }
+    }
+
+    return error?.response?.data?.message || error?.message || fallbackMessage;
+  } catch {
+    return fallbackMessage;
+  }
+};
+
+const OfficeAppIcon = ({ app, colorStart, colorMid, colorEnd, panelColor, letter, size = 46 }) => {
+  const gradientId = `form-${app}-gradient`;
+  const panelGradientId = `form-${app}-panel-gradient`;
+  const shadowId = `form-${app}-shadow`;
+
+  return (
+    <Box
+      component="svg"
+      viewBox="0 0 64 64"
+      aria-hidden="true"
+      sx={{ width: size, height: size, display: 'block', flexShrink: 0 }}
+    >
+      <defs>
+        <linearGradient id={gradientId} x1="10" y1="8" x2="54" y2="58" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor={colorStart} />
+          <stop offset="0.52" stopColor={colorMid} />
+          <stop offset="1" stopColor={colorEnd} />
+        </linearGradient>
+        <linearGradient id={panelGradientId} x1="14" y1="18" x2="34" y2="44" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor={panelColor} />
+          <stop offset="1" stopColor={colorEnd} />
+        </linearGradient>
+        <filter id={shadowId} x="-20%" y="-20%" width="140%" height="150%" colorInterpolationFilters="sRGB">
+          <feDropShadow dx="0" dy="4" stdDeviation="3" floodOpacity="0.25" />
+        </filter>
+      </defs>
+
+      <rect
+        x="8"
+        y="7"
+        width="48"
+        height="50"
+        rx="13"
+        fill={`url(#${gradientId})`}
+        filter={`url(#${shadowId})`}
+      />
+      <path
+        d="M8 20C8 12.82 13.82 7 21 7h22c7.18 0 13 5.82 13 13v5H8v-5Z"
+        fill="#ffffff"
+        opacity="0.22"
+      />
+      <path d="M32 7h11c7.18 0 13 5.82 13 13v37H32V7Z" fill="#ffffff" opacity="0.12" />
+      <path d="M8 38h48v6H8v-6Z" fill="#000000" opacity="0.10" />
+
+      <rect
+        x="5"
+        y="18"
+        width="33"
+        height="31"
+        rx="6"
+        fill={`url(#${panelGradientId})`}
+        filter={`url(#${shadowId})`}
+      />
+
+      <text
+        x="21.5"
+        y="39.5"
+        textAnchor="middle"
+        fontSize="22"
+        fontWeight="800"
+        fill="#ffffff"
+        fontFamily="Arial, Helvetica, sans-serif"
+      >
+        {letter}
+      </text>
+    </Box>
+  );
+};
+
+const WordFileIcon = ({ size = 46 }) => (
+  <OfficeAppIcon
+    app="word"
+    colorStart="#41A5FF"
+    colorMid="#185ABD"
+    colorEnd="#0F3D91"
+    panelColor="#256FE6"
+    letter="W"
+    size={size}
+  />
+);
+
+const ExcelFileIcon = ({ size = 46 }) => (
+  <OfficeAppIcon
+    app="excel"
+    colorStart="#33C481"
+    colorMid="#107C41"
+    colorEnd="#0B5C2E"
+    panelColor="#168D4A"
+    letter="X"
+    size={size}
+  />
+);
+
+const PowerPointFileIcon = ({ size = 46 }) => (
+  <OfficeAppIcon
+    app="powerpoint"
+    colorStart="#FF8A65"
+    colorMid="#D24726"
+    colorEnd="#B33116"
+    panelColor="#C43E1C"
+    letter="P"
+    size={size}
+  />
+);
+
+const PdfFileIcon = ({ size = 46 }) => (
+  <Box
+    component="svg"
+    viewBox="0 0 64 64"
+    aria-hidden="true"
+    sx={{ width: size, height: size, display: 'block', flexShrink: 0 }}
+  >
+    <defs>
+      <linearGradient id="form-pdf-file-gradient" x1="14" y1="6" x2="54" y2="58" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stopColor="#FF2B33" />
+        <stop offset="1" stopColor="#E91F2A" />
+      </linearGradient>
+      <filter id="form-pdf-file-shadow" x="-20%" y="-20%" width="140%" height="150%" colorInterpolationFilters="sRGB">
+        <feDropShadow dx="0" dy="4" stdDeviation="3" floodOpacity="0.22" />
+      </filter>
+    </defs>
+
+    <path
+      d="M12 5h27l13 13v34c0 4.42-3.58 8-8 8H20c-4.42 0-8-3.58-8-8V5Z"
+      fill="url(#form-pdf-file-gradient)"
+      filter="url(#form-pdf-file-shadow)"
+    />
+    <path d="M39 5v13h13L39 5Z" fill="#FF8A8F" opacity="0.88" />
+    <path d="M39 18h13v1.5c0 1.2-1 2.2-2.2 2.2H41.2c-1.2 0-2.2-1-2.2-2.2V18Z" fill="#C71925" opacity="0.22" />
+    <text
+      x="32"
+      y="40"
+      textAnchor="middle"
+      fontSize="16"
+      fontWeight="900"
+      fill="#ffffff"
+      fontFamily="Arial, Helvetica, sans-serif"
+      letterSpacing="0.5"
+    >
+      PDF
+    </text>
+  </Box>
+);
+
+const ImageFileIcon = ({ size = 46 }) => (
+  <Box
+    component="svg"
+    viewBox="0 0 64 64"
+    aria-hidden="true"
+    sx={{ width: size, height: size, display: 'block', flexShrink: 0 }}
+  >
+    <defs>
+      <linearGradient id="form-image-file-gradient" x1="10" y1="8" x2="54" y2="56" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stopColor="#A78BFA" />
+        <stop offset="1" stopColor="#7C3AED" />
+      </linearGradient>
+      <filter id="form-image-file-shadow" x="-20%" y="-20%" width="140%" height="150%" colorInterpolationFilters="sRGB">
+        <feDropShadow dx="0" dy="4" stdDeviation="3" floodOpacity="0.20" />
+      </filter>
+    </defs>
+    <rect x="8" y="8" width="48" height="48" rx="13" fill="url(#form-image-file-gradient)" filter="url(#form-image-file-shadow)" />
+    <circle cx="24" cy="23" r="5" fill="#ffffff" opacity="0.95" />
+    <path d="M15 46 28 33l8 8 5-5 9 10H15Z" fill="#ffffff" opacity="0.95" />
+  </Box>
+);
+
+const GenericFileIcon = ({ size = 46 }) => (
+  <Box
+    component="svg"
+    viewBox="0 0 64 64"
+    aria-hidden="true"
+    sx={{ width: size, height: size, display: 'block', flexShrink: 0 }}
+  >
+    <defs>
+      <linearGradient id="form-generic-file-gradient" x1="10" y1="8" x2="54" y2="56" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stopColor="#94A3B8" />
+        <stop offset="1" stopColor="#475569" />
+      </linearGradient>
+      <filter id="form-generic-file-shadow" x="-20%" y="-20%" width="140%" height="150%" colorInterpolationFilters="sRGB">
+        <feDropShadow dx="0" dy="4" stdDeviation="3" floodOpacity="0.18" />
+      </filter>
+    </defs>
+    <path d="M13 5h28l10 10v40c0 3.3-2.7 6-6 6H19c-3.3 0-6-2.7-6-6V5Z" fill="url(#form-generic-file-gradient)" filter="url(#form-generic-file-shadow)" />
+    <path d="M41 5v10h10L41 5Z" fill="#CBD5E1" opacity="0.9" />
+    <path d="M22 28h20M22 37h20M22 46h14" stroke="#ffffff" strokeWidth="4" strokeLinecap="round" />
+  </Box>
+);
+
+const NoFileIcon = ({ size = 38 }) => (
+  <Box
+    component="svg"
+    viewBox="0 0 64 64"
+    aria-hidden="true"
+    sx={{ width: size, height: size, display: 'block', flexShrink: 0 }}
+  >
+    <defs>
+      <linearGradient id="form-nofile-gradient" x1="10" y1="8" x2="54" y2="56" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stopColor="#CBD5E1" />
+        <stop offset="1" stopColor="#94A3B8" />
+      </linearGradient>
+    </defs>
+    <path d="M13 5h28l10 10v40c0 3.3-2.7 6-6 6H19c-3.3 0-6-2.7-6-6V5Z" fill="url(#form-nofile-gradient)" />
+    <path d="M41 5v10h10L41 5Z" fill="#E2E8F0" />
+    <path d="m22 42 20-20M22 22l20 20" stroke="#64748B" strokeWidth="5" strokeLinecap="round" />
+  </Box>
+);
+
+const getFormFileIconMeta = (type) => {
+  const normalizedType = String(type || '').toUpperCase();
+
+  if (['DOC', 'DOCX'].includes(normalizedType)) {
+    return { title: 'Word file', icon: <WordFileIcon /> };
+  }
+
+  if (['XLS', 'XLSX', 'CSV'].includes(normalizedType)) {
+    return { title: 'Excel file', icon: <ExcelFileIcon /> };
+  }
+
+  if (['PPT', 'PPTX'].includes(normalizedType)) {
+    return { title: 'PowerPoint file', icon: <PowerPointFileIcon /> };
+  }
+
+  if (normalizedType === 'PDF') {
+    return { title: 'PDF file', icon: <PdfFileIcon /> };
+  }
+
+  if (['IMAGE', 'PNG', 'JPG', 'JPEG', 'WEBP', 'GIF'].includes(normalizedType)) {
+    return { title: 'Image file', icon: <ImageFileIcon /> };
+  }
+
+  if (normalizedType === 'NO FILE') {
+    return { title: 'No file attached', icon: <NoFileIcon /> };
+  }
+
+  return { title: `${normalizedType || 'File'} file`, icon: <GenericFileIcon /> };
+};
+
+const FormFileIcon = ({ type }) => {
+  const meta = getFormFileIconMeta(type);
+
+  return (
+    <Tooltip title={meta.title} arrow>
+      <Box
+        component="span"
+        sx={{
+          width: 50,
+          height: 50,
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+          lineHeight: 0,
+        }}
+      >
+        {meta.icon}
+      </Box>
+    </Tooltip>
+  );
+};
+
+const deleteForm = async (id) => {
+  const userId = getCurrentUserId();
+
+  if (!userId) {
+    throw new Error('User ID not found. Please login again.');
+  }
+
+  const response = await api.delete(`/api/forms/${id}`, {
+    params: {
+      userId,
+    },
+  });
+
+  return response.data;
+};
+
+const parseJsonSafely = (value) => {
+  try {
+    return value ? JSON.parse(value) : null;
+  } catch {
+    return null;
+  }
+};
+
+const decodeJwtPayload = (token) => {
+  try {
+    if (!token) return null;
+
+    const base64Url = token.split('.')[1];
+    if (!base64Url) return null;
+
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((char) => `%${`00${char.charCodeAt(0).toString(16)}`.slice(-2)}`)
+        .join(''),
+    );
+
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
+};
+
+const getCurrentUserId = () => {
+  const directUserId = localStorage.getItem('userId');
+  if (directUserId) return directUserId;
+
+  const userKeys = ['user', 'currentUser', 'authUser', 'userInfo'];
+
+  for (const key of userKeys) {
+    const user = parseJsonSafely(localStorage.getItem(key));
+
+    if (user?.id) return user.id;
+    if (user?.userId) return user.userId;
+    if (user?._id) return user._id;
+  }
+
+  const tokenPayload = decodeJwtPayload(localStorage.getItem('token'));
+
+  return tokenPayload?.id
+    || tokenPayload?.userId
+    || tokenPayload?._id
+    || tokenPayload?.sub
+    || '';
+};
+
 const getPreviewKind = (fileName, mimeType = '') => {
   const name = String(fileName || '').toLowerCase();
   const lowerMime = String(mimeType || '').toLowerCase();
@@ -145,6 +592,7 @@ const emptyPreviewState = {
   blobUrl: '',
   mimeType: '',
   fileName: '',
+  previewKind: '',
 };
 
 /* Headers */
@@ -283,28 +731,48 @@ export default function FormListDialog() {
   const [data, setData] = useState([]);
   const [totalElements, setTotalElements] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [currentDepartmentId, setCurrentDepartmentId] = useState('');
+  const [disableDepartmentSearch, setDisableDepartmentSearch] = useState(false);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(isLargeScreen ? 20 : 12);
   const [loading, setLoading] = useState(false);
-  const [sortConfig, setSortConfig] = useState({ key: 'createdAt', direction: 'desc' });
+  const [sortConfig, setSortConfig] = useState({ key: 'updatedAt', direction: 'desc' });
 
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'info' });
   const [openAdd, setOpenAdd] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
   const [currentItem, setCurrentItem] = useState(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedDeleteItem, setSelectedDeleteItem] = useState(null);
   const [previewState, setPreviewState] = useState(emptyPreviewState);
 
   const fetchData = useCallback(
     async (filters = {}, overrides = {}) => {
+      const userId = getCurrentUserId();
+
+      if (!userId) {
+        setNotification({
+          open: true,
+          message: 'User ID not found. Please login again.',
+          severity: 'error',
+        });
+
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+        return;
+      }
+
       setLoading(true);
 
       const effPage = overrides.page ?? page;
       const effSize = overrides.size ?? rowsPerPage;
 
       const params = {
+        userId,
+        skipDepartmentFilter: true,
         page: effPage,
         size: effSize,
-        sort: `${sortConfig.key || 'createdAt'},${sortConfig.direction || 'desc'}`,
         ...filters,
       };
 
@@ -319,6 +787,9 @@ export default function FormListDialog() {
         setData(content);
         setTotalElements(te);
         setTotalPages(tp);
+        setIsAdmin(Boolean(response.data?.isAdmin));
+        setCurrentDepartmentId(response.data?.currentDepartmentId || '');
+        setDisableDepartmentSearch(Boolean(response.data?.disableDepartmentSearch));
       } catch (error) {
         console.error('Error fetching forms:', error.response?.data || error.message);
         setNotification({ open: true, message: 'Failed to load forms', severity: 'error' });
@@ -332,11 +803,15 @@ export default function FormListDialog() {
   // Load dữ liệu ban đầu
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (!token) {
+    const userId = getCurrentUserId();
+
+    if (!token || !userId) {
       setNotification({ open: true, message: 'Please login to access this page.', severity: 'error' });
+      localStorage.removeItem('token');
       window.location.href = '/login';
       return;
     }
+
     fetchData({}, { page: 0 });
   }, [fetchData]);
 
@@ -352,6 +827,93 @@ export default function FormListDialog() {
       }
     };
   }, [previewState.blobUrl]);
+
+  const canModifyItem = useCallback((item, action = 'edit') => {
+    if (!item?.id) return false;
+    if (isAdmin) return true;
+
+    const key = action === 'delete' ? 'canDelete' : 'canEdit';
+
+    if (typeof item?.[key] === 'boolean') {
+      return item[key];
+    }
+
+    return Boolean(
+      currentDepartmentId &&
+      item?.departmentId &&
+      String(currentDepartmentId).trim() === String(item.departmentId).trim()
+    );
+  }, [isAdmin, currentDepartmentId]);
+
+  const handleOpenEdit = useCallback((item) => {
+    if (!canModifyItem(item, 'edit')) {
+      setNotification({
+        open: true,
+        message: 'Bạn chỉ được edit form thuộc phòng ban chính của bạn.',
+        severity: 'error',
+      });
+      return;
+    }
+
+    setCurrentItem(item);
+    setOpenEdit(true);
+  }, [canModifyItem]);
+
+  const handleOpenDelete = useCallback((item) => {
+    if (!canModifyItem(item, 'delete')) {
+      setNotification({
+        open: true,
+        message: 'Bạn chỉ được delete form thuộc phòng ban chính của bạn.',
+        severity: 'error',
+      });
+      return;
+    }
+
+    setSelectedDeleteItem(item);
+    setDeleteDialogOpen(true);
+  }, [canModifyItem]);
+
+  const handleCancelDelete = useCallback(() => {
+    setDeleteDialogOpen(false);
+    setSelectedDeleteItem(null);
+  }, []);
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!selectedDeleteItem?.id) return;
+
+    if (!canModifyItem(selectedDeleteItem, 'delete')) {
+      setNotification({
+        open: true,
+        message: 'Bạn chỉ được delete form thuộc phòng ban chính của bạn.',
+        severity: 'error',
+      });
+      handleCancelDelete();
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const result = await deleteForm(selectedDeleteItem.id);
+      setNotification({
+        open: true,
+        message: result?.message || 'Deleted successfully',
+        severity: 'success',
+      });
+
+      handleCancelDelete();
+      fetchData({}, { page });
+    } catch (error) {
+      console.error('Delete form error:', error);
+      setNotification({
+        open: true,
+        message: error?.response?.data?.message || error.message || 'Delete failed',
+        severity: 'error',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedDeleteItem, canModifyItem, handleCancelDelete, fetchData, page]);
 
   const handleSort = useCallback(
     (key) => {
@@ -411,22 +973,48 @@ export default function FormListDialog() {
 
     setPreviewState((prev) => {
       if (prev.blobUrl) URL.revokeObjectURL(prev.blobUrl);
-      return { open: true, loading: true, error: '', item, blobUrl: '', mimeType: '', fileName };
+
+      return {
+        ...emptyPreviewState,
+        open: true,
+        loading: true,
+        error: '',
+        item,
+        blobUrl: '',
+        mimeType: '',
+        fileName,
+        previewKind: '',
+      };
     });
 
     try {
-      const response = await axios.get(fullUrl, {
-        responseType: 'blob',
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-          Accept: '*/*',
-        },
-      });
+      const shouldConvertToPdf = shouldConvertFormFileToPdf(item);
 
-      const mimeType = response.headers['content-type'] || '';
+      const response = shouldConvertToPdf
+        ? await axios.get(`${API_BASE_URL}/api/files/preview-pdf`, {
+            params: {
+              fileUrl: fullUrl,
+            },
+            responseType: 'blob',
+            headers: getAuthHeaders('application/pdf'),
+          })
+        : await axios.get(fullUrl, {
+            responseType: 'blob',
+            headers: getAuthHeaders('*/*'),
+          });
+
+      const mimeType = shouldConvertToPdf
+        ? 'application/pdf'
+        : response.headers['content-type'] || response?.data?.type || '';
+
+      const previewKindValue = shouldConvertToPdf
+        ? 'pdf'
+        : getPreviewKind(fileName, mimeType);
+
       const blobUrl = URL.createObjectURL(response.data);
 
       setPreviewState({
+        ...emptyPreviewState,
         open: true,
         loading: false,
         error: '',
@@ -434,17 +1022,22 @@ export default function FormListDialog() {
         blobUrl,
         mimeType,
         fileName,
+        previewKind: previewKindValue,
       });
     } catch (error) {
       console.error('Preview error:', error);
+      const errorMessage = await getBlobErrorMessage(error, 'Unable to load file for preview. You can download it.');
+
       setPreviewState({
+        ...emptyPreviewState,
         open: true,
         loading: false,
-        error: 'Unable to load file for preview. You can download it.',
+        error: errorMessage,
         item,
         blobUrl: '',
         mimeType: '',
         fileName,
+        previewKind: '',
       });
     }
   }, []);
@@ -461,10 +1054,7 @@ export default function FormListDialog() {
     try {
       const response = await axios.get(fullUrl, {
         responseType: 'blob',
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-          Accept: '*/*',
-        },
+        headers: getAuthHeaders('*/*'),
       });
 
       const blobUrl = URL.createObjectURL(response.data);
@@ -484,8 +1074,8 @@ export default function FormListDialog() {
   }, []);
 
   const previewKind = useMemo(
-    () => getPreviewKind(previewState.fileName, previewState.mimeType),
-    [previewState.fileName, previewState.mimeType],
+    () => previewState.previewKind || getPreviewKind(previewState.fileName, previewState.mimeType),
+    [previewState.previewKind, previewState.fileName, previewState.mimeType],
   );
 
   return (
@@ -546,6 +1136,7 @@ export default function FormListDialog() {
         onSearch={handleSearch}
         onReset={handleResetFilter}
         disabled={loading}
+        disableDepartmentSearch={disableDepartmentSearch}
       />
 
       {/* Table */}
@@ -600,14 +1191,16 @@ export default function FormListDialog() {
                         </Tooltip>
                         {sortable && (
                           <Tooltip title="Sort" arrow>
-                            <IconButton
-                              size="small"
-                              onClick={() => handleSort(key)}
-                              sx={{ p: 0.25 }}
-                              disabled={loading}
-                            >
-                              <SortIndicator active={active} direction={sortConfig.direction} />
-                            </IconButton>
+                            <span>
+                              <IconButton
+                                size="small"
+                                onClick={() => handleSort(key)}
+                                sx={{ p: 0.25 }}
+                                disabled={loading}
+                              >
+                                <SortIndicator active={active} direction={sortConfig.direction} />
+                              </IconButton>
+                            </span>
                           </Tooltip>
                         )}
                       </Stack>
@@ -641,7 +1234,9 @@ export default function FormListDialog() {
                 data.map((item, idx) => {
                   const zebra = idx % 2 === 0 ? '#ffffff' : '#fafafa';
                   const fileName = getFileName(item.fileUrl);
-                  const fileType = item.fileType || getFileTypeFromUrl(item.fileUrl);
+                  const fileType = getFormFileTypeForPreview(item) || item.fileType || getFileTypeFromUrl(item.fileUrl);
+                  const editEnabled = canModifyItem(item, 'edit');
+                  const deleteEnabled = canModifyItem(item, 'delete');
 
                   return (
                     <TableRow
@@ -687,50 +1282,55 @@ export default function FormListDialog() {
                       >
                         {item.description || '-'}
                       </TableCell>
-                      <TableCell sx={{ py: 0.45, px: 0.7, minWidth: 240 }}>
+                      <TableCell sx={{ py: 0.45, px: 0.7, minWidth: 280 }}>
                         {item.fileUrl ? (
-                          <Stack spacing={0.5}>
-                            <Tooltip title={fileName} arrow>
-                              <Typography
-                                sx={{
-                                  fontSize: '0.75rem',
-                                  color: '#111827',
-                                  fontWeight: 500,
-                                  maxWidth: 220,
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap',
-                                }}
-                              >
-                                {fileName}
-                              </Typography>
-                            </Tooltip>
-                            <Box sx={{ ...pillSx, minWidth: 60, mx: 0, backgroundColor: getFileTypeColor(fileType) }}>
-                              {fileType}
-                            </Box>
-                            <Stack direction="row" spacing={0.5}>
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                startIcon={<Visibility fontSize="small" />}
-                                onClick={() => handleOpenPreview(item)}
-                                sx={{ minWidth: 'auto', px: 1, py: 0.2, fontSize: '0.68rem', textTransform: 'none' }}
-                              >
-                                View
-                              </Button>
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                startIcon={<Download fontSize="small" />}
-                                onClick={() => handleDownload(item)}
-                                sx={{ minWidth: 'auto', px: 1, py: 0.2, fontSize: '0.68rem', textTransform: 'none' }}
-                              >
-                                Download
-                              </Button>
+                          <Stack direction="row" spacing={1.1} alignItems="center">
+                            <FormFileIcon type={fileType} />
+
+                            <Stack spacing={0.5} sx={{ minWidth: 0 }}>
+                              <Tooltip title={fileName} arrow>
+                                <Typography
+                                  sx={{
+                                    fontSize: '0.75rem',
+                                    color: '#111827',
+                                    fontWeight: 500,
+                                    maxWidth: 220,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  {fileName}
+                                </Typography>
+                              </Tooltip>
+
+                              <Stack direction="row" spacing={0.5}>
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  startIcon={<Visibility fontSize="small" />}
+                                  onClick={() => handleOpenPreview(item)}
+                                  sx={{ minWidth: 'auto', px: 1, py: 0.2, fontSize: '0.68rem', textTransform: 'none' }}
+                                >
+                                  View
+                                </Button>
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  startIcon={<Download fontSize="small" />}
+                                  onClick={() => handleDownload(item)}
+                                  sx={{ minWidth: 'auto', px: 1, py: 0.2, fontSize: '0.68rem', textTransform: 'none' }}
+                                >
+                                  Download
+                                </Button>
+                              </Stack>
                             </Stack>
                           </Stack>
                         ) : (
-                          <Typography sx={{ fontSize: '0.75rem', color: '#9ca3af' }}>No file</Typography>
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <FormFileIcon type="NO FILE" />
+                            <Typography sx={{ fontSize: '0.75rem', color: '#9ca3af' }}>No file</Typography>
+                          </Stack>
                         )}
                       </TableCell>
                       <TableCell
@@ -740,22 +1340,35 @@ export default function FormListDialog() {
                       </TableCell>
                       <TableCell align="center" sx={{ py: 0.45, px: 0.7 }}>
                         <Stack direction="row" spacing={0.3} justifyContent="center">
-                          <Tooltip title="Edit Form" arrow>
-                            <IconButton
-                              color="primary"
-                              size="small"
-                              onClick={() => {
-                                setCurrentItem(item);
-                                setOpenEdit(true);
-                              }}
-                            >
-                              <Edit fontSize="small" />
-                            </IconButton>
+                          <Tooltip
+                            title={editEnabled ? 'Edit Form' : 'Bạn chỉ được edit form thuộc phòng ban chính của bạn'}
+                            arrow
+                          >
+                            <span>
+                              <IconButton
+                                color="primary"
+                                size="small"
+                                disabled={loading || !editEnabled}
+                                onClick={() => handleOpenEdit(item)}
+                              >
+                                <Edit fontSize="small" />
+                              </IconButton>
+                            </span>
                           </Tooltip>
-                          <Tooltip title="Delete Form" arrow>
-                            <IconButton color="error" size="small">
-                              <Delete fontSize="small" />
-                            </IconButton>
+                          <Tooltip
+                            title={deleteEnabled ? 'Delete Form' : 'Bạn chỉ được delete form thuộc phòng ban chính của bạn'}
+                            arrow
+                          >
+                            <span>
+                              <IconButton
+                                color="error"
+                                size="small"
+                                disabled={loading || !deleteEnabled}
+                                onClick={() => handleOpenDelete(item)}
+                              >
+                                <Delete fontSize="small" />
+                              </IconButton>
+                            </span>
                           </Tooltip>
                         </Stack>
                       </TableCell>
@@ -798,6 +1411,9 @@ export default function FormListDialog() {
       {/* Dialogs */}
       <AddFormDialog
         open={openAdd}
+        isAdmin={isAdmin}
+        currentDepartmentId={currentDepartmentId}
+        disableDepartmentSearch={disableDepartmentSearch}
         onClose={() => setOpenAdd(false)}
         onSuccess={() => {
           setOpenAdd(false);
@@ -808,6 +1424,9 @@ export default function FormListDialog() {
       <EditFormDialog
         open={openEdit}
         form={currentItem}
+        isAdmin={isAdmin}
+        currentDepartmentId={currentDepartmentId}
+        disableDepartmentSearch={disableDepartmentSearch}
         onClose={() => {
           setOpenEdit(false);
           setCurrentItem(null);
@@ -818,6 +1437,54 @@ export default function FormListDialog() {
           fetchData();
         }}
       />
+
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={loading ? undefined : handleCancelDelete}
+        PaperProps={{ sx: { borderRadius: 1.5, border: '1px solid #e5e7eb' } }}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ px: 1.5, py: 1.1, borderBottom: '1px solid #e5e7eb', backgroundColor: '#fff' }}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between">
+            <Typography sx={{ fontSize: '0.95rem', fontWeight: 600, color: '#111827' }}>
+              Delete Form
+            </Typography>
+            <IconButton
+              size="small"
+              onClick={handleCancelDelete}
+              disabled={loading}
+              sx={{ border: '1px solid #e5e7eb' }}
+            >
+              <Close fontSize="small" />
+            </IconButton>
+          </Stack>
+        </DialogTitle>
+
+        <DialogContent sx={{ p: 1.5, backgroundColor: '#fff' }}>
+          <Typography sx={{ fontSize: '0.9rem', color: '#111827' }}>
+            Are you sure you want to delete <strong>{selectedDeleteItem?.title || 'Unknown'}</strong>?
+          </Typography>
+          <Typography sx={{ mt: 0.5, fontSize: '0.78rem', color: 'text.secondary' }}>
+            This action cannot be undone.
+          </Typography>
+        </DialogContent>
+
+        <DialogActions sx={{ px: 1.5, py: 1.1, borderTop: '1px solid #e5e7eb', backgroundColor: '#fff' }}>
+          <Button onClick={handleCancelDelete} disabled={loading} sx={{ textTransform: 'none', fontWeight: 400 }}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleConfirmDelete}
+            variant="contained"
+            color="error"
+            disabled={loading || !canModifyItem(selectedDeleteItem, 'delete')}
+            sx={{ textTransform: 'none', fontWeight: 400 }}
+          >
+            {loading ? <CircularProgress size={18} /> : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Preview Dialog */}
       <Dialog

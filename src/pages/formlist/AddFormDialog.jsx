@@ -26,7 +26,7 @@ import InfoRoundedIcon from "@mui/icons-material/InfoRounded";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 
 import axios from "axios";
-import { API_BASE_URL } from "../../config";   // Nếu bạn có config, còn không thì dùng trực tiếp "http://localhost:8080"
+import { API_BASE_URL } from "../../config";
 
 const DEPT_API = `${API_BASE_URL}/api/departments`;
 
@@ -47,6 +47,7 @@ export default function AddFormDialog({
 
   const [departments, setDepartments] = useState([]);
   const [loadingDept, setLoadingDept] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -63,26 +64,90 @@ export default function AddFormDialog({
     setSnackbarOpen(true);
   };
 
-  /* =========================
-     LOAD DEPARTMENTS
-     ========================= */
-  const fetchDepartments = async () => {
-    setLoadingDept(true);
+  const getLoggedInUserId = () => {
     try {
-      const res = await axios.get(DEPT_API);
-      setDepartments(Array.isArray(res.data) ? res.data : []);
-    } catch (err) {
-      console.error(err);
-      toast("Không tải được danh sách phòng ban", "error");
+      const userStr = localStorage.getItem("user");
+
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        return user?.id || user?.userId || user?._id || "";
+      }
+    } catch (e) {
+      console.error("Cannot parse user from localStorage", e);
     }
-    setLoadingDept(false);
+
+    return localStorage.getItem("userId") || "";
   };
 
   /* =========================
-     RESET WHEN OPEN
+     LOAD DEPARTMENTS BY USER
+     ========================= */
+  const fetchDepartments = async () => {
+    setLoadingDept(true);
+
+    try {
+      const loggedInUserId = getLoggedInUserId();
+
+      if (!loggedInUserId) {
+        toast("Không tìm thấy userId của user đang đăng nhập", "error");
+        setDepartments([]);
+        setDepartmentId("");
+        setIsAdmin(false);
+        return;
+      }
+
+      const res = await axios.get(`${DEPT_API}/search`, {
+        params: {
+          userId: loggedInUserId
+        },
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`
+        }
+      });
+
+      const admin = Boolean(res.data?.isAdmin);
+      const list = Array.isArray(res.data?.departments)
+        ? res.data.departments
+        : [];
+
+      setIsAdmin(admin);
+      setDepartments(list);
+
+      if (admin) {
+        // Admin được phép chọn department khi tạo form.
+        setDepartmentId("");
+      } else {
+        // User thường không được chọn department.
+        // Department mặc định là phòng ban chính của user do API trả về.
+        setDepartmentId(list[0]?.id || "");
+      }
+    } catch (err) {
+      console.error(err);
+      toast("Không tải được danh sách phòng ban", "error");
+      setDepartments([]);
+      setDepartmentId("");
+      setIsAdmin(false);
+    } finally {
+      setLoadingDept(false);
+    }
+  };
+
+  /* =========================
+     RESET WHEN OPEN / CLOSE
      ========================= */
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setTitle("");
+      setDescription("");
+      setDepartmentId("");
+      setFile(null);
+      setDepartments([]);
+      setIsAdmin(false);
+      setLoadingDept(false);
+      setSaving(false);
+      setConfirmOpen(false);
+      return;
+    }
 
     setTitle("");
     setDescription("");
@@ -102,7 +167,7 @@ export default function AddFormDialog({
 
   const validate = () => {
     if (!title.trim()) return "Tiêu đề không được để trống";
-    if (!departmentId) return "Vui lòng chọn phòng ban";
+    if (!departmentId) return "Phòng ban không hợp lệ";
     if (!file) return "Vui lòng chọn file";
     return null;
   };
@@ -114,7 +179,7 @@ export default function AddFormDialog({
   };
 
   /* =========================
-     CREATE FORM - GIỐNG NOTICE
+     CREATE FORM
      ========================= */
   const handleConfirm = async () => {
     setConfirmOpen(false);
@@ -128,7 +193,7 @@ export default function AddFormDialog({
         params: {
           title: title.trim(),
           description: description.trim(),
-          departmentId: departmentId
+          departmentId
         },
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`
@@ -138,7 +203,6 @@ export default function AddFormDialog({
       toast("Tạo form thành công!", "success");
       onSuccess?.();
       handleClose();
-
     } catch (err) {
       console.error(err);
       const msg = err?.response?.data?.message || "Tạo form thất bại";
@@ -149,7 +213,7 @@ export default function AddFormDialog({
   };
 
   /* =========================
-     STYLES - GIỐNG NOTICE
+     STYLES
      ========================= */
   const paperSx = useMemo(() => ({
     borderRadius: fullScreen ? 0 : 4,
@@ -208,7 +272,9 @@ export default function AddFormDialog({
             </Stack>
           </Stack>
         </DialogTitle>
-        <br></br>
+
+        <br />
+
         <DialogContent sx={{ p: 3 }}>
           <Stack spacing={2.5}>
             <TextField
@@ -229,20 +295,22 @@ export default function AddFormDialog({
               minRows={3}
             />
 
-            <TextField
-              select
-              label="Department *"
-              value={departmentId}
-              onChange={(e) => setDepartmentId(e.target.value)}
-              disabled={locked || loadingDept}
-              fullWidth
-            >
-              {departments.map((d) => (
-                <MenuItem key={d.id} value={d.id}>
-                  {d.departmentName} ({d.division})
-                </MenuItem>
-              ))}
-            </TextField>
+            {isAdmin && (
+              <TextField
+                select
+                label="Department *"
+                value={departmentId}
+                onChange={(e) => setDepartmentId(e.target.value)}
+                disabled={locked || loadingDept}
+                fullWidth
+              >
+                {departments.map((d) => (
+                  <MenuItem key={d.id} value={d.id}>
+                    {d.departmentName} ({d.division})
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
 
             <Box>
               <Button
@@ -287,7 +355,13 @@ export default function AddFormDialog({
           <Button
             onClick={handleSubmit}
             variant="contained"
-            disabled={locked || !title.trim() || !departmentId || !file}
+            disabled={
+              locked ||
+              loadingDept ||
+              !title.trim() ||
+              !departmentId ||
+              !file
+            }
             sx={gradientBtnSx}
           >
             {saving ? <CircularProgress size={20} color="inherit" /> : "Create Form"}

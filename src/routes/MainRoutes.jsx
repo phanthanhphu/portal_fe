@@ -9,7 +9,7 @@ import PageHome from './PageHome';
 
 // ==============================|| LAZY LOADED PAGES ||============================== //
 
-const DashboardDefault = Loadable(lazy(() => import('pages/dashboard/default')));
+// const DashboardDefault = Loadable(lazy(() => import('pages/dashboard/default')));
 
 // Department
 const DepartmentPage = Loadable(lazy(() => import('pages/department/DepartmentManagement')));
@@ -148,10 +148,10 @@ const MainRoutes = {
           path: '/',
           element: <DashboardLayout />,
           children: [
-            {
-              path: 'dashboard',
-              element: <DashboardDefault />
-            },
+            // {
+            //   path: 'dashboard',
+            //   element: <DashboardDefault />
+            // },
 
             {
               path: 'app-links',

@@ -48,6 +48,7 @@ export default function AddNoticeDialog({
 
   const [departments, setDepartments] = useState([]);
   const [loadingDept, setLoadingDept] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -62,14 +63,66 @@ export default function AddNoticeDialog({
     setSnackbarOpen(true);
   };
 
+  const getLoggedInUserId = () => {
+    try {
+      const userStr = localStorage.getItem("user");
+
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        return user?.id || user?.userId || user?._id || "";
+      }
+    } catch (e) {
+      console.error(e);
+    }
+
+    return localStorage.getItem("userId") || "";
+  };
+
   const fetchDepartments = async () => {
     setLoadingDept(true);
+
     try {
-      const res = await axios.get(DEPT_API);
-      setDepartments(Array.isArray(res.data) ? res.data : []);
+      const loggedInUserId = getLoggedInUserId();
+
+      if (!loggedInUserId) {
+        toast("Không tìm thấy userId đăng nhập", "error");
+        setDepartments([]);
+        setDepartmentId("");
+        setIsAdmin(false);
+        return;
+      }
+
+      const res = await axios.get(`${DEPT_API}/search`, {
+        params: {
+          userId: loggedInUserId
+        },
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`
+        }
+      });
+
+      const admin = Boolean(res.data?.isAdmin);
+      const list = Array.isArray(res.data?.departments)
+        ? res.data.departments
+        : [];
+
+      setIsAdmin(admin);
+      setDepartments(list);
+
+      if (admin) {
+        // Admin được phép chọn department muốn tạo notice.
+        setDepartmentId("");
+      } else {
+        // User thường không được chọn department.
+        // Department mặc định chính là phòng ban của user do API trả về.
+        setDepartmentId(list[0]?.id || "");
+      }
     } catch (err) {
       console.error(err);
       toast("Không tải được danh sách phòng ban", "error");
+      setDepartments([]);
+      setDepartmentId("");
+      setIsAdmin(false);
     } finally {
       setLoadingDept(false);
     }
@@ -83,6 +136,7 @@ export default function AddNoticeDialog({
       setFile(null);
       setDepartmentId("");
       setDepartments([]);
+      setIsAdmin(false);
       setLoadingDept(false);
       setSaving(false);
       setConfirmOpen(false);
@@ -92,25 +146,12 @@ export default function AddNoticeDialog({
     fetchDepartments();
   }, [open]);
 
-  const getLoggedInUserId = () => {
-    try {
-      const userStr = localStorage.getItem("user");
-      if (userStr) {
-        const user = JSON.parse(userStr);
-        return user?.id || user?.userId || user?._id || "";
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    return localStorage.getItem("userId") || "";
-  };
-
   const locked = saving || disabled;
 
   const validate = () => {
     if (!title.trim()) return "Title is required";
     if (!content.trim()) return "Content is required";
-    if (!departmentId) return "Please select a department";
+    if (!departmentId) return "Department is required";
     return null;
   };
 
@@ -120,10 +161,12 @@ export default function AddNoticeDialog({
 
   const handleSubmit = () => {
     const err = validate();
+
     if (err) {
       toast(err, "error");
       return;
     }
+
     setConfirmOpen(true);
   };
 
@@ -272,22 +315,24 @@ export default function AddNoticeDialog({
               sx={fieldSx}
             />
 
-            <TextField
-              select
-              label="Department *"
-              value={departmentId}
-              onChange={(e) => setDepartmentId(e.target.value)}
-              disabled={locked || loadingDept}
-              size="small"
-              fullWidth
-              sx={fieldSx}
-            >
-              {departments.map((d) => (
-                <MenuItem key={d.id} value={d.id}>
-                  {d.departmentName} ({d.division})
-                </MenuItem>
-              ))}
-            </TextField>
+            {isAdmin && (
+              <TextField
+                select
+                label="Department *"
+                value={departmentId}
+                onChange={(e) => setDepartmentId(e.target.value)}
+                disabled={locked || loadingDept}
+                size="small"
+                fullWidth
+                sx={fieldSx}
+              >
+                {departments.map((d) => (
+                  <MenuItem key={d.id} value={d.id}>
+                    {d.departmentName} ({d.division})
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
 
             <Box>
               <Button variant="outlined" component="label" disabled={locked}>
@@ -346,7 +391,13 @@ export default function AddNoticeDialog({
           <Button
             onClick={handleSubmit}
             variant="contained"
-            disabled={locked || !title.trim() || !content.trim() || !departmentId}
+            disabled={
+              locked ||
+              loadingDept ||
+              !title.trim() ||
+              !content.trim() ||
+              !departmentId
+            }
             sx={gradientBtnSx}
           >
             {saving ? <CircularProgress size={20} /> : "Create"}

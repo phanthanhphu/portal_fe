@@ -1952,3 +1952,134 @@ svg {
     line-height: 1.08;
   }
 }
+
+
+/* ===== file preview: PDF / Office / Excel / Word / Text ===== */
+.portal-modal-body {
+  overflow: hidden;
+  background: #f8fbff;
+}
+
+.portal-docx-preview {
+  height: min(78vh, 820px);
+  overflow: auto;
+  padding: 32px;
+  background: #eef3fb;
+}
+
+.portal-docx-preview__content {
+  max-width: 920px;
+  min-height: 100%;
+  margin: 0 auto;
+  padding: 48px;
+  background: #fff;
+  color: #111827;
+  border-radius: 18px;
+  box-shadow: 0 20px 55px rgba(15, 29, 53, 0.13);
+  line-height: 1.75;
+}
+
+.portal-docx-preview__content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+}
+
+.portal-docx-preview__content th,
+.portal-docx-preview__content td {
+  border: 1px solid #d7deea;
+  padding: 8px 10px;
+  vertical-align: top;
+}
+
+.portal-docx-preview__content img {
+  max-width: 100%;
+  height: auto;
+}
+
+.portal-docx-preview__notes {
+  max-width: 920px;
+  margin: 16px auto 0;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: #fff7ed;
+  color: #9a3412;
+  border: 1px solid #fed7aa;
+  line-height: 1.65;
+}
+
+.portal-sheet-preview {
+  height: min(78vh, 820px);
+  display: flex;
+  flex-direction: column;
+  background: #f8fbff;
+}
+
+.portal-sheet-preview__tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(133, 157, 199, 0.18);
+  overflow-x: auto;
+  background: #fff;
+}
+
+.portal-sheet-preview__tab {
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: rgba(39, 73, 255, 0.08);
+  color: var(--portal-text-soft);
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.portal-sheet-preview__tab.is-active {
+  background: linear-gradient(135deg, var(--portal-primary), var(--portal-sky));
+  color: #fff;
+}
+
+.portal-sheet-preview__table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 18px;
+}
+
+.portal-sheet-preview__table {
+  border-collapse: collapse;
+  min-width: 100%;
+  background: #fff;
+  box-shadow: 0 18px 42px rgba(15, 29, 53, 0.08);
+}
+
+.portal-sheet-preview__table td {
+  min-width: 110px;
+  max-width: 320px;
+  padding: 8px 10px;
+  border: 1px solid #dbe3ef;
+  color: #111827;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  vertical-align: top;
+}
+
+.portal-text-preview {
+  height: min(78vh, 820px);
+  margin: 0;
+  overflow: auto;
+  padding: 28px;
+  background: #0f172a;
+  color: #e5e7eb;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.86rem;
+  line-height: 1.7;
+}
+
+.portal-modal-frame {
+  background: #f8fbff;
+}

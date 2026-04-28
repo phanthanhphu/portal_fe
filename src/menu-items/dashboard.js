@@ -57,14 +57,14 @@ const getDashboardMenu = () => {
   const role = localStorage.getItem('role');
 
   const baseChildren = [
-    {
-      id: 'dashboard',
-      title: 'Dashboard',
-      type: 'item',
-      url: '/dashboard',
-      icon: icons.dashboard,
-      breadcrumbs: false
-    },
+    // {
+    //   id: 'dashboard',
+    //   title: 'Dashboard',
+    //   type: 'item',
+    //   url: '/dashboard',
+    //   icon: icons.dashboard,
+    //   breadcrumbs: false
+    // },
     {
       id: 'app-links',
       title: 'App Links',
