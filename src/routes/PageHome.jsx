@@ -753,8 +753,8 @@ async function buildPreviewData(item, blob, mimeType = "") {
           previewKind: "docx",
           blobUrl: "",
           docHtml: `
-            <div class="portal-docx-preview__content">${result.value || "<p>Không có nội dung để hiển thị.</p>"}</div>
-            ${messages ? `<div class="portal-docx-preview__notes"><strong>Lưu ý định dạng</strong><ul>${messages}</ul></div>` : ""}
+            <div class="portal-docx-preview__content">${result.value || "<p>No content available to display.</p>"}</div>
+            ${messages ? `<div class="portal-docx-preview__notes"><strong>Formatting notes</strong><ul>${messages}</ul></div>` : ""}
           `,
           workbookSheets: [],
           activeSheetName: "",
@@ -883,9 +883,9 @@ function FileActions({ item, onPreview, onDownload, compact = false }) {
           type="button"
           className="portal-btn portal-btn--ghost"
           disabled
-          title="Mục này chưa có file đính kèm"
+          title="This item has no attached file"
         >
-          Không có file
+          No file
         </button>
       </div>
     );
@@ -905,7 +905,7 @@ function FileActions({ item, onPreview, onDownload, compact = false }) {
         className="portal-btn portal-btn--ghost"
         onClick={() => onDownload(item)}
       >
-        Tải
+        Download
       </button>
     </div>
   );
@@ -923,8 +923,8 @@ function DocumentTypeSection({
 }) {
   const loaded = Array.isArray(forms);
   const countText = loaded
-    ? `${forms.length} ducument`
-    : "Bấm mũi tên để tải";
+    ? `${forms.length} document`
+    : "Click the arrow to load";
 
   return (
     <div className="portal-dept-card portal-document-type-card">
@@ -934,7 +934,7 @@ function DocumentTypeSection({
             <IconFileText />
           </span>
           <div>
-            <strong>{type.name || "Ducument"}</strong>
+            <strong>{type.name || "Document"}</strong>
             <span>{countText}</span>
           </div>
         </div>
@@ -943,7 +943,7 @@ function DocumentTypeSection({
           type="button"
           className={`portal-document-type-card__toggle ${isOpen ? "is-open" : ""}`}
           onClick={() => onToggle(type)}
-          title={isOpen ? "Thu gọn" : "Mở danh sách ducument"}
+          title={isOpen ? "Collapse" : "Open document list"}
         >
           {isOpen ? <IconChevronUp /> : <IconChevronDown />}
         </button>
@@ -951,11 +951,11 @@ function DocumentTypeSection({
 
       {isOpen ? (
         <div className="portal-document-type-card__body">
-          {loading ? <div className="portal-empty">Đang tải {type.name}...</div> : null}
+          {loading ? <div className="portal-empty">Loading {type.name}...</div> : null}
           {error ? <div className="portal-empty">{error}</div> : null}
 
           {!loading && !error && forms.length === 0 ? (
-            <div className="portal-empty">Chưa có ducument thuộc loại {type.name}.</div>
+            <div className="portal-empty">No documents found for type {type.name}.</div>
           ) : null}
 
           {!loading && !error && forms.length > 0 ? (
@@ -1010,14 +1010,14 @@ function PreviewModal({ previewState, onClose, onDownload, onSelectSheet }) {
 
         <div className="portal-modal-body">
           {previewState.loading ? (
-            <div className="portal-empty">Đang tải file...</div>
+            <div className="portal-empty">Loading file...</div>
           ) : previewState.error ? (
             <div className="portal-empty">
               <p>{previewState.error}</p>
               {previewState.item ? (
                 <div className="portal-file-actions" style={{ marginTop: 12 }}>
                   <button type="button" className="portal-btn portal-btn--dark" onClick={() => onDownload(previewState.item)}>
-                    Tải file
+                    Download file
                   </button>
                 </div>
               ) : null}
@@ -1036,7 +1036,7 @@ function PreviewModal({ previewState, onClose, onDownload, onSelectSheet }) {
               className="portal-modal-frame"
             />
           ) : previewState.previewKind === "docx" ? (
-            <div className="portal-docx-preview" dangerouslySetInnerHTML={{ __html: previewState.docHtml || "<p>Không có nội dung để hiển thị.</p>" }} />
+            <div className="portal-docx-preview" dangerouslySetInnerHTML={{ __html: previewState.docHtml || "<p>No content available to display.</p>" }} />
           ) : previewState.previewKind === "spreadsheet" ? (
             <div className="portal-sheet-preview">
               <div className="portal-sheet-preview__tabs">
@@ -1068,32 +1068,32 @@ function PreviewModal({ previewState, onClose, onDownload, onSelectSheet }) {
                     </tbody>
                   </table>
                 ) : (
-                  <div className="portal-empty">Sheet này chưa có dữ liệu để hiển thị.</div>
+                  <div className="portal-empty">This sheet has no data to display.</div>
                 )}
               </div>
             </div>
           ) : previewState.previewKind === "text" ? (
-            <pre className="portal-text-preview">{previewState.textContent || "Không có nội dung văn bản."}</pre>
+            <pre className="portal-text-preview">{previewState.textContent || "No text content available."}</pre>
           ) : previewState.previewKind === "office-fallback" ? (
             <div className="portal-empty">
               <p>
-                Không thể hiển thị đúng định dạng file <strong>{previewState.originalFileType || "Office"}</strong> ở trình duyệt.
+                Unable to display the file format correctly <strong>{previewState.originalFileType || "Office"}</strong> in the browser.
               </p>
               <p>
-                Hãy cấu hình backend API <strong>/api/files/preview-pdf</strong> để convert DOC/DOCX/XLS/XLSX/PPT/PPTX sang PDF,
-                hoặc tải file xuống để mở bằng ứng dụng phù hợp.
+                Please configure the backend API <strong>/api/files/preview-pdf</strong> to convert DOC/DOCX/XLS/XLSX/PPT/PPTX to PDF,
+                or download the file to open it with the appropriate application.
               </p>
               {previewState.item ? (
                 <div className="portal-file-actions" style={{ marginTop: 12 }}>
                   <button type="button" className="portal-btn portal-btn--dark" onClick={() => onDownload(previewState.item)}>
-                    Tải file
+                    Download file
                   </button>
                 </div>
               ) : null}
             </div>
           ) : (
             <div className="portal-empty">
-              Chưa hỗ trợ preview trực tiếp cho file này. Bạn hãy tải file để mở bằng ứng dụng phù hợp.
+              Direct preview is not supported for this file. Please download it and open it with the appropriate application.
             </div>
           )}
         </div>
@@ -1255,14 +1255,14 @@ export default function PageHome() {
       const data = await response.json();
       const normalizedApps = (data.content || []).map((item) => ({
         id: item.id,
-        name: item.name || "Ứng dụng",
+        name: item.name || "Application",
         url: item.url ? toAbsoluteUrl(item.url) : "#",
         icon: item.icon ? toAbsoluteUrl(item.icon) : "",
       }));
 
       setApps(normalizedApps);
     } catch (error) {
-      setErrorApps("Không tải được links.");
+      setErrorApps("Unable to load links.");
       setApps([]);
     } finally {
       setLoadingApps(false);
@@ -1285,13 +1285,13 @@ export default function PageHome() {
         .map((item) => ({
           id: item.id,
           division: item.division || "",
-          departmentName: item.departmentName || "Chưa xác định",
+          departmentName: item.departmentName || "Unspecified",
         }))
         .sort((a, b) => a.departmentName.localeCompare(b.departmentName, "vi"));
 
       setDepartments(normalizedDepartments);
     } catch (error) {
-      setErrorDepartments("Không tải được phòng ban.");
+      setErrorDepartments("Unable to load departments.");
       setDepartments([]);
     } finally {
       setLoadingDepartments(false);
@@ -1304,12 +1304,12 @@ export default function PageHome() {
     return {
       id: item.id,
       typeId: item.typeId || type?.id || "",
-      typeName: type?.name || item.typeName || "Ducument",
-      title: item.title || "Biểu mẫu",
+      typeName: type?.name || item.typeName || "Document",
+      title: item.title || "Form",
       fileType: fileUrl ? (item.fileType || inferFileType(item.fileUrl)) : "NO FILE",
       fileUrl,
       previewUrl: item.previewUrl ? toAbsoluteUrl(item.previewUrl) : null,
-      departmentName: item.departmentName || "Chưa xác định",
+      departmentName: item.departmentName || "Unspecified",
       division: item.division || "",
       createdAt: item.createdAt || null,
       updatedAt: item.updatedAt || null,
@@ -1350,7 +1350,7 @@ export default function PageHome() {
     } catch (error) {
       setErrorFormsByTypeId((prev) => ({
         ...prev,
-        [type.id]: `Không tải được ducument loại ${type.name}.`,
+        [type.id]: `Unable to load documents for type ${type.name}.`,
       }));
       setFormsByTypeId((prev) => ({ ...prev, [type.id]: [] }));
     } finally {
@@ -1375,7 +1375,7 @@ export default function PageHome() {
           .filter((item) => item?.id)
           .map((item) => ({
             id: item.id,
-            name: item.name || "Ducument",
+            name: item.name || "Document",
             createdAt: item.createdAt || null,
             updatedAt: item.updatedAt || null,
           })),
@@ -1391,7 +1391,7 @@ export default function PageHome() {
         await fetchFormsByType(defaultType, { title: formTitleSearch.trim(), force: true });
       }
     } catch (error) {
-      setErrorForms("Không tải được loại ducument.");
+      setErrorForms("Unable to load document types.");
       setDocumentTypes([]);
       setDefaultDocumentTypeId("");
       setOpenDocumentTypeIds([]);
@@ -1408,7 +1408,7 @@ export default function PageHome() {
 
     return {
       id: item.id,
-      title: item.title || "Thông báo",
+      title: item.title || "Notice",
       content: item.content || "",
       pinned: !!item.pinned,
       fileUrl,
@@ -1452,7 +1452,7 @@ export default function PageHome() {
       setFeaturedPinnedNotice(normalizedFeaturedPinnedNotice);
       setNotices(normalizedNotices);
     } catch (error) {
-      setErrorNotices("Không tải được thông báo.");
+      setErrorNotices("Unable to load notices.");
       setFeaturedPinnedNotice(null);
       setNotices([]);
     } finally {
@@ -1565,7 +1565,7 @@ export default function PageHome() {
       setPreviewState({
         ...EMPTY_PREVIEW_STATE,
         open: true,
-        error: "Mục này chưa có file đính kèm.",
+        error: "This item has no attached file.",
         item,
         fileName: getDownloadFileName(item),
       });
@@ -1629,7 +1629,7 @@ export default function PageHome() {
       setPreviewState({
         ...EMPTY_PREVIEW_STATE,
         open: true,
-        error: "Không tải được file để preview. Bạn hãy thử tải file xuống.",
+        error: "Unable to load the file for preview. Please try downloading it.",
         item,
         fileName: getDownloadFileName(item),
       });
@@ -1642,7 +1642,7 @@ export default function PageHome() {
       setPreviewState({
         ...EMPTY_PREVIEW_STATE,
         open: true,
-        error: "Mục này chưa có file đính kèm để tải xuống.",
+        error: "This item has no attached file to download.",
         item,
         fileName: getDownloadFileName(item),
       });
@@ -1663,7 +1663,7 @@ export default function PageHome() {
       setPreviewState({
         ...EMPTY_PREVIEW_STATE,
         open: true,
-        error: "Không tải được file. Bạn hãy kiểm tra token hoặc quyền truy cập file.",
+        error: "Unable to download the file. Please check your token or file access permission.",
         item,
         fileName: getDownloadFileName(item),
       });
@@ -1687,8 +1687,8 @@ export default function PageHome() {
     const alreadyOpen = openDocumentTypeIds.includes(type.id);
     const willOpen = !alreadyOpen;
 
-    // Cho phép mọi type, kể cả type ưu tiên "Form", được bấm mở/thu gọn.
-    // Form vẫn tự mở lần đầu khi load web trong fetchDocumentTypes().
+    // Allow every type, including the default "Form" type, to be opened or collapsed.
+    // Form still opens automatically on first page load in fetchDocumentTypes().
     setOpenDocumentTypeIds((prev) => (
       alreadyOpen
         ? prev.filter((id) => id !== type.id)
@@ -1769,9 +1769,9 @@ const visibleNotices = useMemo(() => {
   const heroPinnedNotice = featuredNotice;
 
   const heroPinnedNoticeTime = useMemo(() => {
-    if (!heroPinnedNotice) return "Chưa có dữ liệu";
+    if (!heroPinnedNotice) return "No data yet";
 
-    return formatDateTime(heroPinnedNotice.updatedAt || heroPinnedNotice.createdAt) || "Chưa có dữ liệu";
+    return formatDateTime(heroPinnedNotice.updatedAt || heroPinnedNotice.createdAt) || "No data yet";
   }, [heroPinnedNotice]);
 
   const desktopDropdownStyle = {
@@ -1836,14 +1836,14 @@ const visibleNotices = useMemo(() => {
                 popoverStyle={desktopDropdownStyle}
               >
                 <div className="portal-dropdown-head">
-                  <strong>Liên kết nội bộ</strong>
-                  <span>{loadingApps ? "Đang tải..." : `${apps.length} mục`}</span>
+                  <strong>Internal links</strong>
+                  <span>{loadingApps ? "Loading..." : `${apps.length} items`}</span>
                 </div>
                 <div className="portal-dropdown-list portal-dropdown-list--apps">
                   {errorApps ? <div className="portal-dropdown-empty">{errorApps}</div> : null}
-                  {!errorApps && loadingApps ? <div className="portal-dropdown-empty">Đang tải links...</div> : null}
+                  {!errorApps && loadingApps ? <div className="portal-dropdown-empty">Loading links...</div> : null}
                   {!errorApps && !loadingApps && apps.length === 0 ? (
-                    <div className="portal-dropdown-empty">Chưa có links.</div>
+                    <div className="portal-dropdown-empty">No links yet.</div>
                   ) : null}
 
                   {!errorApps &&
@@ -1871,7 +1871,7 @@ const visibleNotices = useMemo(() => {
               </MenuDropdown>
 
               <MenuDropdown
-                label="Ducument"
+                label="Document"
                 icon={<IconFolder />}
                 isOpen={openDropdown === "forms"}
                 onToggle={() => setOpenDropdown((prev) => (prev === "forms" ? null : "forms"))}
@@ -1976,7 +1976,7 @@ const visibleNotices = useMemo(() => {
               </MobileDropdown>
 
               <MobileDropdown
-                label="Ducument"
+                label="Document"
                 icon={<IconFolder />}
                 isOpen={openDropdown === "mobile-forms"}
                 onToggle={() =>
@@ -2029,20 +2029,20 @@ const visibleNotices = useMemo(() => {
               >
                 <div className="portal-hero__copy">
                   <div className="portal-tag">HOME PAGE</div>
-                  <h1>Cổng thông tin nội bộ cho thông báo, ducument và link.</h1>
+                  <h1>Internal portal for notices, documents, and links.</h1>
 
                   <div className="portal-hero__intro">
                     <p>
-                      Website tổng hợp thông báo quan trọng, ducument nội bộ và link làm việc từ các bộ phận,
-                      giúp user tra cứu nhanh và tiết kiệm thời gian.
+                      A website that brings together important notices, internal documents, and work links from departments,
+                      helping users search faster and save time.
                     </p>
                   </div>
 
                   <div className="portal-hero__chips">
-                    <span className="portal-chip">Thông báo ghim</span>
-                    <span className="portal-chip">Ducument nội bộ</span>
-                    <span className="portal-chip">Link làm việc</span>
-                    <span className="portal-chip">Tra cứu nhanh</span>
+                    <span className="portal-chip">Pinned notice</span>
+                    <span className="portal-chip">Internal documents</span>
+                    <span className="portal-chip">Work links</span>
+                    <span className="portal-chip">Quick search</span>
                   </div>
 
                   <div className="portal-hero-latest-notice">
@@ -2050,13 +2050,13 @@ const visibleNotices = useMemo(() => {
                       <span className="portal-hero-latest-notice__badge-icon">
                         <IconPin />
                       </span>
-                      <span>Thông báo ghim</span>
+                      <span>Pinned notice</span>
                     </div>
 
                     {heroPinnedNotice ? (
                       <>
                         <h3>{heroPinnedNotice.title}</h3>
-                        <p>{heroPinnedNotice.content || "Thông báo này chưa có nội dung mô tả."}</p>
+                        <p>{heroPinnedNotice.content || "This notice does not have a description yet."}</p>
                         <div className="portal-meta-row portal-hero-latest-notice__meta">
                           <FileTypeBadge item={heroPinnedNotice} />
                           {getDepartmentDisplayName(heroPinnedNotice) ? (
@@ -2070,7 +2070,7 @@ const visibleNotices = useMemo(() => {
                         </div>
                       </>
                     ) : (
-                      <p>Chưa có thông báo ghim để hiển thị tại đây.</p>
+                      <p>No pinned notice is available to display here.</p>
                     )}
                   </div>
                 </div>
@@ -2116,11 +2116,11 @@ const visibleNotices = useMemo(() => {
                     <SearchInput
                       value={appNameSearch}
                       onChange={setAppNameSearch}
-                      placeholder="Tìm tên ứng dụng..."
+                      placeholder="Search application name..."
                     />
 
                     <div className="portal-panel__scroll">
-                      {loadingApps ? <div className="portal-empty">Đang tải links...</div> : null}
+                      {loadingApps ? <div className="portal-empty">Loading links...</div> : null}
                       {errorApps ? <div className="portal-empty">{errorApps}</div> : null}
 
                       {!loadingApps && !errorApps ? (
@@ -2139,7 +2139,7 @@ const visibleNotices = useMemo(() => {
                                 </div>
                                 <div className="portal-link-card__text">
                                   <strong>{app.name}</strong>
-                                  <span>Mở nhanh</span>
+                                  <span>Open quickly</span>
                                 </div>
                               </div>
                               <span className="portal-link-card__arrow">
@@ -2154,7 +2154,7 @@ const visibleNotices = useMemo(() => {
 
                   <article className="portal-panel">
                     <PanelHeader
-                      title="Ducument"
+                      title="Document"
                       icon={<IconFileText />}
                       count={documentTypes.length}
                     />
@@ -2162,15 +2162,15 @@ const visibleNotices = useMemo(() => {
                     <SearchInput
                       value={formTitleSearch}
                       onChange={setFormTitleSearch}
-                      placeholder="Tìm ducument hoặc tài liệu..."
+                      placeholder="Search documents..."
                     />
 
                     <div className="portal-panel__scroll">
-                      {loadingForms && documentTypes.length === 0 ? <div className="portal-empty">Đang tải loại ducument...</div> : null}
+                      {loadingForms && documentTypes.length === 0 ? <div className="portal-empty">Loading document types...</div> : null}
                       {errorForms ? <div className="portal-empty">{errorForms}</div> : null}
 
                       {!loadingForms && !errorForms && documentTypeSections.length === 0 ? (
-                        <div className="portal-empty">Chưa có loại ducument.</div>
+                        <div className="portal-empty">No document types yet.</div>
                       ) : null}
 
                       {!errorForms && documentTypeSections.length > 0 ? (
@@ -2209,7 +2209,7 @@ const visibleNotices = useMemo(() => {
                             <span className="portal-featured-notice__badge-icon">
                               <IconPin />
                             </span>
-                            <span>Ghim ưu tiên</span>
+                            <span>Priority pinned</span>
                           </div>
                           <h3>{featuredNotice.title}</h3>
                           <p>{featuredNotice.content}</p>
@@ -2234,12 +2234,12 @@ const visibleNotices = useMemo(() => {
                       <SearchInput
                         value={noticeSearch}
                         onChange={setNoticeSearch}
-                        placeholder="Tìm notice hoặc ngày đăng..."
+                        placeholder="Search notices or posted date..."
                       />
                     </div>
 
                     <div className="portal-notice-list-scroll">
-                      {loadingNotices ? <div className="portal-empty">Đang tải notices...</div> : null}
+                      {loadingNotices ? <div className="portal-empty">Loading notices...</div> : null}
                       {errorNotices ? <div className="portal-empty">{errorNotices}</div> : null}
 
                       {!loadingNotices && !errorNotices ? (
@@ -2271,7 +2271,7 @@ const visibleNotices = useMemo(() => {
 
                           {filteredNotices.length === 0 ? (
                             <div className="portal-empty">
-                              Không có notice phù hợp, nhưng thông báo ghim vẫn đang hiển thị ở trên.
+                              No matching notices found, but the pinned notice is still shown above.
                             </div>
                           ) : null}
                         </div>
@@ -2307,8 +2307,8 @@ const visibleNotices = useMemo(() => {
         type="button"
         className="portal-scroll-toggle"
         onClick={handleTogglePageEdge}
-        aria-label={isScrollAtTopZone ? "Cuộn xuống cuối trang" : "Cuộn lên đầu trang"}
-        title={isScrollAtTopZone ? "Xuống cuối trang" : "Lên đầu trang"}
+        aria-label={isScrollAtTopZone ? "Scroll to bottom" : "Scroll to top"}
+        title={isScrollAtTopZone ? "Go to bottom" : "Go to top"}
       >
         {isScrollAtTopZone ? <IconChevronDown /> : <IconChevronUp />}
       </button>
