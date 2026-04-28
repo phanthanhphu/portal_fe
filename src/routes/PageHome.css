@@ -2320,3 +2320,14 @@ svg {
     align-items: center;
   }
 }
+
+/* ===== notice description clamp: show only 2 lines, then ellipsis ===== */
+.portal-featured-notice p,
+.portal-notice-card__body p,
+.portal-hero-latest-notice p {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
