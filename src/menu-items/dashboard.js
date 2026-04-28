@@ -83,7 +83,7 @@ const getDashboardMenu = () => {
     },
     {
       id: 'department-forms',
-      title: 'Ducuments',
+      title: 'Documents',
       type: 'item',
       url: '/department-forms',
       icon: icons.departmentForms,
