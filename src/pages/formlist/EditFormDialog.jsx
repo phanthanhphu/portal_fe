@@ -24,6 +24,7 @@ import { API_BASE_URL } from "../../config";
 
 const API_BASE = `${API_BASE_URL}/api/forms`;
 const DEPT_API = `${API_BASE_URL}/api/departments`;
+const TYPE_API = `${API_BASE_URL}/api/document-types`;
 
 export default function EditFormDialog({
   open,
@@ -38,10 +39,13 @@ export default function EditFormDialog({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [departmentId, setDepartmentId] = useState("");
+  const [typeId, setTypeId] = useState("");
   const [file, setFile] = useState(null);
 
   const [departments, setDepartments] = useState([]);
+  const [documentTypes, setDocumentTypes] = useState([]);
   const [loadingDept, setLoadingDept] = useState(false);
+  const [loadingTypes, setLoadingTypes] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
   const [saving, setSaving] = useState(false);
@@ -130,6 +134,33 @@ export default function EditFormDialog({
     }
   };
 
+  const fetchDocumentTypes = async () => {
+    setLoadingTypes(true);
+
+    try {
+      const res = await fetch(TYPE_API, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Accept: "*/*",
+        },
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to load document types");
+      }
+
+      const data = await res.json();
+      setDocumentTypes(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error(err);
+      toast(err.message || "Failed to load document types", "error");
+      setDocumentTypes([]);
+    } finally {
+      setLoadingTypes(false);
+    }
+  };
+
   /* =========================
      LOAD FORM DATA + DEPARTMENTS
      ========================= */
@@ -138,10 +169,13 @@ export default function EditFormDialog({
       setTitle("");
       setDescription("");
       setDepartmentId("");
+      setTypeId("");
       setFile(null);
       setDepartments([]);
+      setDocumentTypes([]);
       setIsAdmin(false);
       setLoadingDept(false);
+      setLoadingTypes(false);
       setSaving(false);
       return;
     }
@@ -151,10 +185,12 @@ export default function EditFormDialog({
     setTitle(form.title || "");
     setDescription(form.description || "");
     setDepartmentId(form.departmentId || "");
+    setTypeId(form.typeId || "");
     setFile(null);
     setSaving(false);
 
     fetchDepartments();
+    fetchDocumentTypes();
   }, [open, form]);
 
   /* =========================
@@ -172,6 +208,7 @@ export default function EditFormDialog({
   const validate = () => {
     if (!title.trim()) return "Title is required";
     if (!departmentId) return "Department is required";
+    if (!typeId) return "Type is required";
     return null;
   };
 
@@ -189,6 +226,7 @@ export default function EditFormDialog({
       formData.append("title", title.trim());
       formData.append("description", description.trim());
       formData.append("departmentId", departmentId);
+      formData.append("typeId", typeId);
 
       // Append new file only if selected. Backend keeps old file if absent.
       if (file) {
@@ -312,6 +350,22 @@ export default function EditFormDialog({
               </TextField>
             )}
 
+            <TextField
+              select
+              label="Type *"
+              value={typeId}
+              onChange={(e) => setTypeId(e.target.value)}
+              fullWidth
+              required
+              disabled={saving || loadingTypes}
+            >
+              {documentTypes.map((type) => (
+                <MenuItem key={type.id} value={type.id}>
+                  {type.name}
+                </MenuItem>
+              ))}
+            </TextField>
+
             {/* File Section */}
             <Box>
               <Button
@@ -356,8 +410,10 @@ export default function EditFormDialog({
             disabled={
               saving ||
               loadingDept ||
+              loadingTypes ||
               !title.trim() ||
-              !departmentId
+              !departmentId ||
+              !typeId
             }
             variant="contained"
             sx={gradientBtnSx}

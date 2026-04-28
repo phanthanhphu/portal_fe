@@ -599,6 +599,7 @@ const emptyPreviewState = {
 const headers = [
   { label: 'No', key: 'no', sortable: false },
   { label: 'Department', key: 'department', sortable: true },
+  { label: 'Type', key: 'typeName', sortable: true },
   { label: 'Title', key: 'title', sortable: true },
   { label: 'Description', key: 'description', sortable: true },
   { label: 'File', key: 'fileUrl', sortable: false },
@@ -725,8 +726,12 @@ export default function FormListDialog() {
 
   // Filter states
   const [searchDeptName, setSearchDeptName] = useState('');
+  const [searchTypeId, setSearchTypeId] = useState('');
   const [searchTitle, setSearchTitle] = useState('');
   const [searchDesc, setSearchDesc] = useState('');
+
+  const [documentTypes, setDocumentTypes] = useState([]);
+  const [loadingTypes, setLoadingTypes] = useState(false);
 
   const [data, setData] = useState([]);
   const [totalElements, setTotalElements] = useState(0);
@@ -746,6 +751,41 @@ export default function FormListDialog() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedDeleteItem, setSelectedDeleteItem] = useState(null);
   const [previewState, setPreviewState] = useState(emptyPreviewState);
+
+  const typeNameMap = useMemo(() => {
+    return documentTypes.reduce((map, type) => {
+      if (type?.id) {
+        map[type.id] = type.name || '-';
+      }
+
+      return map;
+    }, {});
+  }, [documentTypes]);
+
+  const getTypeName = useCallback((typeId) => {
+    if (!typeId) return '-';
+    return typeNameMap[typeId] || '-';
+  }, [typeNameMap]);
+
+  const fetchDocumentTypes = useCallback(async () => {
+    setLoadingTypes(true);
+
+    try {
+      const response = await api.get('/api/document-types');
+      const list = Array.isArray(response.data) ? response.data : [];
+      setDocumentTypes(list);
+    } catch (error) {
+      console.error('Error fetching document types:', error.response?.data || error.message);
+      setDocumentTypes([]);
+      setNotification({
+        open: true,
+        message: 'Failed to load document types',
+        severity: 'error',
+      });
+    } finally {
+      setLoadingTypes(false);
+    }
+  }, []);
 
   const fetchData = useCallback(
     async (filters = {}, overrides = {}) => {
@@ -799,6 +839,10 @@ export default function FormListDialog() {
     },
     [page, rowsPerPage, sortConfig],
   );
+
+  useEffect(() => {
+    fetchDocumentTypes();
+  }, [fetchDocumentTypes]);
 
   // Load dữ liệu ban đầu
   useEffect(() => {
@@ -937,14 +981,16 @@ export default function FormListDialog() {
     setPage(0);
     const filters = {};
     if (searchDeptName?.trim()) filters.departmentName = searchDeptName.trim();
+    if (searchTypeId?.trim()) filters.typeId = searchTypeId.trim();
     if (searchTitle?.trim()) filters.title = searchTitle.trim();
     if (searchDesc?.trim()) filters.description = searchDesc.trim();
 
     fetchData(filters, { page: 0 });
-  }, [fetchData, searchDeptName, searchTitle, searchDesc]);
+  }, [fetchData, searchDeptName, searchTypeId, searchTitle, searchDesc]);
 
   const handleResetFilter = useCallback(() => {
     setSearchDeptName('');
+    setSearchTypeId('');
     setSearchTitle('');
     setSearchDesc('');
     setPage(0);
@@ -1129,6 +1175,10 @@ export default function FormListDialog() {
       <FormsSearchFilter
         searchDeptName={searchDeptName}
         setSearchDeptName={setSearchDeptName}
+        searchTypeId={searchTypeId}
+        setSearchTypeId={setSearchTypeId}
+        documentTypes={documentTypes}
+        loadingTypes={loadingTypes}
         searchTitle={searchTitle}
         setSearchTitle={setSearchTitle}
         searchDesc={searchDesc}
@@ -1268,6 +1318,9 @@ export default function FormListDialog() {
                             ({item.division})
                           </Typography>
                         )}
+                      </TableCell>
+                      <TableCell sx={{ fontSize: '0.75rem', color: '#374151', whiteSpace: 'nowrap' }}>
+                        {getTypeName(item.typeId)}
                       </TableCell>
                       <TableCell sx={{ fontSize: '0.75rem', fontWeight: 500, color: '#111827' }}>
                         {item.title || '-'}

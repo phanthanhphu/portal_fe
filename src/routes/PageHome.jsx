@@ -8,6 +8,7 @@ import { API_BASE_URL } from "../config";
 
 const APPS_API_BASE = `${API_BASE_URL}/api/app-links`;
 const FORMS_API_BASE = `${API_BASE_URL}/api/forms`;
+const DOCUMENT_TYPES_API_BASE = `${API_BASE_URL}/api/document-types`;
 const NOTICES_API_BASE = `${API_BASE_URL}/api/notices`;
 const DEPARTMENTS_API_BASE = `${API_BASE_URL}/api/departments`;
 
@@ -82,11 +83,33 @@ function formatDateTime(createdAtArray) {
   return `${dd}/${mm}/${year} • ${hh}:${min}`;
 }
 
+function getDepartmentDisplayName(item) {
+  return [item?.departmentName, item?.division]
+    .filter(Boolean)
+    .join(" • ");
+}
+
 function dateArrayToMillis(dateArray) {
   if (!Array.isArray(dateArray) || dateArray.length < 6) return 0;
   const [year, month, day, hour, minute, second = 0, nano = 0] = dateArray;
   const milli = Math.floor(nano / 1000000);
   return new Date(year, month - 1, day, hour, minute, second, milli).getTime();
+}
+
+function isFormDocumentType(type) {
+  return String(type?.name || "").trim().toLowerCase() === "form";
+}
+
+function sortDocumentTypes(types) {
+  return [...types].sort((a, b) => {
+    const aIsForm = isFormDocumentType(a);
+    const bIsForm = isFormDocumentType(b);
+
+    if (aIsForm && !bIsForm) return -1;
+    if (!aIsForm && bIsForm) return 1;
+
+    return String(a.name || "").localeCompare(String(b.name || ""), "vi");
+  });
 }
 
 function useClickOutside(ref, callback) {
@@ -888,6 +911,80 @@ function FileActions({ item, onPreview, onDownload, compact = false }) {
   );
 }
 
+function DocumentTypeSection({
+  type,
+  isOpen,
+  forms,
+  loading,
+  error,
+  onToggle,
+  onPreview,
+  onDownload,
+}) {
+  const loaded = Array.isArray(forms);
+  const countText = loaded
+    ? `${forms.length} ducument`
+    : "Bấm mũi tên để tải";
+
+  return (
+    <div className="portal-dept-card portal-document-type-card">
+      <div className="portal-dept-card__head portal-document-type-card__head">
+        <div className="portal-dept-card__title">
+          <span className="portal-dept-card__icon">
+            <IconFileText />
+          </span>
+          <div>
+            <strong>{type.name || "Ducument"}</strong>
+            <span>{countText}</span>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          className={`portal-document-type-card__toggle ${isOpen ? "is-open" : ""}`}
+          onClick={() => onToggle(type)}
+          title={isOpen ? "Thu gọn" : "Mở danh sách ducument"}
+        >
+          {isOpen ? <IconChevronUp /> : <IconChevronDown />}
+        </button>
+      </div>
+
+      {isOpen ? (
+        <div className="portal-document-type-card__body">
+          {loading ? <div className="portal-empty">Đang tải {type.name}...</div> : null}
+          {error ? <div className="portal-empty">{error}</div> : null}
+
+          {!loading && !error && forms.length === 0 ? (
+            <div className="portal-empty">Chưa có ducument thuộc loại {type.name}.</div>
+          ) : null}
+
+          {!loading && !error && forms.length > 0 ? (
+            <div className="portal-form-rows">
+              {forms.map((form) => (
+                <div key={form.id} className="portal-form-row">
+                  <div className="portal-form-row__content">
+                    <strong>{form.title}</strong>
+                    <div className="portal-meta-row">
+                      {form.departmentName ? <span className="portal-meta-pill">{form.departmentName}</span> : null}
+                      {form.division ? <span className="portal-meta-pill">{form.division}</span> : null}
+                      <FileTypeBadge item={form} />
+                      {form.createdAt ? (
+                        <span className="portal-meta-pill">{formatDateTime(form.createdAt)}</span>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <FileActions item={form} onPreview={onPreview} onDownload={onDownload} compact />
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function PreviewModal({ previewState, onClose, onDownload, onSelectSheet }) {
   if (!previewState.open) return null;
 
@@ -1104,7 +1201,12 @@ export default function PageHome() {
 
   const [apps, setApps] = useState([]);
   const [departments, setDepartments] = useState([]);
-  const [forms, setForms] = useState([]);
+  const [documentTypes, setDocumentTypes] = useState([]);
+  const [defaultDocumentTypeId, setDefaultDocumentTypeId] = useState("");
+  const [openDocumentTypeIds, setOpenDocumentTypeIds] = useState([]);
+  const [formsByTypeId, setFormsByTypeId] = useState({});
+  const [loadingFormsByTypeId, setLoadingFormsByTypeId] = useState({});
+  const [errorFormsByTypeId, setErrorFormsByTypeId] = useState({});
   const [notices, setNotices] = useState([]);
   const [featuredPinnedNotice, setFeaturedPinnedNotice] = useState(null);
 
@@ -1196,9 +1298,33 @@ export default function PageHome() {
     }
   };
 
-  const fetchForms = async ({ title = "" } = {}) => {
-    setLoadingForms(true);
-    setErrorForms(null);
+  const normalizeFormItem = (item, type) => {
+    const fileUrl = item.fileUrl ? toAbsoluteUrl(item.fileUrl) : "";
+
+    return {
+      id: item.id,
+      typeId: item.typeId || type?.id || "",
+      typeName: type?.name || item.typeName || "Ducument",
+      title: item.title || "Biểu mẫu",
+      fileType: fileUrl ? (item.fileType || inferFileType(item.fileUrl)) : "NO FILE",
+      fileUrl,
+      previewUrl: item.previewUrl ? toAbsoluteUrl(item.previewUrl) : null,
+      departmentName: item.departmentName || "Chưa xác định",
+      division: item.division || "",
+      createdAt: item.createdAt || null,
+      updatedAt: item.updatedAt || null,
+    };
+  };
+
+  const fetchFormsByType = async (type, { title = "", force = false } = {}) => {
+    if (!type?.id) return;
+
+    if (!force && formsByTypeId[type.id]) {
+      return;
+    }
+
+    setLoadingFormsByTypeId((prev) => ({ ...prev, [type.id]: true }));
+    setErrorFormsByTypeId((prev) => ({ ...prev, [type.id]: null }));
 
     try {
       const params = new URLSearchParams({
@@ -1206,6 +1332,7 @@ export default function PageHome() {
         departmentName: "",
         title,
         description: "",
+        typeId: type.id,
         page: "0",
         size: "80",
       });
@@ -1214,29 +1341,60 @@ export default function PageHome() {
         headers: { accept: "*/*" },
       });
 
-      if (!response.ok) throw new Error("Failed to fetch forms");
+      if (!response.ok) throw new Error("Failed to fetch forms by type");
+
       const data = await response.json();
+      const normalizedForms = (data.content || []).map((item) => normalizeFormItem(item, type));
 
-      const normalizedForms = (data.content || []).map((item) => {
-        const fileUrl = item.fileUrl ? toAbsoluteUrl(item.fileUrl) : "";
+      setFormsByTypeId((prev) => ({ ...prev, [type.id]: normalizedForms }));
+    } catch (error) {
+      setErrorFormsByTypeId((prev) => ({
+        ...prev,
+        [type.id]: `Không tải được ducument loại ${type.name}.`,
+      }));
+      setFormsByTypeId((prev) => ({ ...prev, [type.id]: [] }));
+    } finally {
+      setLoadingFormsByTypeId((prev) => ({ ...prev, [type.id]: false }));
+    }
+  };
 
-        return {
-          id: item.id,
-          title: item.title || "Biểu mẫu",
-          fileType: fileUrl ? (item.fileType || inferFileType(item.fileUrl)) : "NO FILE",
-          fileUrl,
-          previewUrl: item.previewUrl ? toAbsoluteUrl(item.previewUrl) : null,
-          departmentName: item.departmentName || "Chưa xác định",
-          division: item.division || "",
-          createdAt: item.createdAt || null,
-          updatedAt: item.updatedAt || null,
-        };
+  const fetchDocumentTypes = async () => {
+    setLoadingForms(true);
+    setErrorForms(null);
+
+    try {
+      const response = await fetch(DOCUMENT_TYPES_API_BASE, {
+        headers: { accept: "*/*" },
       });
 
-      setForms(normalizedForms);
+      if (!response.ok) throw new Error("Failed to fetch document types");
+
+      const data = await response.json();
+      const normalizedTypes = sortDocumentTypes(
+        (Array.isArray(data) ? data : [])
+          .filter((item) => item?.id)
+          .map((item) => ({
+            id: item.id,
+            name: item.name || "Ducument",
+            createdAt: item.createdAt || null,
+            updatedAt: item.updatedAt || null,
+          })),
+      );
+
+      setDocumentTypes(normalizedTypes);
+
+      const defaultType = normalizedTypes.find(isFormDocumentType) || normalizedTypes[0] || null;
+
+      if (defaultType) {
+        setDefaultDocumentTypeId(defaultType.id);
+        setOpenDocumentTypeIds([defaultType.id]);
+        await fetchFormsByType(defaultType, { title: formTitleSearch.trim(), force: true });
+      }
     } catch (error) {
-      setErrorForms("Không tải được forms.");
-      setForms([]);
+      setErrorForms("Không tải được loại ducument.");
+      setDocumentTypes([]);
+      setDefaultDocumentTypeId("");
+      setOpenDocumentTypeIds([]);
     } finally {
       setLoadingForms(false);
     }
@@ -1305,7 +1463,7 @@ export default function PageHome() {
   useEffect(() => {
     fetchApps("");
     fetchDepartments();
-    fetchForms({ title: "" });
+    fetchDocumentTypes();
     fetchNotices();
   }, []);
 
@@ -1318,12 +1476,19 @@ export default function PageHome() {
   }, [appNameSearch]);
 
   useEffect(() => {
+    if (documentTypes.length === 0) return undefined;
+
     const timeout = setTimeout(() => {
-      fetchForms({ title: formTitleSearch.trim() });
+      const title = formTitleSearch.trim();
+      const openTypes = documentTypes.filter((type) => openDocumentTypeIds.includes(type.id));
+
+      openTypes.forEach((type) => {
+        fetchFormsByType(type, { title, force: true });
+      });
     }, 260);
 
     return () => clearTimeout(timeout);
-  }, [formTitleSearch]);
+  }, [formTitleSearch, documentTypes, openDocumentTypeIds]);
 
   useEffect(() => {
     return () => {
@@ -1505,19 +1670,35 @@ export default function PageHome() {
     }
   };
 
-  const groupedForms = useMemo(() => {
-    const map = new Map();
+  const documentTypeSections = useMemo(() => {
+    return documentTypes.map((type) => ({
+      type,
+      isOpen: openDocumentTypeIds.includes(type.id),
+      forms: formsByTypeId[type.id] || [],
+      loaded: Boolean(formsByTypeId[type.id]),
+      loading: Boolean(loadingFormsByTypeId[type.id]),
+      error: errorFormsByTypeId[type.id] || null,
+    }));
+  }, [documentTypes, openDocumentTypeIds, formsByTypeId, loadingFormsByTypeId, errorFormsByTypeId]);
 
-    forms.forEach((form) => {
-      const key = form.departmentName || "Chưa xác định";
-      if (!map.has(key)) map.set(key, []);
-      map.get(key).push(form);
-    });
+  const handleToggleDocumentType = (type) => {
+    if (!type?.id) return;
 
-    return Array.from(map.entries())
-      .map(([name, items]) => ({ name, forms: items }))
-      .sort((a, b) => a.name.localeCompare(b.name, "vi"));
-  }, [forms]);
+    const alreadyOpen = openDocumentTypeIds.includes(type.id);
+    const willOpen = !alreadyOpen;
+
+    // Cho phép mọi type, kể cả type ưu tiên "Form", được bấm mở/thu gọn.
+    // Form vẫn tự mở lần đầu khi load web trong fetchDocumentTypes().
+    setOpenDocumentTypeIds((prev) => (
+      alreadyOpen
+        ? prev.filter((id) => id !== type.id)
+        : [...prev, type.id]
+    ));
+
+    if (willOpen && !formsByTypeId[type.id]) {
+      fetchFormsByType(type, { title: formTitleSearch.trim(), force: false });
+    }
+  };
 
   const featuredNotice = useMemo(
     () => featuredPinnedNotice || notices[0] || null,
@@ -1585,13 +1766,13 @@ const visibleNotices = useMemo(() => {
     [featuredPinnedNotice, notices],
   );
 
-  const latestNoticeTime = useMemo(() => {
-    const latestNotice = notices[0] || featuredPinnedNotice;
+  const heroPinnedNotice = featuredNotice;
 
-    if (!latestNotice) return "Chưa có dữ liệu";
+  const heroPinnedNoticeTime = useMemo(() => {
+    if (!heroPinnedNotice) return "Chưa có dữ liệu";
 
-    return formatDateTime(latestNotice.updatedAt || latestNotice.createdAt) || "Chưa có dữ liệu";
-  }, [featuredPinnedNotice, notices]);
+    return formatDateTime(heroPinnedNotice.updatedAt || heroPinnedNotice.createdAt) || "Chưa có dữ liệu";
+  }, [heroPinnedNotice]);
 
   const desktopDropdownStyle = {
     "--menu-visible-items": String(MENU_MAX_VISIBLE_ITEMS),
@@ -1639,8 +1820,8 @@ const visibleNotices = useMemo(() => {
                 <img src={companyLogo} alt="YOUNGONE" />
               </span>
               <span className="portal-brand__text">
-                <strong>YOUNGONE BSL</strong>
-                <small>Internal portal</small>
+                <strong>BROADPEAK SOC TRANG</strong>
+                <small>HOME PAGE</small>
               </span>
             </a>
 
@@ -1690,7 +1871,7 @@ const visibleNotices = useMemo(() => {
               </MenuDropdown>
 
               <MenuDropdown
-                label="Forms"
+                label="Ducument"
                 icon={<IconFolder />}
                 isOpen={openDropdown === "forms"}
                 onToggle={() => setOpenDropdown((prev) => (prev === "forms" ? null : "forms"))}
@@ -1795,7 +1976,7 @@ const visibleNotices = useMemo(() => {
               </MobileDropdown>
 
               <MobileDropdown
-                label="Forms"
+                label="Ducument"
                 icon={<IconFolder />}
                 isOpen={openDropdown === "mobile-forms"}
                 onToggle={() =>
@@ -1847,26 +2028,50 @@ const visibleNotices = useMemo(() => {
                 style={{ backgroundImage: `linear-gradient(120deg, rgba(7, 16, 39, 0.72), rgba(7, 16, 39, 0.34)), url(${COMPANY_BG_URL})` }}
               >
                 <div className="portal-hero__copy">
-                  <div className="portal-tag">YOUNGONE CORPORATION</div>
-                  <h1>Trusted performance manufacturing since 1974.</h1>
+                  <div className="portal-tag">HOME PAGE</div>
+                  <h1>Cổng thông tin nội bộ cho thông báo, ducument và link.</h1>
 
                   <div className="portal-hero__intro">
                     <p>
-                      Founded by Kihak Sung in 1974, Youngone Corporation was built on a love of
-                      nature and outdoor pursuits.
-                    </p>
-
-                    <p>
-                      For nearly 50 years, global outdoor and apparel brands have trusted
-                      Youngone for quality, reliability, service and continuous improvement.
+                      Website tổng hợp thông báo quan trọng, ducument nội bộ và link làm việc từ các bộ phận,
+                      giúp user tra cứu nhanh và tiết kiệm thời gian.
                     </p>
                   </div>
 
                   <div className="portal-hero__chips">
-                    <span className="portal-chip">Founded in 1974</span>
-                    <span className="portal-chip">Outdoor expertise</span>
-                    <span className="portal-chip">Quality &amp; reliability</span>
-                    <span className="portal-chip">Trusted for 50 years</span>
+                    <span className="portal-chip">Thông báo ghim</span>
+                    <span className="portal-chip">Ducument nội bộ</span>
+                    <span className="portal-chip">Link làm việc</span>
+                    <span className="portal-chip">Tra cứu nhanh</span>
+                  </div>
+
+                  <div className="portal-hero-latest-notice">
+                    <div className="portal-hero-latest-notice__badge">
+                      <span className="portal-hero-latest-notice__badge-icon">
+                        <IconPin />
+                      </span>
+                      <span>Thông báo ghim</span>
+                    </div>
+
+                    {heroPinnedNotice ? (
+                      <>
+                        <h3>{heroPinnedNotice.title}</h3>
+                        <p>{heroPinnedNotice.content || "Thông báo này chưa có nội dung mô tả."}</p>
+                        <div className="portal-meta-row portal-hero-latest-notice__meta">
+                          <FileTypeBadge item={heroPinnedNotice} />
+                          {getDepartmentDisplayName(heroPinnedNotice) ? (
+                            <span className="portal-meta-pill">{getDepartmentDisplayName(heroPinnedNotice)}</span>
+                          ) : null}
+                          <span className="portal-meta-pill">
+                            <IconClock />
+                            {heroPinnedNoticeTime}
+                          </span>
+                          <FileActions item={heroPinnedNotice} onPreview={handleOpenPreview} onDownload={handleDownloadFile} compact />
+                        </div>
+                      </>
+                    ) : (
+                      <p>Chưa có thông báo ghim để hiển thị tại đây.</p>
+                    )}
                   </div>
                 </div>
 
@@ -1874,7 +2079,7 @@ const visibleNotices = useMemo(() => {
                   <div className="portal-hero__logo-box">
                     <img src={companyLogo} alt="YOUNGONE" className="portal-hero__logo" />
                     <div className="portal-hero__logo-copy">
-                      <strong>YOUNGONE, BSL</strong>
+                      <strong>BROADPEAK SOC TRANG</strong>
                       <span>Global outdoor gear and apparel manufacturing facility</span>
                     </div>
                   </div>
@@ -1896,6 +2101,7 @@ const visibleNotices = useMemo(() => {
                     <strong>240+</strong>
                   </div>
                 </div>
+
               </div>
             </div>
           </section>
@@ -1948,60 +2154,39 @@ const visibleNotices = useMemo(() => {
 
                   <article className="portal-panel">
                     <PanelHeader
-                      title="Forms"
+                      title="Ducument"
                       icon={<IconFileText />}
-                      count={groupedForms.length}
+                      count={documentTypes.length}
                     />
 
                     <SearchInput
                       value={formTitleSearch}
                       onChange={setFormTitleSearch}
-                      placeholder="Tìm form hoặc biểu mẫu..."
+                      placeholder="Tìm ducument hoặc tài liệu..."
                     />
 
                     <div className="portal-panel__scroll">
-                      {loadingForms ? <div className="portal-empty">Đang tải forms...</div> : null}
+                      {loadingForms && documentTypes.length === 0 ? <div className="portal-empty">Đang tải loại ducument...</div> : null}
                       {errorForms ? <div className="portal-empty">{errorForms}</div> : null}
 
-                      {!loadingForms && !errorForms && groupedForms.length === 0 ? (
-                        <div className="portal-empty">Không có forms phù hợp.</div>
+                      {!loadingForms && !errorForms && documentTypeSections.length === 0 ? (
+                        <div className="portal-empty">Chưa có loại ducument.</div>
                       ) : null}
 
-                      {!loadingForms && !errorForms ? (
-                        <div className="portal-dept-stack">
-                          {groupedForms.map((group) => (
-                            <div key={group.name} className="portal-dept-card">
-                              <div className="portal-dept-card__head">
-                                <div className="portal-dept-card__title">
-                                  <span className="portal-dept-card__icon">
-                                    <IconBuilding />
-                                  </span>
-                                  <div>
-                                    <strong>{group.name}</strong>
-                                    <span>{group.forms.length} form</span>
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="portal-form-rows">
-                                {group.forms.map((form) => (
-                                  <div key={form.id} className="portal-form-row">
-                                    <div className="portal-form-row__content">
-                                      <strong>{form.title}</strong>
-                                      <div className="portal-meta-row">
-                                        {form.division ? <span className="portal-meta-pill">{form.division}</span> : null}
-                                        <FileTypeBadge item={form} />
-                                        {form.createdAt ? (
-                                          <span className="portal-meta-pill">{formatDateTime(form.createdAt)}</span>
-                                        ) : null}
-                                      </div>
-                                    </div>
-
-                                    <FileActions item={form} onPreview={handleOpenPreview} onDownload={handleDownloadFile} compact />
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
+                      {!errorForms && documentTypeSections.length > 0 ? (
+                        <div className="portal-dept-stack portal-document-type-stack">
+                          {documentTypeSections.map((section) => (
+                            <DocumentTypeSection
+                              key={section.type.id}
+                              type={section.type}
+                              isOpen={section.isOpen}
+                              forms={section.forms}
+                              loading={section.loading}
+                              error={section.error}
+                              onToggle={handleToggleDocumentType}
+                              onPreview={handleOpenPreview}
+                              onDownload={handleDownloadFile}
+                            />
                           ))}
                         </div>
                       ) : null}
@@ -2030,6 +2215,9 @@ const visibleNotices = useMemo(() => {
                           <p>{featuredNotice.content}</p>
                           <div className="portal-meta-row">
                             <FileTypeBadge item={featuredNotice} />
+                            {getDepartmentDisplayName(featuredNotice) ? (
+                              <span className="portal-meta-pill">{getDepartmentDisplayName(featuredNotice)}</span>
+                            ) : null}
                             {featuredNotice.createdAt ? (
                               <span className="portal-meta-pill">
                                 <IconClock />
@@ -2066,6 +2254,9 @@ const visibleNotices = useMemo(() => {
                                 <p>{notice.content}</p>
                                 <div className="portal-meta-row">
                                   <FileTypeBadge item={notice} />
+                                  {getDepartmentDisplayName(notice) ? (
+                                    <span className="portal-meta-pill">{getDepartmentDisplayName(notice)}</span>
+                                  ) : null}
                                   {notice.createdAt ? (
                                     <span className="portal-meta-pill">
                                       <IconClock />

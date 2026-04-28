@@ -7,11 +7,16 @@ import {
   Button,
   Snackbar,
   Alert,
+  MenuItem,
 } from '@mui/material';
 
 export default function FormsSearchFilter({
   searchDeptName,
   setSearchDeptName,
+  searchTypeId,
+  setSearchTypeId,
+  documentTypes = [],
+  loadingTypes = false,
   searchTitle,
   setSearchTitle,
   searchDesc,
@@ -19,6 +24,7 @@ export default function FormsSearchFilter({
   onSearch,
   onReset,
   disabled = false,
+  disableDepartmentSearch = false,
 }) {
   const [localError, setLocalError] = useState(null);
 
@@ -29,10 +35,11 @@ export default function FormsSearchFilter({
 
   const handleReset = useCallback(() => {
     setSearchDeptName('');
+    setSearchTypeId('');
     setSearchTitle('');
     setSearchDesc('');
     onReset();
-  }, [setSearchDeptName, setSearchTitle, setSearchDesc, onReset]);
+  }, [setSearchDeptName, setSearchTypeId, setSearchTitle, setSearchDesc, onReset]);
 
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'Enter' && !disabled) {
@@ -63,13 +70,13 @@ export default function FormsSearchFilter({
         sx={{ width: '100%' }}
       >
         <TextField
-          key="search-dept-name"  // ← thêm key để ổn định
+          key="search-dept-name"
           label="Department Name"
           size="small"
           value={searchDeptName}
           onChange={(e) => setSearchDeptName(e.target.value)}
           onKeyDown={handleKeyDown}
-          disabled={disabled}
+          disabled={disabled || disableDepartmentSearch}
           fullWidth
           sx={{
             flex: 1,
@@ -79,7 +86,30 @@ export default function FormsSearchFilter({
         />
 
         <TextField
-          key="search-title"  // ← thêm key
+          key="search-type"
+          select
+          label="Type"
+          size="small"
+          value={searchTypeId}
+          onChange={(e) => setSearchTypeId(e.target.value)}
+          disabled={disabled || loadingTypes}
+          fullWidth
+          sx={{
+            flex: 1,
+            minWidth: { xs: '100%', md: 180 },
+            '& .MuiInputBase-root': { height: 38 },
+          }}
+        >
+          <MenuItem value="">All Types</MenuItem>
+          {documentTypes.map((type) => (
+            <MenuItem key={type.id} value={type.id}>
+              {type.name}
+            </MenuItem>
+          ))}
+        </TextField>
+
+        <TextField
+          key="search-title"
           label="Title"
           size="small"
           value={searchTitle}
@@ -95,7 +125,7 @@ export default function FormsSearchFilter({
         />
 
         <TextField
-          key="search-desc"  // ← thêm key
+          key="search-desc"
           label="Description"
           size="small"
           value={searchDesc}

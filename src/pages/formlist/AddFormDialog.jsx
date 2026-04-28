@@ -29,6 +29,7 @@ import axios from "axios";
 import { API_BASE_URL } from "../../config";
 
 const DEPT_API = `${API_BASE_URL}/api/departments`;
+const TYPE_API = `${API_BASE_URL}/api/document-types`;
 
 export default function AddFormDialog({
   open,
@@ -43,10 +44,13 @@ export default function AddFormDialog({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [departmentId, setDepartmentId] = useState("");
+  const [typeId, setTypeId] = useState("");
   const [file, setFile] = useState(null);
 
   const [departments, setDepartments] = useState([]);
+  const [documentTypes, setDocumentTypes] = useState([]);
   const [loadingDept, setLoadingDept] = useState(false);
+  const [loadingTypes, setLoadingTypes] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
   const [saving, setSaving] = useState(false);
@@ -132,6 +136,30 @@ export default function AddFormDialog({
     }
   };
 
+  const fetchDocumentTypes = async () => {
+    setLoadingTypes(true);
+
+    try {
+      const res = await axios.get(TYPE_API, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Accept: "*/*"
+        }
+      });
+
+      const list = Array.isArray(res.data) ? res.data : [];
+      setDocumentTypes(list);
+      setTypeId(list[0]?.id || "");
+    } catch (err) {
+      console.error(err);
+      toast("Không tải được danh sách type", "error");
+      setDocumentTypes([]);
+      setTypeId("");
+    } finally {
+      setLoadingTypes(false);
+    }
+  };
+
   /* =========================
      RESET WHEN OPEN / CLOSE
      ========================= */
@@ -140,10 +168,13 @@ export default function AddFormDialog({
       setTitle("");
       setDescription("");
       setDepartmentId("");
+      setTypeId("");
       setFile(null);
       setDepartments([]);
+      setDocumentTypes([]);
       setIsAdmin(false);
       setLoadingDept(false);
+      setLoadingTypes(false);
       setSaving(false);
       setConfirmOpen(false);
       return;
@@ -152,11 +183,13 @@ export default function AddFormDialog({
     setTitle("");
     setDescription("");
     setDepartmentId("");
+    setTypeId("");
     setFile(null);
     setSaving(false);
     setConfirmOpen(false);
 
     fetchDepartments();
+    fetchDocumentTypes();
   }, [open]);
 
   const handleClose = () => {
@@ -168,6 +201,7 @@ export default function AddFormDialog({
   const validate = () => {
     if (!title.trim()) return "Tiêu đề không được để trống";
     if (!departmentId) return "Phòng ban không hợp lệ";
+    if (!typeId) return "Vui lòng chọn type";
     if (!file) return "Vui lòng chọn file";
     return null;
   };
@@ -193,7 +227,8 @@ export default function AddFormDialog({
         params: {
           title: title.trim(),
           description: description.trim(),
-          departmentId
+          departmentId,
+          typeId
         },
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`
@@ -312,6 +347,21 @@ export default function AddFormDialog({
               </TextField>
             )}
 
+            <TextField
+              select
+              label="Type *"
+              value={typeId}
+              onChange={(e) => setTypeId(e.target.value)}
+              disabled={locked || loadingTypes}
+              fullWidth
+            >
+              {documentTypes.map((type) => (
+                <MenuItem key={type.id} value={type.id}>
+                  {type.name}
+                </MenuItem>
+              ))}
+            </TextField>
+
             <Box>
               <Button
                 variant="outlined"
@@ -358,8 +408,10 @@ export default function AddFormDialog({
             disabled={
               locked ||
               loadingDept ||
+              loadingTypes ||
               !title.trim() ||
               !departmentId ||
+              !typeId ||
               !file
             }
             sx={gradientBtnSx}
