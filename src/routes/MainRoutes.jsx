@@ -5,7 +5,8 @@ import DashboardLayout from 'layout/Dashboard';
 import { Typography, Box, Button } from '@mui/material';
 import LoginPage from './LoginPage';
 import { toast } from 'react-toastify';
-import PageHome from './PageHome';
+import PageHome from '../pages/index/PageHome';
+
 
 // ==============================|| LAZY LOADED PAGES ||============================== //
 
@@ -14,13 +15,14 @@ import PageHome from './PageHome';
 // Department
 const DepartmentPage = Loadable(lazy(() => import('pages/department/DepartmentManagement')));
 
-
 // User
 const UserManagementPage = Loadable(lazy(() => import('pages/dashboard/UserManagementPage')));
 
-
 // App Links
 const AppLinksPage = Loadable(lazy(() => import('pages/appLinks/AppLinksPage')));
+
+// Document Types
+const DocumentTypesPage = Loadable(lazy(() => import('pages/documenttype/DocumentTypesPage')));
 
 // Notices
 const NoticesPage = Loadable(lazy(() => import('pages/notices/NoticesPage')));
@@ -157,7 +159,10 @@ const MainRoutes = {
               path: 'app-links',
               element: <AppLinksPage />
             },
-
+            {
+              path: 'document-types',
+              element: <DocumentTypesPage />
+            },
             {
               path: 'notices',
               element: <NoticesPage />

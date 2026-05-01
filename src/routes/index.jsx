@@ -3,7 +3,7 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 // project-imports
 import MainRoutes from './MainRoutes';
 import LoginPage from './LoginPage';
-import PageHome from './PageHome';
+import PageHome from '../pages/index/PageHome';
 
 // ==============================|| ROUTES RENDER ||============================== //
 

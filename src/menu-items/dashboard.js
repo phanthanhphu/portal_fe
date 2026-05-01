@@ -1,21 +1,23 @@
 import {
   Home3,
   HomeTrendUp,
-  Box,
+  Category2,
   Building,
-  Profile,
+  Profile2User,
   DocumentText1,
-  Link21
+  Link21,
+  NotificationBing
 } from 'iconsax-reactjs';
 
 const icons = {
   navigation: Home3,
   dashboard: HomeTrendUp,
   appLinks: Link21,
-  notices: DocumentText1,
-  departmentForms: Box,
+  documentTypes: Category2,
+  notices: NotificationBing,
+  departmentForms: DocumentText1,
   departments: Building,
-  users: Profile
+  users: Profile2User
 };
 
 // CSS styles giống file mẫu
@@ -71,6 +73,14 @@ const getDashboardMenu = () => {
       type: 'item',
       url: '/app-links',
       icon: icons.appLinks,
+      breadcrumbs: false
+    },
+    {
+      id: 'document-types',
+      title: 'Document Types',
+      type: 'item',
+      url: '/document-types',
+      icon: icons.documentTypes,
       breadcrumbs: false
     },
     {

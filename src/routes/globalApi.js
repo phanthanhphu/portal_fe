@@ -7,8 +7,8 @@ const setupApiBaseUrl = () => {
   if (!window.API_BASE_URL) {
     window.API_BASE_URL =
       window.location.hostname === 'localhost'
-        ? 'http://localhost:8080'
-        : `http://${window.location.hostname}:8080`;
+        ? 'http://localhost:8081'
+        : `http://${window.location.hostname}:8081`;
   }
   console.log('🌐 API BASE URL:', window.API_BASE_URL);
 };
