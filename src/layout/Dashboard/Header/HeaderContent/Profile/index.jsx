@@ -62,39 +62,51 @@ export default function UserPage() {
   const UserAvatar = () => {
     const { displayImageUrl } = processedUser;
 
+    const avatarSx = {
+      width: 38,
+      height: 38,
+      minWidth: 38,
+      minHeight: 38,
+      borderRadius: '50%',
+      overflow: 'hidden',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+      border: `2px solid ${alpha(theme.palette.primary.main, 0.9)}`,
+      boxShadow: `0 0 0 3px ${alpha(theme.palette.primary.main, 0.10)}`,
+      backgroundColor: alpha(theme.palette.primary.main, 0.10)
+    };
+
     if (displayImageUrl && !imageError) {
       return (
-        <img
-          src={`${API_BASE_URL}${displayImageUrl}`}
-          alt={username || 'User'}
-          width={36}
-          height={36}
-          style={{
-            borderRadius: '50%',
-            objectFit: 'cover',
-            display: 'block',
-            border: `2px solid ${alpha(theme.palette.primary.main, 0.9)}`
-          }}
-          loading="lazy"
-          onError={() => setImageError(true)}
-        />
+        <Box sx={avatarSx}>
+          <Box
+            component="img"
+            src={`${API_BASE_URL}${displayImageUrl}`}
+            alt={username || 'User'}
+            loading="lazy"
+            onError={() => setImageError(true)}
+            sx={{
+              width: '100%',
+              height: '100%',
+              display: 'block',
+              objectFit: 'cover',
+              objectPosition: 'center',
+              borderRadius: '50%'
+            }}
+          />
+        </Box>
       );
     }
 
     return (
       <Box
         sx={{
-          width: 36,
-          height: 36,
-          borderRadius: '50%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
+          ...avatarSx,
           fontSize: '1.05rem',
           fontWeight: 900,
-          color: theme.palette.primary.main,
-          bgcolor: alpha(theme.palette.primary.main, 0.10),
-          border: `2px solid ${alpha(theme.palette.primary.main, 0.9)}`
+          color: theme.palette.primary.main
         }}
       >
         {firstLetter || 'Y'}
@@ -111,8 +123,11 @@ export default function UserPage() {
         aria-haspopup="true"
         onClick={handleToggle}
         sx={{
+          width: 46,
+          height: 46,
           p: 0.4,
-          borderRadius: 2,
+          borderRadius: '50%',
+          overflow: 'hidden',
           transition: 'background-color .18s ease, transform .18s ease',
           '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.08), transform: 'translateY(-1px)' },
           '&:focus-visible': {

@@ -14,19 +14,26 @@ import {
   TextField,
   Typography
 } from '@mui/material';
-import { alpha, useTheme } from '@mui/material/styles';
+import { alpha } from '@mui/material/styles';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 
 import logoYoungone from '../assets/svg/logos/logo-youngone.png';
 import backgroundBsl from '../assets/images/background/background_bsl.jpg';
 import { API_BASE_URL } from '../config';
 
+const portalFeatures = ['Pinned notice', 'Internal documents', 'Work links', 'Quick search'];
+
+const companyStats = [
+  { t: 'Founded', d: '2017' },
+  { t: 'Factories', d: '7' },
+  { t: 'Workers', d: '8,000+' },
+  { t: 'Lines', d: '240+' }
+];
+
 export default function LoginPage() {
-  const theme = useTheme();
   const navigate = useNavigate();
 
   const APP_LINKS_PATH = useMemo(() => '/app-links', []);
-  const LOGIN_PATH = useMemo(() => '/react/login', []);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -145,7 +152,7 @@ export default function LoginPage() {
           sx={{
             display: 'flex',
             flexDirection: { xs: 'column', md: 'row' },
-            flexWrap: { xs: 'wrap', md: 'nowrap' }, // ✅ FIX tụt xuống
+            flexWrap: { xs: 'wrap', md: 'nowrap' },
             minHeight: { xs: 760, md: 'min(720px, 88vh)' }
           }}
         >
@@ -188,7 +195,7 @@ export default function LoginPage() {
               }}
             />
 
-            <Box sx={{ width: 'min(520px, 92%)', position: 'relative' }}>
+            <Box sx={{ width: 'min(540px, 92%)', position: 'relative' }}>
               {/* Logo */}
               <Box sx={{ mb: 2.4 }}>
                 <Box
@@ -212,37 +219,80 @@ export default function LoginPage() {
                   fontSize: '2.05rem',
                   fontWeight: 950,
                   letterSpacing: -0.6,
-                  lineHeight: 1.02,
-                  textTransform: 'uppercase',
-                  background: 'linear-gradient(90deg, #ffffff 0%, #dbeafe 40%, #a78bfa 70%, #67e8f9 100%)',
+                  lineHeight: 1.05,
+                  background: 'linear-gradient(90deg, #ffffff 0%, #dbeafe 38%, #a78bfa 68%, #67e8f9 100%)',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
                   textShadow: '0 18px 60px rgba(0,0,0,0.35)'
                 }}
               >
-                YOUNGONE
+                Internal portal for notices, documents, and links.
               </Typography>
 
               <Typography
                 sx={{
-                  mt: 1,
+                  mt: 1.3,
                   fontSize: '0.96rem',
                   color: alpha('#fff', 0.88),
                   lineHeight: 1.65
                 }}
               >
-                Inspired by nature, building vertically integrated supply chains to deliver quality, speed, and
-                sustainability at scale.
+                A website that brings together important notices, internal documents, and work links from departments,
+                helping users search faster and save time.
               </Typography>
+
+              <Stack direction="row" useFlexGap flexWrap="wrap" spacing={1} sx={{ mt: 2.2 }}>
+                {portalFeatures.map((item) => (
+                  <Box
+                    key={item}
+                    sx={{
+                      px: 1.4,
+                      py: 0.8,
+                      borderRadius: 999,
+                      backgroundColor: alpha('#fff', 0.1),
+                      border: `1px solid ${alpha('#fff', 0.16)}`,
+                      backdropFilter: 'blur(10px)'
+                    }}
+                  >
+                    <Typography sx={{ fontSize: '0.8rem', fontWeight: 850, color: alpha('#fff', 0.92) }}>
+                      {item}
+                    </Typography>
+                  </Box>
+                ))}
+              </Stack>
 
               <Divider sx={{ my: 2.4, borderColor: alpha('#fff', 0.14) }} />
 
-              <Stack spacing={1.2}>
-                {[
-                  { t: 'Since 1974', d: 'Outdoor apparel manufacturing worldwide.' },
-                  { t: 'Global Presence', d: 'Facilities across Asia & the Americas.' },
-                  { t: 'Vertical Integration', d: 'In-house fabrics and insulation.' }
-                ].map((x) => (
+              <Box
+                sx={{
+                  p: 1.7,
+                  borderRadius: 3,
+                  backgroundColor: alpha('#fff', 0.08),
+                  border: `1px solid ${alpha('#fff', 0.14)}`,
+                  backdropFilter: 'blur(12px)',
+                  boxShadow: '0 18px 55px rgba(0,0,0,0.22)'
+                }}
+              >
+                <Typography sx={{ fontSize: '0.85rem', fontWeight: 950, letterSpacing: 1.2, opacity: 0.82 }}>
+                  YOUNGONE
+                </Typography>
+                <Typography sx={{ mt: 0.35, fontSize: '1.18rem', fontWeight: 950, lineHeight: 1.25 }}>
+                  BROADPEAK SOC TRANG
+                </Typography>
+                <Typography sx={{ mt: 0.7, fontSize: '0.88rem', fontWeight: 650, opacity: 0.86, lineHeight: 1.5 }}>
+                  Global outdoor gear and apparel manufacturing facility
+                </Typography>
+              </Box>
+
+              <Box
+                sx={{
+                  mt: 1.5,
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                  gap: 1.1
+                }}
+              >
+                {companyStats.map((x) => (
                   <Box
                     key={x.t}
                     sx={{
@@ -251,21 +301,17 @@ export default function LoginPage() {
                       backgroundColor: alpha('#fff', 0.08),
                       border: `1px solid ${alpha('#fff', 0.14)}`,
                       backdropFilter: 'blur(12px)',
-                      boxShadow: '0 18px 55px rgba(0,0,0,0.22)'
+                      boxShadow: '0 18px 55px rgba(0,0,0,0.18)'
                     }}
                   >
-                    <Typography sx={{ fontSize: '0.78rem', fontWeight: 900, opacity: 0.92 }}>
-                      {x.t}
-                    </Typography>
-                    <Typography sx={{ mt: 0.25, fontSize: '0.9rem', fontWeight: 650, opacity: 0.92 }}>
-                      {x.d}
-                    </Typography>
+                    <Typography sx={{ fontSize: '0.76rem', fontWeight: 850, opacity: 0.72 }}>{x.t}</Typography>
+                    <Typography sx={{ mt: 0.2, fontSize: '1rem', fontWeight: 950, opacity: 0.95 }}>{x.d}</Typography>
                   </Box>
                 ))}
-              </Stack>
+              </Box>
 
               <Typography sx={{ mt: 2.6, fontSize: '0.78rem', opacity: 0.7 }}>
-                © {new Date().getFullYear()} Youngone — Internal System
+                © {new Date().getFullYear()} Youngone — Internal Portal
               </Typography>
             </Box>
           </Box>

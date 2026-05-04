@@ -234,6 +234,30 @@ function PaginationBar({ count, page, rowsPerPage, onPageChange, onRowsPerPageCh
 export default function UserManagementPage() {
   const theme = useTheme();
   const btnSx = useMemo(() => ({ textTransform: 'none', fontWeight: 400 }), []);
+  const addBtnSx = useMemo(
+    () => ({
+      textTransform: 'none',
+      fontWeight: 700,
+      px: 1.6,
+      py: 0.65,
+      borderRadius: 1.2,
+      color: '#fff',
+      backgroundColor: '#111827',
+      border: '1px solid #111827',
+      boxShadow: 'none',
+      '&:hover': {
+        backgroundColor: '#000',
+        borderColor: '#000',
+        boxShadow: '0 6px 14px rgba(17, 24, 39, 0.18)',
+      },
+      '&.Mui-disabled': {
+        color: '#9ca3af',
+        backgroundColor: '#e5e7eb',
+        borderColor: '#e5e7eb',
+      },
+    }),
+    []
+  );
 
   const cacheBust = useMemo(() => Date.now(), []);
   const imageCacheRef = useRef(new Map());
@@ -706,11 +730,11 @@ export default function UserManagementPage() {
             </Stack>
 
             <Button
-              variant="outlined"
+              variant="contained"
               startIcon={<AddIcon fontSize="small" />}
               onClick={() => setAddDialogOpen(true)}
               disabled={loading}
-              sx={btnSx}
+              sx={addBtnSx}
             >
               Add User
             </Button>
