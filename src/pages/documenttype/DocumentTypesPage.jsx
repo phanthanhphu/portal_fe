@@ -31,6 +31,9 @@ import {
   Edit,
   Delete,
   Inbox as InboxIcon,
+  Launch as LaunchIcon,
+  BugReport as BugReportIcon,
+  Extension as ExtensionIcon,
 } from '@mui/icons-material';
 
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -43,6 +46,10 @@ import AddDocumentTypeDialog from './AddDocumentTypeDialog';
 import EditDocumentTypeDialog from './EditDocumentTypeDialog';
 
 const TYPE_API = `${API_BASE_URL}/api/document-types`;
+
+const GW2_ITSM_LOGIN_URL = 'https://gw2.youngone.com/covicore/login.do?redirectItsm=Y';
+const GW2_ITSM_DEBUG_URL = 'https://gw2.youngone.com/covicore/login.do?redirectItsm=Y&itsmDebug=Y';
+const ITSM_EXTENSION_INSTALLER_URL = '/downloads/itsm-extension-bat-installer.zip';
 
 const getAuthHeaders = (accept = '*/*') => {
   const token = localStorage.getItem('token');
@@ -191,6 +198,7 @@ export default function DocumentTypesPage() {
   const [currentItem, setCurrentItem] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [itsmGuideOpen, setItsmGuideOpen] = useState(false);
 
   const fetchData = useCallback(async (overrides = {}) => {
     setLoading(true);
@@ -300,8 +308,179 @@ export default function DocumentTypesPage() {
     setPage(0);
   };
 
+  const openUrlInNewTab = useCallback((url) => {
+    const openedWindow = window.open(url, '_blank');
+
+    if (!openedWindow) {
+      window.location.href = url;
+      return false;
+    }
+
+    try {
+      openedWindow.focus();
+    } catch (error) {
+      // Ignore focus errors.
+    }
+
+    return true;
+  }, []);
+
+  const handleOpenItsm = useCallback(() => {
+    try {
+      localStorage.setItem('portal_itsm_last_open_at', String(Date.now()));
+    } catch (error) {
+      // Ignore localStorage errors.
+    }
+
+    const opened = openUrlInNewTab(GW2_ITSM_LOGIN_URL);
+
+    setNotification({
+      open: true,
+      message: opened
+        ? 'Opened GW2 Login in a new tab. If the extension is installed in this Chrome profile, it will redirect to ITSM after login.'
+        : 'Popup was blocked, opened GW2 Login in the current tab.',
+      severity: 'info',
+    });
+
+    setItsmGuideOpen(true);
+  }, [openUrlInNewTab]);
+
+  const handleOpenItsmDebug = useCallback(() => {
+    try {
+      localStorage.setItem('portal_itsm_debug_open_at', String(Date.now()));
+    } catch (error) {
+      // Ignore localStorage errors.
+    }
+
+    const opened = openUrlInNewTab(GW2_ITSM_DEBUG_URL);
+
+    setNotification({
+      open: true,
+      message: opened
+        ? 'Opened GW2 Login DEBUG in a new tab. Check the GW2 tab Console for [GW2-ITSM-EXT] logs.'
+        : 'Popup was blocked, opened GW2 Login DEBUG in the current tab.',
+      severity: 'info',
+    });
+  }, [openUrlInNewTab]);
+
+  const handleDownloadItsmExtension = useCallback(() => {
+    const link = document.createElement('a');
+    link.href = ITSM_EXTENSION_INSTALLER_URL;
+    link.download = 'itsm-extension-bat-installer.zip';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    setItsmGuideOpen(true);
+    setNotification({
+      open: true,
+      message: 'Downloaded ITSM extension installer. Extract it and run install-itsm-extension.bat.',
+      severity: 'info',
+    });
+  }, []);
+
   return (
     <Box sx={pageWrapSx}>
+      <Paper
+        elevation={0}
+        sx={{
+          mb: 1,
+          px: 1.25,
+          py: 1,
+          borderRadius: 1.5,
+          border: '1px solid #e5e7eb',
+          backgroundColor: '#fff',
+        }}
+      >
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={1}
+          alignItems={{ xs: 'stretch', sm: 'center' }}
+          justifyContent="space-between"
+        >
+          <Box>
+            <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, color: '#111827' }}>
+              ITSM Access
+            </Typography>
+            <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+              Click to open GW2 Login in a new tab. After login, the client extension will redirect to ITSM.
+            </Typography>
+          </Box>
+
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="flex-end">
+            <Button
+              variant="contained"
+              startIcon={<LaunchIcon fontSize="small" />}
+              onClick={handleOpenItsm}
+              disabled={loading}
+              sx={{
+                minHeight: 38,
+                borderRadius: 1.4,
+                textTransform: 'none',
+                fontWeight: 700,
+                whiteSpace: 'nowrap',
+                background: 'linear-gradient(135deg, #2749ff, #5ec6ff)',
+                boxShadow: '0 12px 24px rgba(39, 73, 255, 0.22)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #1734c8, #38bdf8)',
+                  boxShadow: '0 14px 28px rgba(39, 73, 255, 0.26)',
+                },
+              }}
+            >
+              Open ITSM New Tab
+            </Button>
+
+            <Button
+              variant="outlined"
+              startIcon={<BugReportIcon fontSize="small" />}
+              onClick={handleOpenItsmDebug}
+              disabled={loading}
+              sx={{
+                minHeight: 38,
+                borderRadius: 1.4,
+                textTransform: 'none',
+                fontWeight: 700,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Debug New Tab
+            </Button>
+
+            <Button
+              variant="outlined"
+              color="inherit"
+              startIcon={<ExtensionIcon fontSize="small" />}
+              onClick={handleDownloadItsmExtension}
+              disabled={loading}
+              sx={{
+                minHeight: 38,
+                borderRadius: 1.4,
+                textTransform: 'none',
+                fontWeight: 700,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Install Extension
+            </Button>
+
+            <Button
+              variant="text"
+              onClick={() => setItsmGuideOpen(true)}
+              disabled={loading}
+              sx={{
+                minHeight: 38,
+                borderRadius: 1.4,
+                textTransform: 'none',
+                fontWeight: 700,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Why not redirect?
+            </Button>
+          </Stack>
+        </Stack>
+      </Paper>
+
       <DocumentTypeSearch
         searchName={searchNameInput}
         setSearchName={setSearchNameInput}
@@ -490,6 +669,59 @@ export default function DocumentTypesPage() {
         }}
       />
 
+
+      <Dialog open={itsmGuideOpen} maxWidth="sm" fullWidth onClose={() => setItsmGuideOpen(false)}>
+        <DialogTitle>ITSM Auto Redirect Setup</DialogTitle>
+
+        <DialogContent dividers>
+          <Stack spacing={1.25}>
+            <Alert severity="info" sx={{ fontSize: '0.82rem' }}>
+              React chỉ mở được link GW2 Login. Phần tự chuyển sang ITSM sau khi đăng nhập cần extension chạy trong Chrome/profile đang mở tab GW2.
+            </Alert>
+
+            <Typography sx={{ fontSize: '0.86rem', color: '#111827', fontWeight: 700 }}>
+              Luồng đúng
+            </Typography>
+
+            <Box
+              component="ol"
+              sx={{
+                m: 0,
+                pl: 2.4,
+                color: '#374151',
+                '& li': { mb: 0.75, fontSize: '0.82rem', lineHeight: 1.6 },
+              }}
+            >
+              <li>Bấm <b>Install Extension</b> để tải bộ cài.</li>
+              <li>Giải nén file zip và chạy <b>install-itsm-extension.bat</b>.</li>
+              <li>Nếu BAT tạo shortcut riêng, hãy mở portal bằng shortcut có extension.</li>
+              <li>Bấm <b>Debug New Tab</b>; sau khi login GW2, tab GW2 phải có log <b>[GW2-ITSM-EXT]</b>.</li>
+              <li>Khi extension chạy đúng, bấm <b>Open ITSM New Tab</b> là login xong tự chuyển ITSM.</li>
+            </Box>
+
+            <Alert severity="warning" sx={{ fontSize: '0.82rem' }}>
+              Không thể handle 100% chỉ bằng file React vì trình duyệt không cho web cài extension, đọc session GW2, hoặc điều khiển tab GW2 sau login nếu không có extension/GW2 hỗ trợ.
+            </Alert>
+
+            <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary', wordBreak: 'break-all' }}>
+              Login URL: {GW2_ITSM_LOGIN_URL}
+            </Typography>
+          </Stack>
+        </DialogContent>
+
+        <DialogActions>
+          <Button onClick={handleDownloadItsmExtension} startIcon={<ExtensionIcon fontSize="small" />}>
+            Download Extension
+          </Button>
+          <Button onClick={handleOpenItsmDebug} startIcon={<BugReportIcon fontSize="small" />}>
+            Debug New Tab
+          </Button>
+          <Button onClick={() => setItsmGuideOpen(false)} variant="contained">
+            OK
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Dialog open={deleteDialogOpen} maxWidth="xs" fullWidth>
         <DialogTitle>Confirm Delete</DialogTitle>
 
@@ -499,7 +731,7 @@ export default function DocumentTypesPage() {
           </Typography>
           {Array.isArray(selectedItem?.departments) && selectedItem.departments.length > 0 && (
             <Typography fontSize={12} color="warning.main" sx={{ mt: 1 }}>
-              This type is linked to {selectedItem.departments.length} department(s). Please make sure the backend allows deletion.
+              This type is linked to {selectedItem.departments.length} department(s).
             </Typography>
           )}
         </DialogContent>

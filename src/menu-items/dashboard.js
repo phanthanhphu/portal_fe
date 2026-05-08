@@ -76,11 +76,11 @@ const getDashboardMenu = () => {
       breadcrumbs: false
     },
     {
-      id: 'document-types',
-      title: 'Document Types',
+      id: 'departments',
+      title: 'Departments',
       type: 'item',
-      url: '/document-types',
-      icon: icons.documentTypes,
+      url: '/department-management',
+      icon: icons.departments,
       breadcrumbs: false
     },
     {
@@ -92,6 +92,14 @@ const getDashboardMenu = () => {
       breadcrumbs: false
     },
     {
+      id: 'document-types',
+      title: 'Document Types',
+      type: 'item',
+      url: '/document-types',
+      icon: icons.documentTypes,
+      breadcrumbs: false
+    },
+    {
       id: 'department-forms',
       title: 'Documents',
       type: 'item',
@@ -99,14 +107,6 @@ const getDashboardMenu = () => {
       icon: icons.departmentForms,
       breadcrumbs: false
     },
-    {
-      id: 'departments',
-      title: 'Departments',
-      type: 'item',
-      url: '/department-management',
-      icon: icons.departments,
-      breadcrumbs: false
-    }
   ];
 
   const userManagementItem = {
