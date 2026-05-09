@@ -1654,6 +1654,7 @@ export default function PageHome() {
   const [errorFormsByTypeId, setErrorFormsByTypeId] = useState({});
   const [notices, setNotices] = useState([]);
   const [featuredPinnedNotice, setFeaturedPinnedNotice] = useState(null);
+  const [priorityPinnedNotice, setPriorityPinnedNotice] = useState(null);
 
   const [loadingApps, setLoadingApps] = useState(false);
   const [loadingDepartments, setLoadingDepartments] = useState(false);
@@ -2044,16 +2045,34 @@ export default function PageHome() {
       if (!response.ok) throw new Error("Failed to fetch notices");
       const data = await response.json();
 
-      const normalizedFeaturedPinnedNotice = normalizeNoticeItem(data.featuredPinnedNotice);
+      const normalizedPinnedNotices = Array.isArray(data.pinnedNotices)
+        ? data.pinnedNotices.map(normalizeNoticeItem).filter(Boolean)
+        : [];
+
+      const normalizedFeaturedPinnedNotice =
+        normalizedPinnedNotices[0] || normalizeNoticeItem(data.featuredPinnedNotice);
+
+      const normalizedPriorityPinnedNotice =
+        normalizedPinnedNotices[1] || normalizeNoticeItem(data.priorityPinnedNotice);
+
+      const pinnedIds = new Set(
+        [normalizedFeaturedPinnedNotice, normalizedPriorityPinnedNotice]
+          .filter(Boolean)
+          .map((item) => item.id),
+      );
+
       const normalizedNotices = (data.content || [])
         .map(normalizeNoticeItem)
-        .filter(Boolean);
+        .filter(Boolean)
+        .filter((item) => !pinnedIds.has(item.id));
 
-      setFeaturedPinnedNotice(normalizedFeaturedPinnedNotice);
+      setFeaturedPinnedNotice(normalizedFeaturedPinnedNotice || null);
+      setPriorityPinnedNotice(normalizedPriorityPinnedNotice || null);
       setNotices(normalizedNotices);
     } catch (error) {
       setErrorNotices("Unable to load notices.");
       setFeaturedPinnedNotice(null);
+      setPriorityPinnedNotice(null);
       setNotices([]);
     } finally {
       setLoadingNotices(false);
@@ -2559,14 +2578,21 @@ export default function PageHome() {
     resetNoticeMenuLayout();
   };
 
-  const featuredNotice = useMemo(
-    () => featuredPinnedNotice || notices[0] || null,
+  const heroPinnedNotice = useMemo(
+    () => featuredPinnedNotice || notices.find((item) => item.pinned) || null,
     [featuredPinnedNotice, notices],
   );
 
+  const priorityPinnedDisplayNotice = useMemo(
+    () => priorityPinnedNotice || notices.find((item) => item.pinned && item.id !== heroPinnedNotice?.id) || null,
+    [priorityPinnedNotice, notices, heroPinnedNotice],
+  );
+
   const searchableNotices = useMemo(
-    () => notices.filter((item) => item.id !== featuredNotice?.id),
-    [notices, featuredNotice],
+    () => notices.filter(
+      (item) => item.id !== heroPinnedNotice?.id && item.id !== priorityPinnedDisplayNotice?.id,
+    ),
+    [notices, heroPinnedNotice, priorityPinnedDisplayNotice],
   );
 
   const filteredNotices = useMemo(() => {
@@ -2612,7 +2638,7 @@ const visibleNotices = useMemo(() => {
   });
 }, [filteredNotices, noticeWindowStart]);
 
-  const noticeDisplayCount = (featuredNotice ? 1 : 0) + filteredNotices.length;
+  const noticeDisplayCount = (priorityPinnedDisplayNotice ? 1 : 0) + filteredNotices.length;
 
   const divisionCount = useMemo(() => {
     return new Set(
@@ -2620,12 +2646,15 @@ const visibleNotices = useMemo(() => {
     ).size;
   }, [departments]);
 
-  const pinnedCount = useMemo(
-    () => (featuredPinnedNotice?.pinned ? 1 : 0) + notices.filter((item) => item.pinned).length,
-    [featuredPinnedNotice, notices],
-  );
+  const pinnedCount = useMemo(() => {
+    const pinnedIds = new Set();
 
-  const heroPinnedNotice = featuredNotice;
+    [featuredPinnedNotice, priorityPinnedNotice, ...notices.filter((item) => item.pinned)]
+      .filter(Boolean)
+      .forEach((item) => pinnedIds.add(item.id));
+
+    return pinnedIds.size;
+  }, [featuredPinnedNotice, priorityPinnedNotice, notices]);
 
   const heroPinnedNoticeTime = useMemo(() => {
     if (!heroPinnedNotice) return "No data yet";
@@ -3047,7 +3076,7 @@ const visibleNotices = useMemo(() => {
                   />
 
                   <div className="portal-notice-column">
-                    {featuredNotice ? (
+                    {priorityPinnedDisplayNotice ? (
                       <div className="portal-featured-notice-wrap">
                         <div className="portal-featured-notice">
                           <div className="portal-featured-notice__badge">
@@ -3056,21 +3085,21 @@ const visibleNotices = useMemo(() => {
                             </span>
                             <span>Priority pinned</span>
                           </div>
-                          <h3>{featuredNotice.title}</h3>
-                          <ExpandableText text={featuredNotice.content} featured />
+                          <h3>{priorityPinnedDisplayNotice.title}</h3>
+                          <ExpandableText text={priorityPinnedDisplayNotice.content} featured />
                           <div className="portal-meta-row">
-                            <FileTypeBadge item={featuredNotice} />
-                            {getDepartmentDisplayName(featuredNotice) ? (
-                              <span className="portal-meta-pill">{getDepartmentDisplayName(featuredNotice)}</span>
+                            <FileTypeBadge item={priorityPinnedDisplayNotice} />
+                            {getDepartmentDisplayName(priorityPinnedDisplayNotice) ? (
+                              <span className="portal-meta-pill">{getDepartmentDisplayName(priorityPinnedDisplayNotice)}</span>
                             ) : null}
-                            {featuredNotice.createdAt ? (
+                            {priorityPinnedDisplayNotice.createdAt ? (
                               <span className="portal-meta-pill">
                                 <IconClock />
-                                {formatDateTime(featuredNotice.createdAt)}
+                                {formatDateTime(priorityPinnedDisplayNotice.createdAt)}
                               </span>
                             ) : null}
                           </div>
-                          <FileActions item={featuredNotice} onPreview={handleOpenPreview} onDownload={handleDownloadFile} />
+                          <FileActions item={priorityPinnedDisplayNotice} onPreview={handleOpenPreview} onDownload={handleDownloadFile} />
                         </div>
                       </div>
                     ) : null}
