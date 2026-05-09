@@ -2,12 +2,13 @@
 
 export const APP_DEFAULT_PATH = '/dashboard';
 export const HORIZONTAL_MAX_ITEM = 6; // Pro Version
-export const DRAWER_WIDTH = 280;
+export const DRAWER_WIDTH = 267;
 export const MINI_DRAWER_WIDTH = 0; // Pro Version
 export const HEADER_HEIGHT = 74;
 export const GRID_COMMON_SPACING = { xs: 2, md: 2.5 };
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+// export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+export const API_BASE_URL = 'http://localhost:8081';
 
 // ==============================|| THEME CONFIG ||============================== //
 
