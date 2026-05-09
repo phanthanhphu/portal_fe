@@ -2045,20 +2045,25 @@ export default function PageHome() {
       if (!response.ok) throw new Error("Failed to fetch notices");
       const data = await response.json();
 
-      const normalizedPinnedNotices = Array.isArray(data.pinnedNotices)
-        ? data.pinnedNotices.map(normalizeNoticeItem).filter(Boolean)
-        : [];
+      const featuredPinnedList = Array.isArray(data.featuredPinnedNotice)
+        ? data.featuredPinnedNotice
+        : Array.isArray(data.pinnedNotices)
+          ? data.pinnedNotices
+          : data.featuredPinnedNotice
+            ? [data.featuredPinnedNotice, data.priorityPinnedNotice].filter(Boolean)
+            : [];
 
-      const normalizedFeaturedPinnedNotice =
-        normalizedPinnedNotices[0] || normalizeNoticeItem(data.featuredPinnedNotice);
+      const normalizedFeaturedPinnedNotices = featuredPinnedList
+        .map(normalizeNoticeItem)
+        .filter(Boolean);
 
-      const normalizedPriorityPinnedNotice =
-        normalizedPinnedNotices[1] || normalizeNoticeItem(data.priorityPinnedNotice);
+      const normalizedFeaturedPinnedNotice = normalizedFeaturedPinnedNotices[0] || null;
+      const normalizedPriorityPinnedNotice = normalizedFeaturedPinnedNotices[1] || null;
 
       const pinnedIds = new Set(
-        [normalizedFeaturedPinnedNotice, normalizedPriorityPinnedNotice]
-          .filter(Boolean)
-          .map((item) => item.id),
+        normalizedFeaturedPinnedNotices
+          .map((item) => item.id)
+          .filter(Boolean),
       );
 
       const normalizedNotices = (data.content || [])
@@ -2066,8 +2071,8 @@ export default function PageHome() {
         .filter(Boolean)
         .filter((item) => !pinnedIds.has(item.id));
 
-      setFeaturedPinnedNotice(normalizedFeaturedPinnedNotice || null);
-      setPriorityPinnedNotice(normalizedPriorityPinnedNotice || null);
+      setFeaturedPinnedNotice(normalizedFeaturedPinnedNotice);
+      setPriorityPinnedNotice(normalizedPriorityPinnedNotice);
       setNotices(normalizedNotices);
     } catch (error) {
       setErrorNotices("Unable to load notices.");
@@ -2579,18 +2584,26 @@ export default function PageHome() {
   };
 
   const heroPinnedNotice = useMemo(
-    () => featuredPinnedNotice || notices.find((item) => item.pinned) || null,
+    () => featuredPinnedNotice || notices[0] || null,
     [featuredPinnedNotice, notices],
   );
 
   const priorityPinnedDisplayNotice = useMemo(
-    () => priorityPinnedNotice || notices.find((item) => item.pinned && item.id !== heroPinnedNotice?.id) || null,
+    () => {
+      if (priorityPinnedNotice && priorityPinnedNotice.id !== heroPinnedNotice?.id) {
+        return priorityPinnedNotice;
+      }
+
+      return notices.find((item) => item.pinned && item.id !== heroPinnedNotice?.id) || null;
+    },
     [priorityPinnedNotice, notices, heroPinnedNotice],
   );
 
   const searchableNotices = useMemo(
     () => notices.filter(
-      (item) => item.id !== heroPinnedNotice?.id && item.id !== priorityPinnedDisplayNotice?.id,
+      (item) =>
+        item.id !== heroPinnedNotice?.id &&
+        item.id !== priorityPinnedDisplayNotice?.id,
     ),
     [notices, heroPinnedNotice, priorityPinnedDisplayNotice],
   );
@@ -2646,15 +2659,18 @@ const visibleNotices = useMemo(() => {
     ).size;
   }, [departments]);
 
-  const pinnedCount = useMemo(() => {
-    const pinnedIds = new Set();
-
-    [featuredPinnedNotice, priorityPinnedNotice, ...notices.filter((item) => item.pinned)]
-      .filter(Boolean)
-      .forEach((item) => pinnedIds.add(item.id));
-
-    return pinnedIds.size;
-  }, [featuredPinnedNotice, priorityPinnedNotice, notices]);
+  const pinnedCount = useMemo(
+    () =>
+      (featuredPinnedNotice?.pinned ? 1 : 0) +
+      (priorityPinnedNotice?.pinned ? 1 : 0) +
+      notices.filter(
+        (item) =>
+          item.pinned &&
+          item.id !== featuredPinnedNotice?.id &&
+          item.id !== priorityPinnedNotice?.id,
+      ).length,
+    [featuredPinnedNotice, priorityPinnedNotice, notices],
+  );
 
   const heroPinnedNoticeTime = useMemo(() => {
     if (!heroPinnedNotice) return "No data yet";
