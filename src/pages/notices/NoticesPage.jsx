@@ -639,6 +639,30 @@ export default function NoticesPage() {
       }
     }
 
+    // Show updated date column right after created date.
+    // The backend already returns updatedAt as a date array, so formatDateTime can render it directly.
+    const hasUpdatedAt = next.some((header) => header.key === 'updatedAt');
+
+    if (!hasUpdatedAt) {
+      const updatedAtHeader = {
+        label: 'Updated Date',
+        key: 'updatedAt',
+        sortable: true,
+        hideOnSmall: true,
+      };
+
+      const createdAtIndex = next.findIndex((header) => header.key === 'createdAt');
+      const actionsIndex = next.findIndex((header) => header.key === 'actions');
+
+      if (createdAtIndex >= 0) {
+        next.splice(createdAtIndex + 1, 0, updatedAtHeader);
+      } else if (actionsIndex >= 0) {
+        next.splice(actionsIndex, 0, updatedAtHeader);
+      } else {
+        next.push(updatedAtHeader);
+      }
+    }
+
     return next;
   }, []);
 
@@ -1300,7 +1324,11 @@ export default function NoticesPage() {
                       </TableCell>
 
                       <TableCell sx={{ fontSize: '0.75rem', py: 0.45, px: 0.7, color: '#374151', display: { xs: 'none', md: 'table-cell' }, minWidth: 140 }}>
-                        {formatDateTime(item.createdAt)}
+                        {formatDateTime(item.createdAt) || '-'}
+                      </TableCell>
+
+                      <TableCell sx={{ fontSize: '0.75rem', py: 0.45, px: 0.7, color: '#374151', display: { xs: 'none', md: 'table-cell' }, minWidth: 140 }}>
+                        {formatDateTime(item.updatedAt) || '-'}
                       </TableCell>
 
                       <TableCell align="center" sx={{ py: 0.45, px: 0.7 }}>
