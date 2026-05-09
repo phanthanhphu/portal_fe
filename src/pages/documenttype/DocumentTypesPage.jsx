@@ -31,7 +31,6 @@ import {
   Edit,
   Delete,
   Inbox as InboxIcon,
-  Launch as LaunchIcon,
 } from '@mui/icons-material';
 
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -44,8 +43,6 @@ import AddDocumentTypeDialog from './AddDocumentTypeDialog';
 import EditDocumentTypeDialog from './EditDocumentTypeDialog';
 
 const TYPE_API = `${API_BASE_URL}/api/document-types`;
-
-const GW2_ITSM_LOGIN_URL = 'https://gw2.youngone.com/covicore/login.do?redirectItsm=Y';
 
 const getAuthHeaders = (accept = '*/*') => {
   const token = localStorage.getItem('token');
@@ -303,79 +300,8 @@ export default function DocumentTypesPage() {
     setPage(0);
   };
 
-  const handleOpenItsm = useCallback(() => {
-    try {
-      localStorage.setItem('portal_itsm_last_open_at', String(Date.now()));
-    } catch (error) {
-      // Ignore localStorage errors.
-    }
-
-    const openedWindow = window.open(GW2_ITSM_LOGIN_URL, '_blank', 'noopener,noreferrer');
-
-    if (!openedWindow) {
-      window.location.href = GW2_ITSM_LOGIN_URL;
-      return;
-    }
-
-    setNotification({
-      open: true,
-      message: 'Opened GW2 Login. If the ITSM extension is installed, it will redirect to ITSM after login.',
-      severity: 'info',
-    });
-  }, []);
-
   return (
     <Box sx={pageWrapSx}>
-      <Paper
-        elevation={0}
-        sx={{
-          mb: 1,
-          px: 1.25,
-          py: 1,
-          borderRadius: 1.5,
-          border: '1px solid #e5e7eb',
-          backgroundColor: '#fff',
-        }}
-      >
-        <Stack
-          direction={{ xs: 'column', sm: 'row' }}
-          spacing={1}
-          alignItems={{ xs: 'stretch', sm: 'center' }}
-          justifyContent="space-between"
-        >
-          <Box>
-            <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, color: '#111827' }}>
-              ITSM Access
-            </Typography>
-            <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
-              Click to open GW2 Login. After login, the client extension will redirect to ITSM.
-            </Typography>
-          </Box>
-
-          <Button
-            variant="contained"
-            startIcon={<LaunchIcon fontSize="small" />}
-            onClick={handleOpenItsm}
-            disabled={loading}
-            sx={{
-              minHeight: 38,
-              borderRadius: 1.4,
-              textTransform: 'none',
-              fontWeight: 700,
-              whiteSpace: 'nowrap',
-              background: 'linear-gradient(135deg, #2749ff, #5ec6ff)',
-              boxShadow: '0 12px 24px rgba(39, 73, 255, 0.22)',
-              '&:hover': {
-                background: 'linear-gradient(135deg, #1734c8, #38bdf8)',
-                boxShadow: '0 14px 28px rgba(39, 73, 255, 0.26)',
-              },
-            }}
-          >
-            Open ITSM
-          </Button>
-        </Stack>
-      </Paper>
-
       <DocumentTypeSearch
         searchName={searchNameInput}
         setSearchName={setSearchNameInput}
