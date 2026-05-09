@@ -85,7 +85,7 @@ const getDashboardMenu = () => {
     },
     {
       id: 'notices',
-      title: '1Notices',
+      title: 'Notices',
       type: 'item',
       url: '/notices',
       icon: icons.notices,
@@ -93,7 +93,7 @@ const getDashboardMenu = () => {
     },
     {
       id: 'document-types',
-      title: '1Document Types',
+      title: 'Document Types',
       type: 'item',
       url: '/document-types',
       icon: icons.documentTypes,
