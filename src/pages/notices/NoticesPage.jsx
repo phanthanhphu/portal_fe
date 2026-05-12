@@ -96,6 +96,31 @@ const decodeJwtPayload = (token) => {
   }
 };
 
+
+const getNoticeFileUrlsFromItem = (item) => {
+  const urls = [];
+
+  if (Array.isArray(item?.fileUrls)) {
+    item.fileUrls.forEach((url) => {
+      const cleanUrl = String(url || '').trim();
+      if (cleanUrl && !urls.includes(cleanUrl)) urls.push(cleanUrl);
+    });
+  }
+
+  if (urls.length === 0) {
+    const singleUrl = getNoticeFileUrl(item);
+    if (singleUrl) urls.push(singleUrl);
+  }
+
+  return urls;
+};
+
+const createNoticeFileItem = (item, fileUrl) => ({
+  ...item,
+  fileUrl,
+  previewUrl: fileUrl || item?.previewUrl || '',
+});
+
 const getCurrentUserId = () => {
   const directUserId = localStorage.getItem('userId');
   if (directUserId) return directUserId;
@@ -1247,9 +1272,7 @@ export default function NoticesPage() {
                 data.map((item, idx) => {
                   const zebra = idx % 2 === 0 ? '#ffffff' : '#fafafa';
                   const pinnedColor = getPinnedColor(item.pinned);
-                  const fileUrl = getNoticeFileUrl(item);
-                  const fileName = getNoticeFileName(item);
-                  const fileType = getNoticePreviewFileType(item) || getFileTypeFromUrl(item);
+                  const fileUrls = getNoticeFileUrlsFromItem(item);
                   const editEnabled = canModifyItem(item, 'edit');
                   const deleteEnabled = canModifyItem(item, 'delete');
 
@@ -1287,27 +1310,48 @@ export default function NoticesPage() {
                         </Stack>
                       </TableCell>
 
-                      <TableCell sx={{ py: 0.45, px: 0.7, minWidth: 280 }}>
-                        {fileUrl ? (
-                          <Stack direction="row" spacing={1.1} alignItems="center">
-                            <NoticeFileIcon type={fileType} />
+                      <TableCell sx={{ py: 0.45, px: 0.7, minWidth: 320 }}>
+                        {fileUrls.length > 0 ? (
+                          <Stack spacing={0.8}>
+                            {fileUrls.map((fileUrl, fileIndex) => {
+                              const fileItem = createNoticeFileItem(item, fileUrl);
+                              const fileName = getNoticeFileName(fileItem);
+                              const fileType = getNoticePreviewFileType(fileItem) || getFileTypeFromUrl(fileItem);
 
-                            <Stack spacing={0.5} sx={{ minWidth: 0 }}>
-                              <Tooltip title={fileName || 'Attached file'} arrow>
-                                <Typography sx={{ fontSize: '0.75rem', color: '#111827', fontWeight: 500, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                  {fileName || 'Attached file'}
-                                </Typography>
-                              </Tooltip>
+                              return (
+                                <Stack
+                                  key={`${item.id}-${fileUrl}-${fileIndex}`}
+                                  direction="row"
+                                  spacing={1.1}
+                                  alignItems="center"
+                                  sx={{
+                                    p: 0.7,
+                                    border: '1px solid #e5e7eb',
+                                    borderRadius: 1.5,
+                                    backgroundColor: '#fff',
+                                  }}
+                                >
+                                  <NoticeFileIcon type={fileType} />
 
-                              <Stack direction="row" spacing={0.5}>
-                                <Button size="small" variant="outlined" startIcon={<Visibility fontSize="small" />} onClick={() => handleOpenPreview(item)} sx={{ minWidth: 'auto', px: 1, py: 0.2, fontSize: '0.68rem', textTransform: 'none' }}>
-                                  View
-                                </Button>
-                                <Button size="small" variant="outlined" startIcon={<Download fontSize="small" />} onClick={() => handleDownloadFile(item)} sx={{ minWidth: 'auto', px: 1, py: 0.2, fontSize: '0.68rem', textTransform: 'none' }}>
-                                  Download
-                                </Button>
-                              </Stack>
-                            </Stack>
+                                  <Stack spacing={0.5} sx={{ minWidth: 0, flex: 1 }}>
+                                    <Tooltip title={fileName || 'Attached file'} arrow>
+                                      <Typography sx={{ fontSize: '0.75rem', color: '#111827', fontWeight: 500, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {fileName || `File ${fileIndex + 1}`}
+                                      </Typography>
+                                    </Tooltip>
+
+                                    <Stack direction="row" spacing={0.5}>
+                                      <Button size="small" variant="outlined" startIcon={<Visibility fontSize="small" />} onClick={() => handleOpenPreview(fileItem)} sx={{ minWidth: 'auto', px: 1, py: 0.2, fontSize: '0.68rem', textTransform: 'none' }}>
+                                        View
+                                      </Button>
+                                      <Button size="small" variant="outlined" startIcon={<Download fontSize="small" />} onClick={() => handleDownloadFile(fileItem)} sx={{ minWidth: 'auto', px: 1, py: 0.2, fontSize: '0.68rem', textTransform: 'none' }}>
+                                        Download
+                                      </Button>
+                                    </Stack>
+                                  </Stack>
+                                </Stack>
+                              );
+                            })}
                           </Stack>
                         ) : (
                           <Stack direction="row" spacing={1} alignItems="center">
@@ -1437,10 +1481,39 @@ export default function NoticesPage() {
           setOpenEditDialog(false);
           setCurrentItem(null);
         }}
-        onOk={() => {
+        onOk={(updatedItem) => {
           setOpenEditDialog(false);
           setCurrentItem(null);
-          fetchData({ page });
+
+          if (updatedItem?.id) {
+            setData((prev) =>
+              prev.map((item) => {
+                if (item.id !== updatedItem.id) return item;
+
+                const finalFileUrls = Array.isArray(updatedItem.fileUrls)
+                  ? updatedItem.fileUrls
+                  : getNoticeFileUrlsFromItem(updatedItem);
+
+                const finalPreviewUrls = Array.isArray(updatedItem.previewUrls)
+                  ? updatedItem.previewUrls
+                  : finalFileUrls;
+
+                return {
+                  ...item,
+                  ...updatedItem,
+                  department: [updatedItem.departmentName || item.departmentName, updatedItem.division || item.division]
+                    .filter(Boolean)
+                    .join(' '),
+                  fileUrl: finalFileUrls[0] || null,
+                  previewUrl: finalPreviewUrls[0] || finalFileUrls[0] || null,
+                  fileUrls: finalFileUrls,
+                  previewUrls: finalPreviewUrls,
+                };
+              })
+            );
+          } else {
+            fetchData({ page });
+          }
         }}
       />
 

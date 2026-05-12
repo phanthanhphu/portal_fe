@@ -4873,3 +4873,933 @@ svg {
 .portal-notice-description__toggle:hover {
   text-decoration: underline !important;
 }
+
+
+/* ===== Multi-file More button: minimal patch, keep original UI ===== */
+.portal-file-actions {
+  position: relative;
+}
+
+.portal-btn--more-files {
+  color: var(--portal-primary);
+  background: rgba(39, 73, 255, 0.08);
+  border: 1px solid rgba(39, 73, 255, 0.12);
+}
+
+.portal-more-file-list {
+  width: 100%;
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px;
+  border-radius: 14px;
+  background: rgba(248, 251, 255, 0.98);
+  border: 1px solid rgba(133, 157, 199, 0.16);
+}
+
+.portal-more-file-item {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid rgba(133, 157, 199, 0.12);
+}
+
+.portal-more-file-name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--portal-text);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.portal-more-file-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.portal-more-file-actions button {
+  min-height: 26px;
+  padding: 0 9px;
+  border-radius: 999px;
+  color: var(--portal-primary);
+  background: rgba(39, 73, 255, 0.08);
+  font-size: 0.66rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.portal-more-file-actions button:hover {
+  background: rgba(39, 73, 255, 0.13);
+}
+
+.portal-file-actions.is-compact .portal-btn--more-files {
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 0.78rem;
+}
+
+@media (max-width: 640px) {
+  .portal-more-file-item {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .portal-more-file-actions {
+    justify-content: flex-start;
+  }
+}
+
+
+/* ===== Clean More file dropdown: compact, no overlap, no long-name overflow ===== */
+.portal-file-actions.is-showing-more-files {
+  width: 100%;
+  align-items: center;
+  overflow: visible;
+}
+
+.portal-file-actions .portal-more-file-list {
+  flex: 0 0 100%;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  max-height: 170px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: grid;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 7px;
+  border-radius: 14px;
+  background: rgba(248, 251, 255, 0.98);
+  border: 1px solid rgba(133, 157, 199, 0.16);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.9);
+}
+
+.portal-file-actions .portal-more-file-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.portal-file-actions .portal-more-file-list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(126, 148, 182, 0.28);
+}
+
+.portal-file-actions .portal-more-file-item {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid rgba(133, 157, 199, 0.12);
+}
+
+.portal-file-actions .portal-more-file-name {
+  min-width: 0;
+  max-width: 100%;
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--portal-text);
+  font-size: 0.74rem;
+  line-height: 1.25;
+  font-weight: 800;
+}
+
+.portal-file-actions .portal-more-file-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.portal-file-actions .portal-more-file-actions button {
+  min-height: 25px;
+  padding: 0 8px;
+  border-radius: 999px;
+  color: var(--portal-primary);
+  background: rgba(39, 73, 255, 0.08);
+  font-size: 0.64rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.portal-file-actions .portal-more-file-actions button:hover {
+  background: rgba(39, 73, 255, 0.13);
+}
+
+.portal-file-actions.is-compact .portal-more-file-list {
+  max-height: 140px;
+  padding: 6px;
+  gap: 5px;
+}
+
+.portal-file-actions.is-compact .portal-more-file-item {
+  padding: 6px 7px;
+  border-radius: 11px;
+}
+
+.portal-file-actions.is-compact .portal-more-file-name {
+  font-size: 0.68rem;
+}
+
+.portal-file-actions.is-compact .portal-more-file-actions button {
+  min-height: 23px;
+  padding: 0 7px;
+  font-size: 0.6rem;
+}
+
+.portal-form-row,
+.portal-notice-card,
+.portal-dept-card {
+  overflow: visible;
+}
+
+@media (max-width: 640px) {
+  .portal-file-actions .portal-more-file-item {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .portal-file-actions .portal-more-file-actions {
+    justify-content: flex-start;
+  }
+}
+
+
+/* ===== More files popup instead of inline dropdown ===== */
+.portal-more-file-popup-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 29, 53, 0.36);
+  backdrop-filter: blur(7px);
+}
+
+.portal-more-file-popup {
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(620px, calc(100vh - 44px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(133, 157, 199, 0.2);
+  box-shadow: 0 34px 90px rgba(15, 29, 53, 0.26);
+}
+
+.portal-more-file-popup__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border-bottom: 1px solid rgba(133, 157, 199, 0.14);
+  background: linear-gradient(180deg, rgba(248, 251, 255, 0.98), rgba(241, 247, 255, 0.94));
+}
+
+.portal-more-file-popup__head div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.portal-more-file-popup__head strong {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--portal-text);
+  font-size: 0.98rem;
+}
+
+.portal-more-file-popup__head span {
+  color: var(--portal-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.portal-more-file-popup__close {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(39, 73, 255, 0.08);
+  color: var(--portal-primary);
+  font-size: 1.35rem;
+  line-height: 1;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.portal-more-file-popup__close:hover {
+  background: rgba(39, 73, 255, 0.14);
+}
+
+.portal-more-file-list--popup {
+  width: 100%;
+  max-height: none;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 14px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.portal-more-file-list--popup::-webkit-scrollbar {
+  width: 7px;
+}
+
+.portal-more-file-list--popup::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(126, 148, 182, 0.32);
+}
+
+.portal-more-file-list--popup .portal-more-file-item {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 12px;
+  border-radius: 16px;
+  background: rgba(248, 251, 255, 0.94);
+  border: 1px solid rgba(133, 157, 199, 0.16);
+}
+
+.portal-more-file-list--popup .portal-more-file-name {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  overflow: hidden;
+}
+
+.portal-more-file-list--popup .portal-more-file-name small {
+  width: fit-content;
+  min-height: 20px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 7px;
+  border-radius: 999px;
+  color: var(--portal-primary);
+  background: rgba(39, 73, 255, 0.08);
+  font-size: 0.6rem;
+  font-weight: 900;
+}
+
+.portal-more-file-list--popup .portal-more-file-name strong {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--portal-text);
+  font-size: 0.78rem;
+  line-height: 1.3;
+}
+
+.portal-more-file-list--popup .portal-more-file-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+}
+
+.portal-more-file-list--popup .portal-more-file-actions button {
+  min-height: 30px;
+  padding: 0 11px;
+  border-radius: 999px;
+  color: var(--portal-primary);
+  background: rgba(39, 73, 255, 0.08);
+  font-size: 0.7rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.portal-more-file-list--popup .portal-more-file-actions button:first-child {
+  color: #fff;
+  background: linear-gradient(135deg, var(--portal-primary), var(--portal-sky));
+  box-shadow: 0 8px 16px rgba(39, 73, 255, 0.16);
+}
+
+@media (max-width: 640px) {
+  .portal-more-file-popup-backdrop {
+    padding: 14px;
+  }
+
+  .portal-more-file-popup {
+    width: 100%;
+    border-radius: 20px;
+  }
+
+  .portal-more-file-list--popup .portal-more-file-item {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .portal-more-file-list--popup .portal-more-file-actions {
+    justify-content: flex-start;
+  }
+}
+
+
+/* ===== Full-screen More files popup ===== */
+.portal-more-file-popup-backdrop {
+  padding: 0 !important;
+  place-items: stretch !important;
+  background: rgba(15, 29, 53, 0.42) !important;
+}
+
+.portal-more-file-popup {
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: none !important;
+  max-height: none !important;
+  border-radius: 0 !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.portal-more-file-popup__head {
+  min-height: 76px;
+  padding: 20px 32px !important;
+}
+
+.portal-more-file-popup__head strong {
+  font-size: 1.08rem !important;
+}
+
+.portal-more-file-popup__head span {
+  font-size: 0.82rem !important;
+}
+
+.portal-more-file-popup__close {
+  width: 42px !important;
+  height: 42px !important;
+  flex-basis: 42px !important;
+  font-size: 1.55rem !important;
+}
+
+.portal-more-file-list--popup {
+  padding: 24px 32px 32px !important;
+  gap: 12px !important;
+}
+
+.portal-more-file-list--popup .portal-more-file-item {
+  min-height: 66px;
+  padding: 14px 16px !important;
+  border-radius: 18px !important;
+}
+
+.portal-more-file-list--popup .portal-more-file-name small {
+  min-height: 22px;
+  padding: 0 9px;
+  font-size: 0.64rem;
+}
+
+.portal-more-file-list--popup .portal-more-file-name strong {
+  font-size: 0.88rem !important;
+}
+
+.portal-more-file-list--popup .portal-more-file-actions button {
+  min-height: 36px !important;
+  padding: 0 15px !important;
+  font-size: 0.76rem !important;
+}
+
+@media (min-width: 960px) {
+  .portal-more-file-list--popup {
+    max-width: 980px;
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  .portal-more-file-popup__head {
+    padding-left: max(32px, calc((100vw - 980px) / 2)) !important;
+    padding-right: max(32px, calc((100vw - 980px) / 2)) !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .portal-more-file-popup__head {
+    padding: 16px 18px !important;
+  }
+
+  .portal-more-file-list--popup {
+    padding: 16px 18px 24px !important;
+  }
+
+  .portal-more-file-list--popup .portal-more-file-item {
+    min-height: 0;
+  }
+}
+
+
+/* ===== Full-screen popup rendered via React Portal to document.body ===== */
+body:has(.portal-more-file-popup-backdrop) {
+  overflow: hidden;
+}
+
+.portal-more-file-popup-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147483000 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  display: flex !important;
+  align-items: stretch !important;
+  justify-content: stretch !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: rgba(15, 29, 53, 0.46) !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+.portal-more-file-popup {
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: none !important;
+  max-height: none !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  border-radius: 0 !important;
+  border: 0 !important;
+  background: rgba(255, 255, 255, 0.99) !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+}
+
+.portal-more-file-popup__head {
+  flex: 0 0 auto !important;
+  min-height: 78px !important;
+  padding: 20px clamp(18px, 4vw, 48px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 18px !important;
+  border-bottom: 1px solid rgba(133, 157, 199, 0.16) !important;
+  background: linear-gradient(180deg, rgba(248, 251, 255, 0.99), rgba(241, 247, 255, 0.96)) !important;
+}
+
+.portal-more-file-popup__head div {
+  min-width: 0 !important;
+}
+
+.portal-more-file-popup__head strong {
+  max-width: 100% !important;
+  display: block !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+  color: var(--portal-text) !important;
+  font-size: 1.1rem !important;
+}
+
+.portal-more-file-popup__head span {
+  color: var(--portal-muted) !important;
+  font-size: 0.82rem !important;
+  font-weight: 800 !important;
+}
+
+.portal-more-file-popup__close {
+  width: 44px !important;
+  height: 44px !important;
+  flex: 0 0 44px !important;
+  border-radius: 999px !important;
+  background: rgba(39, 73, 255, 0.09) !important;
+  color: var(--portal-primary) !important;
+  font-size: 1.65rem !important;
+  font-weight: 800 !important;
+  cursor: pointer !important;
+}
+
+.portal-more-file-list--popup {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  width: min(100%, 1040px) !important;
+  margin: 0 auto !important;
+  padding: 24px clamp(16px, 4vw, 36px) 36px !important;
+  display: grid !important;
+  align-content: start !important;
+  gap: 12px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+}
+
+.portal-more-file-list--popup .portal-more-file-item {
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 68px !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  gap: 14px !important;
+  padding: 14px 16px !important;
+  border-radius: 18px !important;
+  background: rgba(248, 251, 255, 0.98) !important;
+  border: 1px solid rgba(133, 157, 199, 0.16) !important;
+}
+
+.portal-more-file-list--popup .portal-more-file-name {
+  min-width: 0 !important;
+  display: grid !important;
+  gap: 4px !important;
+  overflow: hidden !important;
+}
+
+.portal-more-file-list--popup .portal-more-file-name small {
+  width: fit-content !important;
+  min-height: 22px !important;
+  padding: 0 9px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  border-radius: 999px !important;
+  color: var(--portal-primary) !important;
+  background: rgba(39, 73, 255, 0.08) !important;
+  font-size: 0.64rem !important;
+  font-weight: 900 !important;
+}
+
+.portal-more-file-list--popup .portal-more-file-name strong {
+  min-width: 0 !important;
+  display: block !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+  color: var(--portal-text) !important;
+  font-size: 0.9rem !important;
+}
+
+.portal-more-file-list--popup .portal-more-file-actions {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-shrink: 0 !important;
+}
+
+.portal-more-file-list--popup .portal-more-file-actions button {
+  min-height: 36px !important;
+  padding: 0 15px !important;
+  border-radius: 999px !important;
+  color: var(--portal-primary) !important;
+  background: rgba(39, 73, 255, 0.08) !important;
+  font-size: 0.76rem !important;
+  font-weight: 800 !important;
+  cursor: pointer !important;
+}
+
+.portal-more-file-list--popup .portal-more-file-actions button:first-child {
+  color: #fff !important;
+  background: linear-gradient(135deg, var(--portal-primary), var(--portal-sky)) !important;
+  box-shadow: 0 8px 16px rgba(39, 73, 255, 0.16) !important;
+}
+
+@media (max-width: 640px) {
+  .portal-more-file-popup__head {
+    min-height: 70px !important;
+  }
+
+  .portal-more-file-list--popup {
+    padding-top: 16px !important;
+  }
+
+  .portal-more-file-list--popup .portal-more-file-item {
+    grid-template-columns: minmax(0, 1fr) !important;
+    align-items: stretch !important;
+  }
+
+  .portal-more-file-list--popup .portal-more-file-actions {
+    justify-content: flex-start !important;
+  }
+}
+
+
+/* ===== More files popup: small modal like preview window, close only by X ===== */
+body:has(.portal-more-file-popup-backdrop) {
+  overflow: hidden;
+}
+
+.portal-more-file-popup-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147483000 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 24px !important;
+  margin: 0 !important;
+  background: rgba(15, 29, 53, 0.34) !important;
+  backdrop-filter: blur(7px) !important;
+}
+
+.portal-more-file-popup {
+  width: min(760px, calc(100vw - 40px)) !important;
+  height: auto !important;
+  max-width: 760px !important;
+  max-height: min(78vh, 680px) !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  border-radius: 24px !important;
+  border: 1px solid rgba(133, 157, 199, 0.2) !important;
+  background: rgba(255, 255, 255, 0.99) !important;
+  box-shadow: 0 34px 90px rgba(15, 29, 53, 0.26) !important;
+  overflow: hidden !important;
+}
+
+.portal-more-file-popup__head {
+  flex: 0 0 auto !important;
+  min-height: 72px !important;
+  padding: 18px 20px !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 18px !important;
+  border-bottom: 1px solid rgba(133, 157, 199, 0.16) !important;
+  background: linear-gradient(180deg, rgba(248, 251, 255, 0.99), rgba(241, 247, 255, 0.96)) !important;
+}
+
+.portal-more-file-popup__head div {
+  min-width: 0 !important;
+  display: grid !important;
+  gap: 4px !important;
+}
+
+.portal-more-file-popup__head strong {
+  max-width: 100% !important;
+  display: block !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+  color: var(--portal-text) !important;
+  font-size: 1rem !important;
+  line-height: 1.35 !important;
+}
+
+.portal-more-file-popup__head span {
+  color: var(--portal-muted) !important;
+  font-size: 0.78rem !important;
+  font-weight: 800 !important;
+}
+
+.portal-more-file-popup__close {
+  width: 38px !important;
+  height: 38px !important;
+  flex: 0 0 38px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 999px !important;
+  background: rgba(39, 73, 255, 0.09) !important;
+  color: var(--portal-primary) !important;
+  font-size: 1.45rem !important;
+  font-weight: 800 !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+}
+
+.portal-more-file-popup__close:hover {
+  background: rgba(39, 73, 255, 0.15) !important;
+}
+
+.portal-more-file-list--popup {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 14px !important;
+  display: grid !important;
+  align-content: start !important;
+  gap: 10px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+}
+
+.portal-more-file-list--popup::-webkit-scrollbar {
+  width: 7px !important;
+}
+
+.portal-more-file-list--popup::-webkit-scrollbar-thumb {
+  border-radius: 999px !important;
+  background: rgba(126, 148, 182, 0.32) !important;
+}
+
+.portal-more-file-list--popup .portal-more-file-item {
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 58px !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 11px 12px !important;
+  border-radius: 16px !important;
+  background: rgba(248, 251, 255, 0.98) !important;
+  border: 1px solid rgba(133, 157, 199, 0.16) !important;
+}
+
+.portal-more-file-list--popup .portal-more-file-name {
+  min-width: 0 !important;
+  display: grid !important;
+  gap: 4px !important;
+  overflow: hidden !important;
+}
+
+.portal-more-file-list--popup .portal-more-file-name small {
+  width: fit-content !important;
+  min-height: 21px !important;
+  padding: 0 8px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  border-radius: 999px !important;
+  color: var(--portal-primary) !important;
+  background: rgba(39, 73, 255, 0.08) !important;
+  font-size: 0.62rem !important;
+  font-weight: 900 !important;
+}
+
+.portal-more-file-list--popup .portal-more-file-name strong {
+  min-width: 0 !important;
+  display: block !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+  color: var(--portal-text) !important;
+  font-size: 0.8rem !important;
+}
+
+.portal-more-file-list--popup .portal-more-file-actions {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  flex-shrink: 0 !important;
+}
+
+.portal-more-file-list--popup .portal-more-file-actions button {
+  min-height: 31px !important;
+  padding: 0 12px !important;
+  border-radius: 999px !important;
+  color: var(--portal-primary) !important;
+  background: rgba(39, 73, 255, 0.08) !important;
+  font-size: 0.7rem !important;
+  font-weight: 800 !important;
+  cursor: pointer !important;
+}
+
+.portal-more-file-list--popup .portal-more-file-actions button:first-child {
+  color: #fff !important;
+  background: linear-gradient(135deg, var(--portal-primary), var(--portal-sky)) !important;
+  box-shadow: 0 8px 16px rgba(39, 73, 255, 0.16) !important;
+}
+
+@media (max-width: 640px) {
+  .portal-more-file-popup-backdrop {
+    padding: 14px !important;
+  }
+
+  .portal-more-file-popup {
+    width: 100% !important;
+    max-height: 82vh !important;
+    border-radius: 20px !important;
+  }
+
+  .portal-more-file-popup__head {
+    min-height: 66px !important;
+    padding: 15px 16px !important;
+  }
+
+  .portal-more-file-list--popup {
+    padding: 12px !important;
+  }
+
+  .portal-more-file-list--popup .portal-more-file-item {
+    grid-template-columns: minmax(0, 1fr) !important;
+    align-items: stretch !important;
+    min-height: 0 !important;
+  }
+
+  .portal-more-file-list--popup .portal-more-file-actions {
+    justify-content: flex-start !important;
+  }
+}
+
+
+/* ===== Layer fix: More Files popup stays under Preview popup ===== */
+/* More Files popup remains open. Preview modal must be the top layer. */
+.portal-more-file-popup-backdrop {
+  z-index: 9998 !important;
+}
+
+.portal-modal-backdrop {
+  z-index: 10050 !important;
+}
+
+.portal-more-file-popup-backdrop.is-behind-preview {
+  z-index: 9997 !important;
+  background: rgba(15, 29, 53, 0.16) !important;
+  backdrop-filter: blur(2px) !important;
+  pointer-events: none !important;
+}
+
+.portal-more-file-popup-backdrop.is-behind-preview .portal-more-file-popup {
+  opacity: 0.72 !important;
+  transform: scale(0.985) translateY(8px) !important;
+  box-shadow: 0 18px 46px rgba(15, 29, 53, 0.14) !important;
+}
+
+
+/* ===== Notice auto-slide pause behavior ===== */
+/* The JS pauses Notice auto-rotation while the user hovers the notice list,
+   opens More files popup, or previews a file. */
+.portal-notice-list-scroll {
+  scroll-behavior: smooth;
+}
+
+
+/* ===== Header menu anti-flicker / hover bridge ===== */
+/* Keep hover area stable while moving from trigger to popup. */
+.portal-nav-dropdown,
+.portal-nav-popover {
+  pointer-events: auto;
+}
+
+.portal-nav-popover {
+  margin-top: -2px;
+}
+

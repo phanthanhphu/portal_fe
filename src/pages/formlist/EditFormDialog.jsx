@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Dialog,
   DialogTitle,
@@ -15,16 +15,76 @@ import {
   useMediaQuery,
   MenuItem,
   Box,
+  Tooltip,
+  Chip,
 } from "@mui/material";
 
 import { alpha, useTheme } from "@mui/material/styles";
 import CloseIcon from "@mui/icons-material/Close";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
+import InsertDriveFileRoundedIcon from "@mui/icons-material/InsertDriveFileRounded";
 import { API_BASE_URL } from "../../config";
 
 const API_BASE = `${API_BASE_URL}/api/forms`;
 const DEPT_API = `${API_BASE_URL}/api/departments`;
 const TYPE_API = `${API_BASE_URL}/api/document-types`;
+const MAX_FILES = 5;
+
+const normalizeUrl = (value) => String(value || "").trim();
+
+const uniqueUrls = (urls = []) => {
+  const result = [];
+
+  urls.forEach((url) => {
+    const cleanUrl = normalizeUrl(url);
+
+    if (cleanUrl && !result.includes(cleanUrl)) {
+      result.push(cleanUrl);
+    }
+  });
+
+  return result;
+};
+
+const getFileName = (fileUrl) => {
+  if (!fileUrl) return "No file";
+
+  try {
+    return decodeURIComponent(String(fileUrl).split("/").pop().split("?")[0]) || "file";
+  } catch {
+    return "file";
+  }
+};
+
+const formatFileSize = (size = 0) => {
+  if (!size) return "0 MB";
+  return `${(size / 1024 / 1024).toFixed(2)} MB`;
+};
+
+const getFileUrlsFromForm = (form) => {
+  const urls = [];
+
+  if (Array.isArray(form?.fileUrls)) {
+    form.fileUrls.forEach((url) => {
+      const cleanUrl = normalizeUrl(url);
+
+      if (cleanUrl && !urls.includes(cleanUrl)) {
+        urls.push(cleanUrl);
+      }
+    });
+  }
+
+  // fallback data cũ
+  if (urls.length === 0 && form?.fileUrl) {
+    const cleanUrl = normalizeUrl(form.fileUrl);
+
+    if (cleanUrl) {
+      urls.push(cleanUrl);
+    }
+  }
+
+  return urls;
+};
 
 export default function EditFormDialog({
   open,
@@ -40,7 +100,21 @@ export default function EditFormDialog({
   const [description, setDescription] = useState("");
   const [departmentId, setDepartmentId] = useState("");
   const [typeId, setTypeId] = useState("");
-  const [file, setFile] = useState(null);
+
+  /*
+   * keepFileUrls = file cũ còn giữ lại.
+   * Đây là field DUY NHẤT gửi về BE cho file cũ.
+   *
+   * useRef để tránh lỗi React setState chưa kịp cập nhật:
+   * Khi bấm xóa file 1 rồi bấm Update nhanh, submit vẫn lấy đúng ref mới nhất.
+   */
+  const [keepFileUrls, setKeepFileUrls] = useState([]);
+  const keepFileUrlsRef = useRef([]);
+
+  const [removedFileUrls, setRemovedFileUrls] = useState([]);
+  const removedFileUrlsRef = useRef([]);
+
+  const [newFiles, setNewFiles] = useState([]);
 
   const [departments, setDepartments] = useState([]);
   const [documentTypes, setDocumentTypes] = useState([]);
@@ -54,10 +128,24 @@ export default function EditFormDialog({
   const [snackbarSeverity, setSnackbarSeverity] = useState("success");
   const [snackbarMessage, setSnackbarMessage] = useState("");
 
+  const totalActiveFiles = keepFileUrls.length + newFiles.length;
+
   const toast = (msg, severity = "success") => {
     setSnackbarMessage(msg);
     setSnackbarSeverity(severity);
     setSnackbarOpen(true);
+  };
+
+  const syncKeepFileUrls = (nextUrls) => {
+    const cleanUrls = uniqueUrls(nextUrls);
+    keepFileUrlsRef.current = cleanUrls;
+    setKeepFileUrls(cleanUrls);
+  };
+
+  const syncRemovedFileUrls = (nextUrls) => {
+    const cleanUrls = uniqueUrls(nextUrls);
+    removedFileUrlsRef.current = cleanUrls;
+    setRemovedFileUrls(cleanUrls);
   };
 
   const getLoggedInUserId = () => {
@@ -75,9 +163,6 @@ export default function EditFormDialog({
     return localStorage.getItem("userId") || "";
   };
 
-  /* =========================
-     LOAD DEPARTMENTS BY USER
-     ========================= */
   const fetchDepartments = async () => {
     setLoadingDept(true);
 
@@ -115,12 +200,8 @@ export default function EditFormDialog({
       setDepartments(list);
 
       if (admin) {
-        // Admin được phép đổi department của form.
-        // Giữ department hiện tại của form làm giá trị mặc định.
         setDepartmentId(form?.departmentId || "");
       } else {
-        // User thường không được chọn department.
-        // Department mặc định bắt buộc là phòng ban chính của user do API trả về.
         setDepartmentId(list[0]?.id || "");
       }
     } catch (err) {
@@ -161,16 +242,15 @@ export default function EditFormDialog({
     }
   };
 
-  /* =========================
-     LOAD FORM DATA + DEPARTMENTS
-     ========================= */
   useEffect(() => {
     if (!open) {
       setTitle("");
       setDescription("");
       setDepartmentId("");
       setTypeId("");
-      setFile(null);
+      syncKeepFileUrls([]);
+      syncRemovedFileUrls([]);
+      setNewFiles([]);
       setDepartments([]);
       setDocumentTypes([]);
       setIsAdmin(false);
@@ -182,39 +262,93 @@ export default function EditFormDialog({
 
     if (!form) return;
 
+    const initialKeepUrls = getFileUrlsFromForm(form);
+
     setTitle(form.title || "");
     setDescription(form.description || "");
     setDepartmentId(form.departmentId || "");
     setTypeId(form.typeId || "");
-    setFile(null);
+    syncKeepFileUrls(initialKeepUrls);
+    syncRemovedFileUrls([]);
+    setNewFiles([]);
     setSaving(false);
 
     fetchDepartments();
     fetchDocumentTypes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, form]);
 
-  /* =========================
-     CLOSE
-     ========================= */
   const handleClose = () => {
     if (saving) return;
+
     if (onClose) onClose();
     else if (onCancel) onCancel();
   };
 
-  /* =========================
-     VALIDATE
-     ========================= */
+  const handleNewFilesChange = (event) => {
+    const selectedFiles = Array.from(event.target.files || []);
+    event.target.value = "";
+
+    if (selectedFiles.length === 0) return;
+
+    setNewFiles((prev) => {
+      const availableSlots = MAX_FILES - keepFileUrlsRef.current.length - prev.length;
+
+      if (availableSlots <= 0) {
+        toast(`Form này đã đủ ${MAX_FILES} file`, "error");
+        return prev;
+      }
+
+      const acceptedFiles = selectedFiles.slice(0, availableSlots);
+
+      if (selectedFiles.length > availableSlots) {
+        toast(`Chỉ nhận thêm ${availableSlots} file. Tối đa ${MAX_FILES} file`, "warning");
+      }
+
+      return [...prev, ...acceptedFiles];
+    });
+  };
+
+  const handleRemoveExistingFile = (fileUrl) => {
+    const cleanUrl = normalizeUrl(fileUrl);
+
+    if (!cleanUrl) return;
+
+    const nextKeepUrls = keepFileUrlsRef.current.filter((url) => url !== cleanUrl);
+    syncKeepFileUrls(nextKeepUrls);
+
+    const nextRemovedUrls = uniqueUrls([...removedFileUrlsRef.current, cleanUrl]);
+    syncRemovedFileUrls(nextRemovedUrls);
+  };
+
+  const handleUndoRemoveExistingFile = (fileUrl) => {
+    const cleanUrl = normalizeUrl(fileUrl);
+
+    if (!cleanUrl) return;
+
+    const nextRemovedUrls = removedFileUrlsRef.current.filter((url) => url !== cleanUrl);
+    syncRemovedFileUrls(nextRemovedUrls);
+
+    const nextKeepUrls = uniqueUrls([...keepFileUrlsRef.current, cleanUrl]);
+    syncKeepFileUrls(nextKeepUrls);
+  };
+
+  const handleRemoveNewFile = (index) => {
+    setNewFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const validate = () => {
     if (!title.trim()) return "Title is required";
     if (!departmentId) return "Department is required";
     if (!typeId) return "Type is required";
+
+    const totalFiles = keepFileUrlsRef.current.length + newFiles.length;
+
+    if (totalFiles > MAX_FILES) return `You can upload maximum ${MAX_FILES} files`;
+
     return null;
   };
 
-  /* =========================
-     UPDATE - MULTIPART
-     ========================= */
   const handleSubmit = async () => {
     const err = validate();
     if (err) return toast(err, "error");
@@ -222,16 +356,42 @@ export default function EditFormDialog({
     setSaving(true);
 
     try {
+      const keepUrlsPayload = uniqueUrls(keepFileUrlsRef.current);
+
       const formData = new FormData();
       formData.append("title", title.trim());
       formData.append("description", description.trim());
       formData.append("departmentId", departmentId);
       formData.append("typeId", typeId);
 
-      // Append new file only if selected. Backend keeps old file if absent.
-      if (file) {
-        formData.append("file", file);
+      /*
+       * QUAN TRỌNG:
+       * Chỉ gửi fileUrls còn giữ lại.
+       * Ví dụ cũ có [1,2], xóa 1 thì payload chỉ có fileUrls=2.
+       */
+      keepUrlsPayload.forEach((fileUrl) => {
+        formData.append("fileUrls", fileUrl);
+      });
+
+      // Chỉ gửi file mới chọn từ máy
+      newFiles.forEach((selectedFile) => {
+        formData.append("files", selectedFile);
+      });
+
+      console.log("========= EDIT FORM FILE PAYLOAD =========");
+      console.log("fileUrls sent to BE:", keepUrlsPayload);
+      console.log("removed on UI only:", removedFileUrlsRef.current);
+      console.log("new files:", newFiles.map((f) => f.name));
+
+      // Debug chính xác FormData thực sự gửi đi
+      const formDataDebug = [];
+      for (const [key, value] of formData.entries()) {
+        formDataDebug.push([
+          key,
+          value instanceof File ? value.name : value,
+        ]);
       }
+      console.table(formDataDebug);
 
       const res = await fetch(`${API_BASE}/${form.id}`, {
         method: "PUT",
@@ -248,8 +408,34 @@ export default function EditFormDialog({
 
       const result = await res.json();
 
+      /*
+       * UI-only fix:
+       * Backend response may still return old fileUrls.
+       * The UI must trust the fileUrls currently kept in this dialog.
+       *
+       * Example:
+       * old fileUrls = [1, 2]
+       * user removes 1
+       * keepFileUrlsRef.current = [2]
+       * UI response must become fileUrls = [2]
+       */
+      const originalUrls = getFileUrlsFromForm(form);
+      const returnedUrls = getFileUrlsFromForm(result);
+
+      // If user uploaded new files, keep newly returned backend urls.
+      const newlyReturnedUrls = returnedUrls.filter((url) => !originalUrls.includes(url));
+      const finalFileUrls = uniqueUrls([...keepUrlsPayload, ...newlyReturnedUrls]);
+
+      const fixedResultForUI = {
+        ...result,
+        fileUrl: finalFileUrls[0] || null,
+        previewUrl: finalFileUrls[0] || null,
+        fileUrls: finalFileUrls,
+        previewUrls: finalFileUrls,
+      };
+
       toast("Form updated successfully!", "success");
-      onSuccess?.(result);
+      onSuccess?.(fixedResultForUI);
       handleClose();
     } catch (err) {
       console.error(err);
@@ -259,9 +445,6 @@ export default function EditFormDialog({
     }
   };
 
-  /* =========================
-     STYLES
-     ========================= */
   const paperSx = useMemo(
     () => ({
       borderRadius: fullScreen ? 0 : 4,
@@ -292,7 +475,7 @@ export default function EditFormDialog({
     <>
       <Dialog
         open={open}
-        onClose={handleClose}
+        onClose={saving ? undefined : handleClose}
         fullScreen={fullScreen}
         maxWidth="sm"
         fullWidth
@@ -300,16 +483,20 @@ export default function EditFormDialog({
       >
         <DialogTitle sx={headerSx}>
           <Stack direction="row" justifyContent="space-between" alignItems="center">
-            <Typography variant="h6" fontWeight={800}>
-              Edit Form
-            </Typography>
-            <IconButton onClick={handleClose} sx={{ color: "white" }}>
+            <Box>
+              <Typography variant="h6" fontWeight={800}>
+                Edit Form
+              </Typography>
+              <Typography fontSize={13} sx={{ opacity: 0.9 }}>
+                Current files: {totalActiveFiles}/{MAX_FILES}
+              </Typography>
+            </Box>
+
+            <IconButton onClick={handleClose} sx={{ color: "white" }} disabled={saving}>
               <CloseIcon />
             </IconButton>
           </Stack>
         </DialogTitle>
-
-        <br />
 
         <DialogContent sx={{ p: 3 }}>
           <Stack spacing={2.5}>
@@ -366,36 +553,152 @@ export default function EditFormDialog({
               ))}
             </TextField>
 
-            {/* File Section */}
             <Box>
+              <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                <Typography fontSize={13} fontWeight={700}>
+                  Files ({totalActiveFiles}/{MAX_FILES})
+                </Typography>
+
+                {removedFileUrls.length > 0 && (
+                  <Chip
+                    size="small"
+                    color="warning"
+                    label={`${removedFileUrls.length} removed`}
+                  />
+                )}
+              </Stack>
+
               <Button
                 variant="outlined"
                 component="label"
                 fullWidth
                 startIcon={<CloudUploadIcon />}
-                disabled={saving}
+                disabled={saving || totalActiveFiles >= MAX_FILES}
                 sx={{ py: 1.5, borderStyle: "dashed", borderWidth: 2 }}
               >
-                {file ? "Change file" : "Replace file (optional)"}
+                Add more files ({totalActiveFiles}/{MAX_FILES})
                 <input
                   hidden
+                  multiple
                   type="file"
-                  onChange={(e) => setFile(e.target.files?.[0] || null)}
+                  onChange={handleNewFilesChange}
                 />
               </Button>
 
-              {file ? (
-                <Typography variant="body2" sx={{ mt: 1, color: "primary.main" }}>
-                  New file: <strong>{file.name}</strong>
-                </Typography>
-              ) : (
-                <Typography variant="body2" sx={{ mt: 1, color: "text.secondary" }}>
-                  Current file:{" "}
-                  {form?.fileUrl
-                    ? form.fileUrl.split("/").pop()
-                    : "No file"}
-                </Typography>
-              )}
+              <Stack spacing={1} sx={{ mt: 1.2 }}>
+                {keepFileUrls.length === 0 && newFiles.length === 0 && (
+                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                    No file selected
+                  </Typography>
+                )}
+
+                {keepFileUrls.map((fileUrl) => (
+                  <Stack
+                    key={fileUrl}
+                    direction="row"
+                    alignItems="center"
+                    justifyContent="space-between"
+                    spacing={1}
+                    sx={{
+                      px: 1.2,
+                      py: 0.8,
+                      border: "1px solid #e5e7eb",
+                      borderRadius: 2,
+                      background: "#fff",
+                    }}
+                  >
+                    <Stack direction="row" alignItems="center" spacing={1} sx={{ minWidth: 0 }}>
+                      <InsertDriveFileRoundedIcon fontSize="small" color="primary" />
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography variant="body2" fontWeight={700} noWrap>
+                          {getFileName(fileUrl)}
+                        </Typography>
+                        <Typography fontSize={12} color="text.secondary">
+                          Existing file
+                        </Typography>
+                      </Box>
+                    </Stack>
+
+                    <Tooltip title="Remove current file">
+                      <IconButton
+                        size="small"
+                        onClick={() => handleRemoveExistingFile(fileUrl)}
+                        disabled={saving}
+                      >
+                        <CloseIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Stack>
+                ))}
+
+                {removedFileUrls.map((fileUrl) => (
+                  <Stack
+                    key={`removed-${fileUrl}`}
+                    direction="row"
+                    alignItems="center"
+                    justifyContent="space-between"
+                    spacing={1}
+                    sx={{
+                      px: 1.2,
+                      py: 0.8,
+                      border: `1px solid ${alpha(theme.palette.warning.main, 0.35)}`,
+                      borderRadius: 2,
+                      background: alpha(theme.palette.warning.main, 0.06),
+                    }}
+                  >
+                    <Typography variant="body2" sx={{ color: "warning.dark" }} noWrap>
+                      Will delete from source: {getFileName(fileUrl)}
+                    </Typography>
+
+                    <Button
+                      size="small"
+                      onClick={() => handleUndoRemoveExistingFile(fileUrl)}
+                      disabled={saving}
+                    >
+                      Undo
+                    </Button>
+                  </Stack>
+                ))}
+
+                {newFiles.map((selectedFile, index) => (
+                  <Stack
+                    key={`${selectedFile.name}-${selectedFile.lastModified}-${index}`}
+                    direction="row"
+                    alignItems="center"
+                    justifyContent="space-between"
+                    spacing={1}
+                    sx={{
+                      px: 1.2,
+                      py: 0.8,
+                      border: `1px solid ${alpha(theme.palette.success.main, 0.35)}`,
+                      borderRadius: 2,
+                      background: alpha(theme.palette.success.main, 0.06),
+                    }}
+                  >
+                    <Stack direction="row" alignItems="center" spacing={1} sx={{ minWidth: 0 }}>
+                      <InsertDriveFileRoundedIcon fontSize="small" color="success" />
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography variant="body2" fontWeight={700} noWrap>
+                          {selectedFile.name}
+                        </Typography>
+                        <Typography fontSize={12} color="text.secondary">
+                          New file • {formatFileSize(selectedFile.size)}
+                        </Typography>
+                      </Box>
+                    </Stack>
+
+                    <Tooltip title="Remove new file">
+                      <IconButton
+                        size="small"
+                        onClick={() => handleRemoveNewFile(index)}
+                        disabled={saving}
+                      >
+                        <CloseIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Stack>
+                ))}
+              </Stack>
             </Box>
           </Stack>
         </DialogContent>
@@ -413,7 +716,8 @@ export default function EditFormDialog({
               loadingTypes ||
               !title.trim() ||
               !departmentId ||
-              !typeId
+              !typeId ||
+              totalActiveFiles > MAX_FILES
             }
             variant="contained"
             sx={gradientBtnSx}
@@ -430,7 +734,6 @@ export default function EditFormDialog({
         </DialogActions>
       </Dialog>
 
-      {/* SNACKBAR */}
       <Snackbar
         open={snackbarOpen}
         autoHideDuration={4500}

@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import companyLogo from "./youngone-logo.png";
 import companyBg from "./background.JPG";
 import "./PageHome.css";
@@ -42,6 +43,131 @@ function toAbsoluteUrl(path) {
   return `${API_BASE_URL}${path.startsWith("/") ? "" : "/"}${path}`;
 }
 
+
+function normalizeFileUrl(value) {
+  return String(value || "").trim();
+}
+
+function getFileNameFromUrl(fileUrl) {
+  if (!fileUrl) return "file";
+
+  try {
+    const cleanUrl = String(fileUrl).split("?")[0].split("#")[0];
+    const rawName = cleanUrl.substring(cleanUrl.lastIndexOf("/") + 1);
+    return decodeURIComponent(rawName) || "file";
+  } catch {
+    return String(fileUrl).split("/").pop() || "file";
+  }
+}
+
+function addUniqueFileUrl(urls, value) {
+  const cleanUrl = normalizeFileUrl(value);
+  const absoluteUrl = cleanUrl ? toAbsoluteUrl(cleanUrl) : "";
+
+  if (absoluteUrl && !urls.includes(absoluteUrl)) {
+    urls.push(absoluteUrl);
+  }
+}
+
+function collectUrlValues(value) {
+  if (!value) return [];
+
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const cleanValue = value.trim();
+
+    if (!cleanValue) return [];
+
+    // Support backend accidentally sending JSON string: "[\"/files/a\",\"/files/b\"]"
+    if (cleanValue.startsWith("[") && cleanValue.endsWith("]")) {
+      try {
+        const parsed = JSON.parse(cleanValue);
+        return Array.isArray(parsed) ? parsed : [cleanValue];
+      } catch {
+        return [cleanValue];
+      }
+    }
+
+    // Support backend accidentally sending comma/newline separated URLs
+    if (cleanValue.includes(",") || cleanValue.includes("\n")) {
+      return cleanValue
+        .split(/[,\\n]/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+
+    return [cleanValue];
+  }
+
+  return [];
+}
+
+function getItemFileUrls(item) {
+  const urls = [];
+
+  /*
+   * Form API in some responses can use different field shapes.
+   * Priority:
+   * 1. fileUrls array
+   * 2. filesUrls / fileUrlList fallback if backend naming differs
+   * 3. previewUrls fallback because Form previewUrls usually mirrors fileUrls
+   * 4. old single fileUrl
+   */
+  [
+    item?.fileUrls,
+    item?.filesUrls,
+    item?.fileUrlList,
+    item?.previewUrls,
+  ].forEach((value) => {
+    collectUrlValues(value).forEach((url) => addUniqueFileUrl(urls, url));
+  });
+
+  if (urls.length === 0) {
+    addUniqueFileUrl(urls, item?.fileUrl);
+  }
+
+  return urls;
+}
+
+function getItemPreviewUrls(item) {
+  const urls = [];
+
+  [
+    item?.previewUrls,
+    item?.fileUrls,
+    item?.filesUrls,
+    item?.fileUrlList,
+  ].forEach((value) => {
+    collectUrlValues(value).forEach((url) => addUniqueFileUrl(urls, url));
+  });
+
+  if (urls.length === 0) {
+    addUniqueFileUrl(urls, item?.previewUrl);
+  }
+
+  if (urls.length === 0) {
+    addUniqueFileUrl(urls, item?.fileUrl);
+  }
+
+  return urls;
+}
+
+function getFileScopedItem(item, fileUrl, index = 0) {
+  const previewUrls = getItemPreviewUrls(item);
+  const previewUrl = previewUrls[index] || fileUrl;
+  const fileType = inferFileType(fileUrl);
+
+  return {
+    ...item,
+    fileUrl,
+    previewUrl,
+    fileType,
+  };
+}
+
 function inferFileType(fileUrl) {
   if (!fileUrl) return "FILE";
   const cleanUrl = fileUrl.split("?")[0].split("#")[0];
@@ -54,13 +180,15 @@ function isEmbeddableFile(fileType, url) {
 }
 
 function hasAttachedFile(item) {
-  return Boolean(String(item?.fileUrl || "").trim());
+  return getItemFileUrls(item).length > 0;
 }
 
 function getDisplayFileType(item) {
   if (!hasAttachedFile(item)) return "NO FILE";
 
-  return String(item?.fileType || inferFileType(item?.fileUrl) || "FILE").toUpperCase();
+  const firstFileUrl = getItemFileUrls(item)[0] || item?.fileUrl;
+
+  return String(item?.fileType || inferFileType(firstFileUrl) || "FILE").toUpperCase();
 }
 
 const OFFICE_PREVIEW_TYPES = new Set(["DOC", "DOCX", "XLS", "XLSX", "CSV", "PPT", "PPTX"]);
@@ -932,8 +1060,23 @@ function SearchInput({ value, onChange, placeholder }) {
   );
 }
 
-function FileActions({ item, onPreview, onDownload, compact = false }) {
-  if (!hasAttachedFile(item)) {
+function FileActions({ item, onPreview, onDownload, compact = false, previewOpen = false, onMoreFilesOpenChange }) {
+  const [showMoreFiles, setShowMoreFiles] = useState(false);
+  const fileUrls = getItemFileUrls(item);
+  const firstFileUrl = fileUrls[0] || "";
+
+  useEffect(() => {
+    onMoreFilesOpenChange?.(showMoreFiles);
+
+    return () => {
+      onMoreFilesOpenChange?.(false);
+    };
+  }, [showMoreFiles, onMoreFilesOpenChange]);
+
+  const moreFileUrls = fileUrls.slice(1);
+  const firstFileItem = firstFileUrl ? getFileScopedItem(item, firstFileUrl, 0) : item;
+
+  if (!firstFileUrl) {
     return (
       <div className={`portal-file-actions ${compact ? "is-compact" : ""}`}>
         <button
@@ -949,21 +1092,104 @@ function FileActions({ item, onPreview, onDownload, compact = false }) {
   }
 
   return (
-    <div className={`portal-file-actions ${compact ? "is-compact" : ""}`}>
+    <div className={`portal-file-actions ${compact ? "is-compact" : ""} ${showMoreFiles ? "is-showing-more-files" : ""}`}>
       <button
         type="button"
         className="portal-btn portal-btn--dark"
-        onClick={() => onPreview(item)}
+        onClick={() => onPreview(firstFileItem)}
+        title={`Xem ${getFileNameFromUrl(firstFileUrl)}`}
       >
         Xem
       </button>
+
       <button
         type="button"
         className="portal-btn portal-btn--ghost"
-        onClick={() => onDownload(item)}
+        onClick={() => onDownload(firstFileItem)}
+        title={`Tải xuống ${getFileNameFromUrl(firstFileUrl)}`}
       >
         Tải xuống
       </button>
+
+      {moreFileUrls.length > 0 ? (
+        <button
+          type="button"
+          className="portal-btn portal-btn--ghost portal-btn--more-files"
+          onClick={() => setShowMoreFiles((prev) => !prev)}
+          title={showMoreFiles ? "Ẩn bớt file" : `Xem thêm ${moreFileUrls.length} file`}
+        >
+          {showMoreFiles ? "Ẩn" : `+${moreFileUrls.length} more`}
+        </button>
+      ) : null}
+
+      {showMoreFiles && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              className={`portal-more-file-popup-backdrop ${previewOpen ? "is-behind-preview" : ""}`}
+              role="presentation"
+              onClick={() => {}}
+            >
+              <div
+                className="portal-more-file-popup"
+                role="dialog"
+                aria-modal="true"
+                aria-label="File list"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="portal-more-file-popup__head">
+                  <div>
+                    <strong>{item?.title || "File list"}</strong>
+                    <span>{fileUrls.length} files attached</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="portal-more-file-popup__close"
+                    onClick={() => setShowMoreFiles(false)}
+                    aria-label="Close file list"
+                  >
+                    ×
+                  </button>
+                </div>
+
+                <div className="portal-more-file-list portal-more-file-list--popup">
+                  {fileUrls.map((fileUrl, index) => {
+                    const fileItem = getFileScopedItem(item, fileUrl, index);
+                    const fileName = getFileNameFromUrl(fileUrl);
+                    const fileType = inferFileType(fileUrl);
+
+                    return (
+                      <div className="portal-more-file-item" key={`${fileUrl}-${index}`}>
+                        <span className="portal-more-file-name" title={fileName}>
+                          <small>{fileType}</small>
+                          <strong>{fileName}</strong>
+                        </span>
+
+                        <span className="portal-more-file-actions">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onPreview(fileItem);
+                            }}
+                          >
+                            Xem
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onDownload(fileItem)}
+                          >
+                            Tải
+                          </button>
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
     </div>
   );
 }
@@ -978,6 +1204,7 @@ function DocumentTypeSection({
   onPreview,
   onDownload,
   onHoverOpen,
+  previewOpen = false,
 }) {
 
   return (
@@ -1030,7 +1257,7 @@ function DocumentTypeSection({
                     </div>
                   </div>
 
-                  <FileActions item={form} onPreview={onPreview} onDownload={onDownload} compact />
+                  <FileActions item={form} onPreview={onPreview} onDownload={onDownload} compact previewOpen={previewOpen} />
                 </div>
               ))}
             </div>
@@ -1086,6 +1313,7 @@ function DocumentWorkspaceCascade({
   onToggleDepartment,
   onPreview,
   onDownload,
+  previewOpen = false,
 }) {
   const activeTypeId = activeType?.id || "";
   const activeDepartmentId = activeDepartment?.id || "";
@@ -1285,7 +1513,7 @@ function DocumentWorkspaceCascade({
                                         </div>
                                       </div>
 
-                                      <FileActions item={form} onPreview={onPreview} onDownload={onDownload} compact />
+                                      <FileActions item={form} onPreview={onPreview} onDownload={onDownload} compact previewOpen={previewOpen} />
                                     </article>
                                   ))}
                                 </div>
@@ -1682,6 +1910,10 @@ export default function PageHome() {
   const [noticePopupOpen, setNoticePopupOpen] = useState(false);
   const [selectedNoticeDepartment, setSelectedNoticeDepartment] = useState(null);
   const [noticeWindowStart, setNoticeWindowStart] = useState(0);
+  const [noticeHoverPaused, setNoticeHoverPaused] = useState(false);
+  const [noticeMoreFilesPopupOpen, setNoticeMoreFilesPopupOpen] = useState(false);
+  const [menuHoverPaused, setMenuHoverPaused] = useState(false);
+  const menuHoverLeaveTimerRef = useRef(null);
   const [noticeMenuLayout, setNoticeMenuLayout] = useState({
     hasDepartment: false,
     hasNoticePanel: false,
@@ -1691,8 +1923,28 @@ export default function PageHome() {
   const navRef = useRef(null);
   const keepHoverMenuAfterPreviewRef = useRef(false);
 
+  const handleMenuAreaEnter = () => {
+    if (menuHoverLeaveTimerRef.current) {
+      window.clearTimeout(menuHoverLeaveTimerRef.current);
+      menuHoverLeaveTimerRef.current = null;
+    }
+
+    setMenuHoverPaused(true);
+  };
+
+  const handleMenuAreaLeave = () => {
+    if (menuHoverLeaveTimerRef.current) {
+      window.clearTimeout(menuHoverLeaveTimerRef.current);
+    }
+
+    // Delay close/pause release so moving from trigger to popup does not close the menu.
+    menuHoverLeaveTimerRef.current = window.setTimeout(() => {
+      setMenuHoverPaused(false);
+    }, 450);
+  };
+
   useClickOutside(navRef, () => {
-    if (formsPopupOpen || noticePopupOpen || previewState.open) return;
+    if (formsPopupOpen || noticePopupOpen || previewState.open || menuHoverPaused) return;
     setOpenDropdown(null);
   });
 
@@ -1765,16 +2017,22 @@ export default function PageHome() {
   };
 
   const normalizeFormItem = (item, type) => {
-    const fileUrl = item.fileUrl ? toAbsoluteUrl(item.fileUrl) : "";
+    const fileUrls = getItemFileUrls(item);
+    const previewUrls = getItemPreviewUrls(item);
+    const finalPreviewUrls = previewUrls.length > 0 ? previewUrls : fileUrls;
+    const fileUrl = fileUrls[0] || "";
+    const previewUrl = finalPreviewUrls[0] || fileUrl || null;
 
     return {
       id: item.id,
       typeId: item.typeId || type?.id || "",
       typeName: type?.name || item.typeName || "Document",
       title: item.title || "Form",
-      fileType: fileUrl ? (item.fileType || inferFileType(item.fileUrl)) : "NO FILE",
+      fileType: fileUrl ? (item.fileType || inferFileType(fileUrl)) : "NO FILE",
       fileUrl,
-      previewUrl: item.previewUrl ? toAbsoluteUrl(item.previewUrl) : null,
+      previewUrl,
+      fileUrls,
+      previewUrls: finalPreviewUrls,
       departmentName: item.departmentName || "Unspecified",
       division: item.division || "",
       createdAt: item.createdAt || null,
@@ -2004,8 +2262,12 @@ export default function PageHome() {
   const normalizeNoticeItem = (item) => {
     if (!item) return null;
 
-    const fileUrl = item.fileUrl ? toAbsoluteUrl(item.fileUrl) : "";
-    const fileType = fileUrl ? (item.fileType || inferFileType(item.fileUrl)) : "NO FILE";
+    const fileUrls = getItemFileUrls(item);
+    const previewUrls = getItemPreviewUrls(item);
+    const fileUrl = fileUrls[0] || (item.fileUrl ? toAbsoluteUrl(item.fileUrl) : "");
+    const fileType = fileUrl ? (item.fileType || inferFileType(fileUrl)) : "NO FILE";
+    const previewUrl = previewUrls[0]
+      || (fileUrl && isEmbeddableFile(fileType, fileUrl) ? fileUrl : (item.previewUrl ? toAbsoluteUrl(item.previewUrl) : null));
 
     return {
       id: item.id,
@@ -2013,7 +2275,9 @@ export default function PageHome() {
       content: item.content || "",
       pinned: !!item.pinned,
       fileUrl,
-      previewUrl: fileUrl && isEmbeddableFile(fileType, fileUrl) ? fileUrl : (item.previewUrl ? toAbsoluteUrl(item.previewUrl) : null),
+      previewUrl,
+      fileUrls,
+      previewUrls: previewUrls.length > 0 ? previewUrls : fileUrls,
       fileType,
       departmentName: item.departmentName || "",
       division: item.division || "",
@@ -2624,15 +2888,17 @@ export default function PageHome() {
     setNoticeWindowStart(0);
   }, [noticeSearch, filteredNotices.length]);
 
-useEffect(() => {
-  if (filteredNotices.length <= 5) return undefined;
+  const noticeAutoSlidePaused = noticeHoverPaused || noticeMoreFilesPopupOpen || previewState.open;
 
-  const intervalId = window.setInterval(() => {
-    setNoticeWindowStart((prev) => (prev + 1) % filteredNotices.length);
-  }, 3200);
+  useEffect(() => {
+    if (filteredNotices.length <= 5 || noticeAutoSlidePaused) return undefined;
 
-  return () => window.clearInterval(intervalId);
-}, [filteredNotices.length]);
+    const intervalId = window.setInterval(() => {
+      setNoticeWindowStart((prev) => (prev + 1) % filteredNotices.length);
+    }, 3200);
+
+    return () => window.clearInterval(intervalId);
+  }, [filteredNotices.length, noticeAutoSlidePaused]);
 
 const visibleNotices = useMemo(() => {
   if (filteredNotices.length <= 5) {
@@ -2711,7 +2977,9 @@ const visibleNotices = useMemo(() => {
     <>
       <div className="portal-page">
         <header className="portal-header">
-          <div className="portal-shell portal-topbar" ref={navRef}>
+          <div className="portal-shell portal-topbar" ref={navRef}
+          onMouseEnter={handleMenuAreaEnter}
+          onMouseLeave={handleMenuAreaLeave}>
             <a href="/" className="portal-brand">
               <span className="portal-brand__mark">
                 <img src={companyLogo} alt="YOUNGONE" />
@@ -2950,7 +3218,7 @@ const visibleNotices = useMemo(() => {
                             <IconClock />
                             {heroPinnedNoticeTime}
                           </span>
-                          <FileActions item={heroPinnedNotice} onPreview={handleOpenPreview} onDownload={handleDownloadFile} compact />
+                          <FileActions item={heroPinnedNotice} onPreview={handleOpenPreview} onDownload={handleDownloadFile} compact previewOpen={previewState.open} />
                         </div>
                       </>
                     ) : (
@@ -3078,6 +3346,7 @@ const visibleNotices = useMemo(() => {
                           onToggleDepartment={handleWorkspaceToggleDepartment}
                           onPreview={handleOpenPreview}
                           onDownload={handleDownloadFile}
+                          previewOpen={previewState.open}
                         />
                       ) : null}
                     </div>
@@ -3115,7 +3384,7 @@ const visibleNotices = useMemo(() => {
                               </span>
                             ) : null}
                           </div>
-                          <FileActions item={priorityPinnedDisplayNotice} onPreview={handleOpenPreview} onDownload={handleDownloadFile} />
+                          <FileActions item={priorityPinnedDisplayNotice} onPreview={handleOpenPreview} onDownload={handleDownloadFile} previewOpen={previewState.open} onMoreFilesOpenChange={setNoticeMoreFilesPopupOpen} />
                         </div>
                       </div>
                     ) : null}
@@ -3128,7 +3397,11 @@ const visibleNotices = useMemo(() => {
                       />
                     </div>
 
-                    <div className="portal-notice-list-scroll">
+                    <div
+                      className="portal-notice-list-scroll"
+                      onMouseEnter={() => setNoticeHoverPaused(true)}
+                      onMouseLeave={() => setNoticeHoverPaused(false)}
+                    >
                       {loadingNotices ? <div className="portal-empty">Loading notices...</div> : null}
                       {errorNotices ? <div className="portal-empty">{errorNotices}</div> : null}
 
@@ -3154,7 +3427,7 @@ const visibleNotices = useMemo(() => {
                                     </span>
                                   ) : null}
                                 </div>
-                                <FileActions item={notice} onPreview={handleOpenPreview} onDownload={handleDownloadFile} compact />
+                                <FileActions item={notice} onPreview={handleOpenPreview} onDownload={handleDownloadFile} compact previewOpen={previewState.open} onMoreFilesOpenChange={setNoticeMoreFilesPopupOpen} />
                               </div>
                             </div>
                           ))}

@@ -24,12 +24,19 @@ import CloseIcon from "@mui/icons-material/Close";
 import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 import InfoRoundedIcon from "@mui/icons-material/InfoRounded";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
+import InsertDriveFileRoundedIcon from "@mui/icons-material/InsertDriveFileRounded";
 
 import axios from "axios";
 import { API_BASE_URL } from "../../config";
 
 const DEPT_API = `${API_BASE_URL}/api/departments`;
 const TYPE_API = `${API_BASE_URL}/api/document-types`;
+const MAX_FILES = 5;
+
+const formatFileSize = (size = 0) => {
+  if (!size) return "0 MB";
+  return `${(size / 1024 / 1024).toFixed(2)} MB`;
+};
 
 export default function AddFormDialog({
   open,
@@ -45,7 +52,7 @@ export default function AddFormDialog({
   const [description, setDescription] = useState("");
   const [departmentId, setDepartmentId] = useState("");
   const [typeId, setTypeId] = useState("");
-  const [file, setFile] = useState(null);
+  const [files, setFiles] = useState([]);
 
   const [departments, setDepartments] = useState([]);
   const [documentTypes, setDocumentTypes] = useState([]);
@@ -169,7 +176,7 @@ export default function AddFormDialog({
       setDescription("");
       setDepartmentId("");
       setTypeId("");
-      setFile(null);
+      setFiles([]);
       setDepartments([]);
       setDocumentTypes([]);
       setIsAdmin(false);
@@ -184,7 +191,7 @@ export default function AddFormDialog({
     setDescription("");
     setDepartmentId("");
     setTypeId("");
-    setFile(null);
+    setFiles([]);
     setSaving(false);
     setConfirmOpen(false);
 
@@ -198,11 +205,40 @@ export default function AddFormDialog({
     else if (onCancel) onCancel();
   };
 
+  const handleFilesChange = (event) => {
+    const selectedFiles = Array.from(event.target.files || []);
+    event.target.value = "";
+
+    if (selectedFiles.length === 0) return;
+
+    setFiles((prev) => {
+      const availableSlots = MAX_FILES - prev.length;
+
+      if (availableSlots <= 0) {
+        toast(`Chỉ được upload tối đa ${MAX_FILES} file`, "error");
+        return prev;
+      }
+
+      const acceptedFiles = selectedFiles.slice(0, availableSlots);
+
+      if (selectedFiles.length > availableSlots) {
+        toast(`Chỉ nhận thêm ${availableSlots} file. Tối đa ${MAX_FILES} file`, "warning");
+      }
+
+      return [...prev, ...acceptedFiles];
+    });
+  };
+
+  const handleRemoveFile = (index) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const validate = () => {
     if (!title.trim()) return "Tiêu đề không được để trống";
     if (!departmentId) return "Phòng ban không hợp lệ";
     if (!typeId) return "Vui lòng chọn type";
-    if (!file) return "Vui lòng chọn file";
+    if (files.length === 0) return "Vui lòng chọn ít nhất 1 file";
+    if (files.length > MAX_FILES) return `Chỉ được upload tối đa ${MAX_FILES} file`;
     return null;
   };
 
@@ -221,15 +257,16 @@ export default function AddFormDialog({
 
     try {
       const formData = new FormData();
-      if (file) formData.append("file", file);
+      formData.append("title", title.trim());
+      formData.append("description", description.trim());
+      formData.append("departmentId", departmentId);
+      formData.append("typeId", typeId);
+
+      files.forEach((selectedFile) => {
+        formData.append("files", selectedFile);
+      });
 
       await axios.post(`${API_BASE_URL}/api/forms`, formData, {
-        params: {
-          title: title.trim(),
-          description: description.trim(),
-          departmentId,
-          typeId
-        },
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`
         }
@@ -288,14 +325,14 @@ export default function AddFormDialog({
                 Add New Form
               </Typography>
               <Typography fontSize={13} sx={{ opacity: 0.9 }}>
-                Upload a new form to the system
+                Upload tối đa {MAX_FILES} file cho một document
               </Typography>
             </Box>
 
             <Stack direction="row" spacing={1} alignItems="center">
               <Chip
                 icon={<CheckCircleRoundedIcon />}
-                label="Adding"
+                label={`${files.length}/${MAX_FILES} files`}
                 size="small"
                 sx={{ bgcolor: alpha("#fff", 0.2), color: "white" }}
               />
@@ -366,23 +403,57 @@ export default function AddFormDialog({
               <Button
                 variant="outlined"
                 component="label"
-                disabled={locked}
+                disabled={locked || files.length >= MAX_FILES}
                 fullWidth
                 startIcon={<CloudUploadIcon />}
                 sx={{ py: 1.5, borderStyle: "dashed", borderWidth: 2 }}
               >
-                Upload File *
+                Upload Files * ({files.length}/{MAX_FILES})
                 <input
                   hidden
+                  multiple
                   type="file"
-                  onChange={(e) => setFile(e.target.files?.[0] || null)}
+                  onChange={handleFilesChange}
                 />
               </Button>
 
-              {file && (
-                <Typography fontSize={13} sx={{ mt: 1, color: "primary.main" }}>
-                  Selected: <strong>{file.name}</strong> ({(file.size / 1024 / 1024).toFixed(2)} MB)
-                </Typography>
+              {files.length > 0 && (
+                <Stack spacing={1} sx={{ mt: 1.2 }}>
+                  {files.map((selectedFile, index) => (
+                    <Stack
+                      key={`${selectedFile.name}-${selectedFile.lastModified}-${index}`}
+                      direction="row"
+                      alignItems="center"
+                      justifyContent="space-between"
+                      spacing={1}
+                      sx={{
+                        px: 1.2,
+                        py: 0.8,
+                        border: `1px solid ${alpha(theme.palette.primary.main, 0.18)}`,
+                        borderRadius: 2,
+                        background: alpha(theme.palette.primary.main, 0.04)
+                      }}
+                    >
+                      <Stack direction="row" alignItems="center" spacing={1} sx={{ minWidth: 0 }}>
+                        <InsertDriveFileRoundedIcon fontSize="small" color="primary" />
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography fontSize={13} fontWeight={700} noWrap>
+                            {selectedFile.name}
+                          </Typography>
+                          <Typography fontSize={12} color="text.secondary">
+                            {formatFileSize(selectedFile.size)}
+                          </Typography>
+                        </Box>
+                      </Stack>
+
+                      <Tooltip title="Remove file">
+                        <IconButton size="small" onClick={() => handleRemoveFile(index)} disabled={locked}>
+                          <CloseIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Stack>
+                  ))}
+                </Stack>
               )}
             </Box>
 
@@ -390,7 +461,7 @@ export default function AddFormDialog({
               <Stack direction="row" spacing={1}>
                 <InfoRoundedIcon fontSize="small" />
                 <Typography fontSize={13}>
-                  File will be stored securely and available for download.
+                  Có thể upload từ 1 đến {MAX_FILES} file. Khi lưu, UI sẽ gửi từng file bằng field <b>files</b>.
                 </Typography>
               </Stack>
             </Box>
@@ -412,7 +483,7 @@ export default function AddFormDialog({
               !title.trim() ||
               !departmentId ||
               !typeId ||
-              !file
+              files.length === 0
             }
             sx={gradientBtnSx}
           >
@@ -426,7 +497,7 @@ export default function AddFormDialog({
         <DialogTitle>Confirm Create</DialogTitle>
         <DialogContent>
           <Typography>
-            Create form <b>{title}</b>?
+            Create form <b>{title}</b> with <b>{files.length}</b> file(s)?
           </Typography>
         </DialogContent>
         <DialogActions>

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -18,19 +18,63 @@ import {
   useMediaQuery,
   FormControlLabel,
   Checkbox,
-  Link,
   MenuItem
 } from '@mui/material';
 
 import { alpha, useTheme } from '@mui/material/styles';
 import CloseIcon from '@mui/icons-material/Close';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
-import InfoRoundedIcon from '@mui/icons-material/InfoRounded';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import InsertDriveFileRoundedIcon from '@mui/icons-material/InsertDriveFileRounded';
 
 import axios from 'axios';
 import { API_BASE_URL } from '../../config';
 
 const DEPT_API = `${API_BASE_URL}/api/departments`;
+const MAX_FILES = 5;
+
+const normalizeUrl = (value) => String(value || '').trim();
+
+const uniqueUrls = (urls = []) => {
+  const result = [];
+  urls.forEach((url) => {
+    const cleanUrl = normalizeUrl(url);
+    if (cleanUrl && !result.includes(cleanUrl)) result.push(cleanUrl);
+  });
+  return result;
+};
+
+const getNoticeFileUrls = (item) => {
+  const urls = [];
+
+  if (Array.isArray(item?.fileUrls)) {
+    item.fileUrls.forEach((url) => {
+      const cleanUrl = normalizeUrl(url);
+      if (cleanUrl && !urls.includes(cleanUrl)) urls.push(cleanUrl);
+    });
+  }
+
+  if (urls.length === 0 && item?.fileUrl) {
+    const cleanUrl = normalizeUrl(item.fileUrl);
+    if (cleanUrl) urls.push(cleanUrl);
+  }
+
+  return urls;
+};
+
+const getFileName = (fileUrl) => {
+  if (!fileUrl) return 'No file';
+  try {
+    return decodeURIComponent(String(fileUrl).split('/').pop().split('?')[0]) || 'file';
+  } catch {
+    return 'file';
+  }
+};
+
+const formatFileSize = (size = 0) => {
+  if (!size) return '0 MB';
+  return `${(size / 1024 / 1024).toFixed(2)} MB`;
+};
 
 export default function EditNoticeDialog({
   open,
@@ -45,8 +89,13 @@ export default function EditNoticeDialog({
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [pinned, setPinned] = useState(false);
-  const [file, setFile] = useState(null);
   const [departmentId, setDepartmentId] = useState('');
+
+  const [keepFileUrls, setKeepFileUrls] = useState([]);
+  const keepFileUrlsRef = useRef([]);
+  const [removedFileUrls, setRemovedFileUrls] = useState([]);
+  const removedFileUrlsRef = useRef([]);
+  const [newFiles, setNewFiles] = useState([]);
 
   const [departments, setDepartments] = useState([]);
   const [loadingDept, setLoadingDept] = useState(false);
@@ -59,16 +108,29 @@ export default function EditNoticeDialog({
   const [snackbarSeverity, setSnackbarSeverity] = useState('success');
   const [snackbarMessage, setSnackbarMessage] = useState('');
 
+  const totalActiveFiles = keepFileUrls.length + newFiles.length;
+
   const toast = (msg, severity = 'success') => {
     setSnackbarMessage(msg);
     setSnackbarSeverity(severity);
     setSnackbarOpen(true);
   };
 
+  const syncKeepFileUrls = (nextUrls) => {
+    const cleanUrls = uniqueUrls(nextUrls);
+    keepFileUrlsRef.current = cleanUrls;
+    setKeepFileUrls(cleanUrls);
+  };
+
+  const syncRemovedFileUrls = (nextUrls) => {
+    const cleanUrls = uniqueUrls(nextUrls);
+    removedFileUrlsRef.current = cleanUrls;
+    setRemovedFileUrls(cleanUrls);
+  };
+
   const getLoggedInUserId = () => {
     try {
       const userStr = localStorage.getItem('user');
-
       if (userStr) {
         const user = JSON.parse(userStr);
         return user?.id || user?.userId || user?._id || '';
@@ -76,13 +138,11 @@ export default function EditNoticeDialog({
     } catch (e) {
       console.error('Cannot parse user from localStorage', e);
     }
-
     return localStorage.getItem('userId') || '';
   };
 
   const fetchDepartments = async () => {
     setLoadingDept(true);
-
     try {
       const loggedInUserId = getLoggedInUserId();
 
@@ -95,31 +155,16 @@ export default function EditNoticeDialog({
       }
 
       const res = await axios.get(`${DEPT_API}/search`, {
-        params: {
-          userId: loggedInUserId
-        },
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        }
+        params: { userId: loggedInUserId },
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
 
       const admin = Boolean(res.data?.isAdmin);
-      const list = Array.isArray(res.data?.departments)
-        ? res.data.departments
-        : [];
+      const list = Array.isArray(res.data?.departments) ? res.data.departments : [];
 
       setIsAdmin(admin);
       setDepartments(list);
-
-      if (admin) {
-        // Admin được phép chọn lại department khi edit.
-        // Giữ department hiện tại của notice làm lựa chọn mặc định.
-        setDepartmentId(currentItem?.departmentId || '');
-      } else {
-        // User thường không được chọn department.
-        // Department mặc định bắt buộc là phòng ban chính của user do API trả về.
-        setDepartmentId(list[0]?.id || '');
-      }
+      setDepartmentId(admin ? currentItem?.departmentId || '' : list[0]?.id || '');
     } catch (err) {
       console.error(err);
       toast('Không tải được danh sách phòng ban', 'error');
@@ -136,8 +181,10 @@ export default function EditNoticeDialog({
       setTitle('');
       setContent('');
       setPinned(false);
-      setFile(null);
       setDepartmentId('');
+      syncKeepFileUrls([]);
+      syncRemovedFileUrls([]);
+      setNewFiles([]);
       setDepartments([]);
       setIsAdmin(false);
       setLoadingDept(false);
@@ -150,40 +197,15 @@ export default function EditNoticeDialog({
     setContent(currentItem?.content || '');
     setPinned(!!currentItem?.pinned);
     setDepartmentId(currentItem?.departmentId || '');
-    setFile(null);
+    syncKeepFileUrls(getNoticeFileUrls(currentItem));
+    syncRemovedFileUrls([]);
+    setNewFiles([]);
     setSaving(false);
     setConfirmOpen(false);
 
     fetchDepartments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, currentItem]);
-
-  const getCurrentFileUrl = () => {
-    return (
-      currentItem?.fileUrl ||
-      currentItem?.url ||
-      currentItem?.attachmentUrl ||
-      currentItem?.documentUrl ||
-      ''
-    );
-  };
-
-  const getCurrentFileName = () => {
-    if (currentItem?.fileName) return currentItem.fileName;
-    if (currentItem?.originalFileName) return currentItem.originalFileName;
-
-    const fileUrl = getCurrentFileUrl();
-    if (!fileUrl) return '';
-
-    try {
-      const cleanUrl = fileUrl.split('?')[0];
-      return decodeURIComponent(cleanUrl.substring(cleanUrl.lastIndexOf('/') + 1));
-    } catch (e) {
-      return fileUrl;
-    }
-  };
-
-  const currentFileUrl = getCurrentFileUrl();
-  const currentFileName = getCurrentFileName();
 
   const locked = saving || disabled;
 
@@ -192,6 +214,7 @@ export default function EditNoticeDialog({
     if (!title.trim()) return 'Title is required';
     if (!content.trim()) return 'Content is required';
     if (!departmentId) return 'Department is required';
+    if (keepFileUrlsRef.current.length + newFiles.length > MAX_FILES) return `You can upload maximum ${MAX_FILES} files`;
     return null;
   };
 
@@ -200,14 +223,56 @@ export default function EditNoticeDialog({
     onCancel?.();
   };
 
+  const handleNewFilesChange = (event) => {
+    const selectedFiles = Array.from(event.target.files || []);
+    event.target.value = '';
+
+    if (selectedFiles.length === 0) return;
+
+    setNewFiles((prev) => {
+      const availableSlots = MAX_FILES - keepFileUrlsRef.current.length - prev.length;
+
+      if (availableSlots <= 0) {
+        toast(`Notice này đã đủ ${MAX_FILES} file`, 'error');
+        return prev;
+      }
+
+      const acceptedFiles = selectedFiles.slice(0, availableSlots);
+
+      if (selectedFiles.length > availableSlots) {
+        toast(`Chỉ nhận thêm ${availableSlots} file. Tối đa ${MAX_FILES} file`, 'warning');
+      }
+
+      return [...prev, ...acceptedFiles];
+    });
+  };
+
+  const handleRemoveExistingFile = (fileUrl) => {
+    const cleanUrl = normalizeUrl(fileUrl);
+    if (!cleanUrl) return;
+
+    syncKeepFileUrls(keepFileUrlsRef.current.filter((url) => url !== cleanUrl));
+    syncRemovedFileUrls([...removedFileUrlsRef.current, cleanUrl]);
+  };
+
+  const handleUndoRemoveExistingFile = (fileUrl) => {
+    const cleanUrl = normalizeUrl(fileUrl);
+    if (!cleanUrl) return;
+
+    syncRemovedFileUrls(removedFileUrlsRef.current.filter((url) => url !== cleanUrl));
+    syncKeepFileUrls([...keepFileUrlsRef.current, cleanUrl]);
+  };
+
+  const handleRemoveNewFile = (index) => {
+    setNewFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = () => {
     const err = validate();
-
     if (err) {
       toast(err, 'error');
       return;
     }
-
     setConfirmOpen(true);
   };
 
@@ -223,13 +288,20 @@ export default function EditNoticeDialog({
         return;
       }
 
+      const keepUrlsPayload = uniqueUrls(keepFileUrlsRef.current);
       const formData = new FormData();
 
-      if (file) {
-        formData.append('file', file);
-      }
+      keepUrlsPayload.forEach((fileUrl) => {
+        formData.append('fileUrls', fileUrl);
+      });
 
-      await axios.put(
+      newFiles.forEach((selectedFile) => {
+        formData.append('files', selectedFile);
+      });
+
+      console.log('Notice edit fileUrls sent to BE:', keepUrlsPayload);
+
+      const response = await axios.put(
         `${API_BASE_URL}/api/notices/${currentItem.id}`,
         formData,
         {
@@ -248,15 +320,31 @@ export default function EditNoticeDialog({
         }
       );
 
+      const result = response?.data || {};
+      const originalUrls = getNoticeFileUrls(currentItem);
+      const returnedUrls = getNoticeFileUrls(result);
+      const newlyReturnedUrls = returnedUrls.filter((url) => !originalUrls.includes(url));
+      const finalFileUrls = uniqueUrls([...keepUrlsPayload, ...newlyReturnedUrls]);
+
+      const fixedResultForUI = {
+        ...currentItem,
+        ...result,
+        title: title.trim(),
+        content: content.trim(),
+        departmentId,
+        pinned,
+        fileUrl: finalFileUrls[0] || null,
+        previewUrl: finalFileUrls[0] || null,
+        fileUrls: finalFileUrls,
+        previewUrls: finalFileUrls,
+      };
+
       toast('Notice updated successfully');
-      onOk?.();
+      onOk?.(fixedResultForUI);
       onCancel?.();
     } catch (err) {
       console.error(err);
-      toast(
-        err?.response?.data?.message || 'Update Notice failed',
-        'error'
-      );
+      toast(err?.response?.data?.message || 'Update Notice failed', 'error');
     } finally {
       setSaving(false);
     }
@@ -278,9 +366,7 @@ export default function EditNoticeDialog({
   }), [theme]);
 
   const fieldSx = useMemo(() => ({
-    '& .MuiOutlinedInput-root': {
-      borderRadius: 3
-    }
+    '& .MuiOutlinedInput-root': { borderRadius: 3 }
   }), []);
 
   const gradientBtnSx = useMemo(() => ({
@@ -293,226 +379,104 @@ export default function EditNoticeDialog({
 
   return (
     <>
-      <Dialog
-        open={open}
-        onClose={locked ? undefined : handleClose}
-        fullScreen={fullScreen}
-        maxWidth="md"
-        fullWidth
-        PaperProps={{ sx: paperSx }}
-      >
+      <Dialog open={open} onClose={locked ? undefined : handleClose} fullScreen={fullScreen} maxWidth="md" fullWidth PaperProps={{ sx: paperSx }}>
         <DialogTitle sx={headerSx}>
           <Stack direction="row" justifyContent="space-between">
             <Box>
-              <Typography fontWeight={900}>
-                Edit Notice
-              </Typography>
-              <Typography fontSize={13}>
-                Update notice
-              </Typography>
+              <Typography fontWeight={900}>Edit Notice</Typography>
+              <Typography fontSize={13}>Current files: {totalActiveFiles}/{MAX_FILES}</Typography>
             </Box>
 
             <Stack direction="row" spacing={1}>
-              <Chip
-                icon={<CheckCircleRoundedIcon />}
-                label="Editing"
-                size="small"
-              />
-
-              <Tooltip title="Close">
-                <IconButton onClick={handleClose} sx={{ color: 'white' }}>
-                  <CloseIcon />
-                </IconButton>
-              </Tooltip>
+              <Chip icon={<CheckCircleRoundedIcon />} label="Editing" size="small" />
+              <Tooltip title="Close"><IconButton onClick={handleClose} sx={{ color: 'white' }}><CloseIcon /></IconButton></Tooltip>
             </Stack>
           </Stack>
         </DialogTitle>
 
-        <br />
-
         <DialogContent sx={{ p: 3 }}>
           <Stack spacing={2}>
-            <TextField
-              label="Title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              disabled={locked}
-              size="small"
-              fullWidth
-              sx={fieldSx}
-            />
-
-            <TextField
-              label="Content"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              disabled={locked}
-              size="small"
-              fullWidth
-              multiline
-              minRows={5}
-              sx={fieldSx}
-            />
+            <TextField label="Title" value={title} onChange={(e) => setTitle(e.target.value)} disabled={locked} size="small" fullWidth sx={fieldSx} />
+            <TextField label="Content" value={content} onChange={(e) => setContent(e.target.value)} disabled={locked} size="small" fullWidth multiline minRows={5} sx={fieldSx} />
 
             {isAdmin && (
-              <TextField
-                select
-                label="Department *"
-                value={departmentId}
-                onChange={(e) => setDepartmentId(e.target.value)}
-                disabled={locked || loadingDept}
-                size="small"
-                fullWidth
-                sx={fieldSx}
-              >
-                {departments.map((d) => (
-                  <MenuItem key={d.id} value={d.id}>
-                    {d.departmentName} ({d.division})
-                  </MenuItem>
-                ))}
+              <TextField select label="Department *" value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} disabled={locked || loadingDept} size="small" fullWidth sx={fieldSx}>
+                {departments.map((d) => (<MenuItem key={d.id} value={d.id}>{d.departmentName} ({d.division})</MenuItem>))}
               </TextField>
             )}
 
             <Box>
-              <Typography fontSize={13} fontWeight={600} mb={1}>
-                Current file
-              </Typography>
+              <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                <Typography fontSize={13} fontWeight={600}>Files ({totalActiveFiles}/{MAX_FILES})</Typography>
+                {removedFileUrls.length > 0 && <Chip size="small" color="warning" label={`${removedFileUrls.length} removed`} />}
+              </Stack>
 
-              {currentFileUrl ? (
-                <Box
-                  sx={{
-                    p: 1.5,
-                    borderRadius: 2,
-                    border: `1px solid ${alpha(theme.palette.divider, 0.8)}`,
-                    background: alpha(theme.palette.primary.main, 0.04)
-                  }}
-                >
-                  <Typography fontSize={13}>
-                    {currentFileName || 'Attached file'}
-                  </Typography>
-
-                  <Link
-                    href={currentFileUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    underline="hover"
-                    fontSize={12}
-                  >
-                    View current file
-                  </Link>
-                </Box>
-              ) : (
-                <Typography fontSize={12} color="text.secondary">
-                  No file attached
-                </Typography>
-              )}
-            </Box>
-
-            <Box>
-              <Button
-                variant="outlined"
-                component="label"
-                disabled={locked}
-              >
-                Upload New File
-                <input
-                  hidden
-                  type="file"
-                  onChange={(e) => setFile(e.target.files?.[0] || null)}
-                />
+              <Button variant="outlined" component="label" disabled={locked || totalActiveFiles >= MAX_FILES} startIcon={<CloudUploadIcon />} fullWidth sx={{ py: 1.5, borderStyle: 'dashed', borderWidth: 2 }}>
+                Add More Files ({totalActiveFiles}/{MAX_FILES})
+                <input hidden multiple type="file" onChange={handleNewFilesChange} />
               </Button>
 
-              {file && (
-                <Typography fontSize={12} mt={1}>
-                  New file selected: {file.name}
-                </Typography>
-              )}
-            </Box>
+              <Stack spacing={1} sx={{ mt: 1.2 }}>
+                {keepFileUrls.length === 0 && newFiles.length === 0 && <Typography variant="body2" color="text.secondary">No file selected</Typography>}
 
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={pinned}
-                  onChange={(e) => setPinned(e.target.checked)}
-                  disabled={locked}
-                />
-              }
-              label="Pinned notice"
-            />
+                {keepFileUrls.map((fileUrl) => (
+                  <Stack key={fileUrl} direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ px: 1.2, py: 0.8, border: '1px solid #e5e7eb', borderRadius: 2, background: '#fff' }}>
+                    <Stack direction="row" alignItems="center" spacing={1} sx={{ minWidth: 0 }}>
+                      <InsertDriveFileRoundedIcon fontSize="small" color="primary" />
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography variant="body2" fontWeight={700} noWrap>{getFileName(fileUrl)}</Typography>
+                        <Typography fontSize={12} color="text.secondary">Existing file</Typography>
+                      </Box>
+                    </Stack>
+                    <Tooltip title="Remove current file"><IconButton size="small" onClick={() => handleRemoveExistingFile(fileUrl)} disabled={locked}><CloseIcon fontSize="small" /></IconButton></Tooltip>
+                  </Stack>
+                ))}
 
-            <Typography fontSize={12} color="text.secondary">
-              User ID: {getLoggedInUserId() || 'Not found'}
-            </Typography>
+                {removedFileUrls.map((fileUrl) => (
+                  <Stack key={`removed-${fileUrl}`} direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ px: 1.2, py: 0.8, border: `1px solid ${alpha(theme.palette.warning.main, 0.35)}`, borderRadius: 2, background: alpha(theme.palette.warning.main, 0.06) }}>
+                    <Typography variant="body2" sx={{ color: 'warning.dark' }} noWrap>Will delete from source: {getFileName(fileUrl)}</Typography>
+                    <Button size="small" onClick={() => handleUndoRemoveExistingFile(fileUrl)} disabled={locked}>Undo</Button>
+                  </Stack>
+                ))}
 
-            <Box
-              sx={{
-                p: 1.5,
-                borderRadius: 2,
-                background: alpha(theme.palette.primary.main, 0.08)
-              }}
-            >
-              <Stack direction="row" spacing={1}>
-                <InfoRoundedIcon fontSize="small" />
-                <Typography fontSize={12}>
-                  If no new file is selected, the system will keep the current file.
-                </Typography>
+                {newFiles.map((selectedFile, index) => (
+                  <Stack key={`${selectedFile.name}-${selectedFile.lastModified}-${index}`} direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ px: 1.2, py: 0.8, border: `1px solid ${alpha(theme.palette.success.main, 0.35)}`, borderRadius: 2, background: alpha(theme.palette.success.main, 0.06) }}>
+                    <Stack direction="row" alignItems="center" spacing={1} sx={{ minWidth: 0 }}>
+                      <InsertDriveFileRoundedIcon fontSize="small" color="success" />
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography variant="body2" fontWeight={700} noWrap>{selectedFile.name}</Typography>
+                        <Typography fontSize={12} color="text.secondary">New file • {formatFileSize(selectedFile.size)}</Typography>
+                      </Box>
+                    </Stack>
+                    <Tooltip title="Remove new file"><IconButton size="small" onClick={() => handleRemoveNewFile(index)} disabled={locked}><CloseIcon fontSize="small" /></IconButton></Tooltip>
+                  </Stack>
+                ))}
               </Stack>
             </Box>
+
+            <FormControlLabel control={<Checkbox checked={pinned} onChange={(e) => setPinned(e.target.checked)} disabled={locked} />} label="Pinned notice" />
           </Stack>
         </DialogContent>
 
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={handleClose} disabled={locked}>
-            Cancel
-          </Button>
-
-          <Button
-            onClick={handleSubmit}
-            variant="contained"
-            disabled={
-              locked ||
-              loadingDept ||
-              !title.trim() ||
-              !content.trim() ||
-              !departmentId
-            }
-            sx={gradientBtnSx}
-          >
-            {saving ? <CircularProgress size={20} /> : 'Update'}
+        <DialogActions sx={{ p: 3, pt: 0 }}>
+          <Button onClick={handleClose} disabled={locked}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={locked || loadingDept || totalActiveFiles > MAX_FILES} variant="contained" sx={gradientBtnSx}>
+            {saving ? <CircularProgress size={20} color="inherit" /> : 'Update Notice'}
           </Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={confirmOpen} maxWidth="xs" fullWidth>
-        <DialogTitle>
-          Confirm Update
-        </DialogTitle>
-
-        <DialogContent>
-          <Typography>
-            Update notice <b>{title}</b> ?
-          </Typography>
-        </DialogContent>
-
+      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Confirm Update</DialogTitle>
+        <DialogContent><Typography>Update this notice?</Typography></DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmOpen(false)}>
-            No
-          </Button>
-
-          <Button onClick={handleConfirm} variant="contained" disabled={saving}>
-            {saving ? <CircularProgress size={20} /> : 'Yes'}
-          </Button>
+          <Button onClick={() => setConfirmOpen(false)} disabled={saving}>Cancel</Button>
+          <Button onClick={handleConfirm} variant="contained" disabled={saving}>Confirm</Button>
         </DialogActions>
       </Dialog>
 
-      <Snackbar
-        open={snackbarOpen}
-        autoHideDuration={4000}
-        onClose={() => setSnackbarOpen(false)}
-      >
-        <Alert severity={snackbarSeverity} sx={{ width: '100%' }}>
-          {snackbarMessage}
-        </Alert>
+      <Snackbar open={snackbarOpen} autoHideDuration={4500} onClose={() => setSnackbarOpen(false)} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
+        <Alert severity={snackbarSeverity} onClose={() => setSnackbarOpen(false)}>{snackbarMessage}</Alert>
       </Snackbar>
     </>
   );

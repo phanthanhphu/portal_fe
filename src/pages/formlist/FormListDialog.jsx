@@ -147,6 +147,38 @@ const getFullFileUrl = (fileUrl) => {
   return url;
 };
 
+// Ưu tiên dùng fileUrls/previewUrls mới. Chỉ fallback fileUrl cho data cũ.
+const getFileUrls = (item) => {
+  const urls = [];
+
+  const addUrl = (url) => {
+    if (!url) return;
+    const cleanUrl = String(url).trim();
+    if (cleanUrl && !urls.includes(cleanUrl)) urls.push(cleanUrl);
+  };
+
+  if (Array.isArray(item?.fileUrls)) {
+    item.fileUrls.forEach(addUrl);
+  }
+
+  if (Array.isArray(item?.previewUrls)) {
+    item.previewUrls.forEach(addUrl);
+  }
+
+  // Fallback cho dữ liệu cũ chưa migrate, không ưu tiên field này.
+  if (urls.length === 0) {
+    addUrl(item?.fileUrl);
+  }
+
+  return urls;
+};
+
+const createFileItem = (item, fileUrl) => ({
+  ...item,
+  fileUrl,
+  previewUrl: fileUrl || item?.previewUrl || '',
+});
+
 const OFFICE_PREVIEW_TYPES = new Set(['DOC', 'DOCX', 'XLS', 'XLSX', 'PPT', 'PPTX']);
 const DIRECT_PREVIEW_TYPES = new Set(['PDF', 'IMAGE', 'PNG', 'JPG', 'JPEG', 'WEBP', 'GIF', 'TXT']);
 
@@ -592,6 +624,7 @@ const emptyPreviewState = {
   blobUrl: '',
   mimeType: '',
   fileName: '',
+  fileUrl: '',
   previewKind: '',
 };
 
@@ -1008,9 +1041,11 @@ export default function FormListDialog() {
     });
   }, []);
 
-  const handleOpenPreview = useCallback(async (item) => {
-    const fullUrl = getFullFileUrl(item.fileUrl);
-    const fileName = getFileName(item.fileUrl);
+  const handleOpenPreview = useCallback(async (item, fileUrl) => {
+    const targetFileUrl = fileUrl || getFileUrls(item)[0] || '';
+    const targetItem = createFileItem(item, targetFileUrl);
+    const fullUrl = getFullFileUrl(targetFileUrl);
+    const fileName = getFileName(targetFileUrl);
 
     if (!fullUrl) {
       setNotification({ open: true, message: 'No file to preview', severity: 'warning' });
@@ -1025,16 +1060,17 @@ export default function FormListDialog() {
         open: true,
         loading: true,
         error: '',
-        item,
+        item: targetItem,
         blobUrl: '',
         mimeType: '',
         fileName,
+        fileUrl: targetFileUrl,
         previewKind: '',
       };
     });
 
     try {
-      const shouldConvertToPdf = shouldConvertFormFileToPdf(item);
+      const shouldConvertToPdf = shouldConvertFormFileToPdf(targetItem);
 
       const response = shouldConvertToPdf
         ? await axios.get(`${API_BASE_URL}/api/files/preview-pdf`, {
@@ -1064,10 +1100,11 @@ export default function FormListDialog() {
         open: true,
         loading: false,
         error: '',
-        item,
+        item: targetItem,
         blobUrl,
         mimeType,
         fileName,
+        fileUrl: targetFileUrl,
         previewKind: previewKindValue,
       });
     } catch (error) {
@@ -1079,18 +1116,20 @@ export default function FormListDialog() {
         open: true,
         loading: false,
         error: errorMessage,
-        item,
+        item: targetItem,
         blobUrl: '',
         mimeType: '',
         fileName,
+        fileUrl: targetFileUrl,
         previewKind: '',
       });
     }
   }, []);
 
-  const handleDownload = useCallback(async (item) => {
-    const fullUrl = getFullFileUrl(item.fileUrl);
-    const fileName = getFileName(item.fileUrl) || 'file';
+  const handleDownload = useCallback(async (item, fileUrl) => {
+    const targetFileUrl = fileUrl || item?.fileUrl || getFileUrls(item)[0] || '';
+    const fullUrl = getFullFileUrl(targetFileUrl);
+    const fileName = getFileName(targetFileUrl) || 'file';
 
     if (!fullUrl) {
       setNotification({ open: true, message: 'No file to download', severity: 'warning' });
@@ -1283,8 +1322,7 @@ export default function FormListDialog() {
               ) : (
                 data.map((item, idx) => {
                   const zebra = idx % 2 === 0 ? '#ffffff' : '#fafafa';
-                  const fileName = getFileName(item.fileUrl);
-                  const fileType = getFormFileTypeForPreview(item) || item.fileType || getFileTypeFromUrl(item.fileUrl);
+                  const fileUrls = getFileUrls(item);
                   const editEnabled = canModifyItem(item, 'edit');
                   const deleteEnabled = canModifyItem(item, 'delete');
 
@@ -1335,49 +1373,90 @@ export default function FormListDialog() {
                       >
                         {item.description || '-'}
                       </TableCell>
-                      <TableCell sx={{ py: 0.45, px: 0.7, minWidth: 280 }}>
-                        {item.fileUrl ? (
-                          <Stack direction="row" spacing={1.1} alignItems="center">
-                            <FormFileIcon type={fileType} />
+                      <TableCell sx={{ py: 0.45, px: 0.7, minWidth: 340 }}>
+                        {fileUrls.length > 0 ? (
+                          <Stack spacing={0.75}>
+                            {fileUrls.map((fileUrl, fileIndex) => {
+                              const fileItem = createFileItem(item, fileUrl);
+                              const fileName = getFileName(fileUrl);
+                              const fileType = getFormFileTypeForPreview(fileItem) || item.fileType || getFileTypeFromUrl(fileUrl);
 
-                            <Stack spacing={0.5} sx={{ minWidth: 0 }}>
-                              <Tooltip title={fileName} arrow>
-                                <Typography
+                              return (
+                                <Stack
+                                  key={`${item.id}-${fileUrl}-${fileIndex}`}
+                                  direction="row"
+                                  spacing={1}
+                                  alignItems="center"
                                   sx={{
-                                    fontSize: '0.75rem',
-                                    color: '#111827',
-                                    fontWeight: 500,
-                                    maxWidth: 220,
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
+                                    p: 0.65,
+                                    borderRadius: 1.2,
+                                    border: '1px solid #e5e7eb',
+                                    backgroundColor: fileIndex === 0 ? '#ffffff' : '#f8fafc',
                                   }}
                                 >
-                                  {fileName}
-                                </Typography>
-                              </Tooltip>
+                                  <FormFileIcon type={fileType} />
 
-                              <Stack direction="row" spacing={0.5}>
-                                <Button
-                                  size="small"
-                                  variant="outlined"
-                                  startIcon={<Visibility fontSize="small" />}
-                                  onClick={() => handleOpenPreview(item)}
-                                  sx={{ minWidth: 'auto', px: 1, py: 0.2, fontSize: '0.68rem', textTransform: 'none' }}
-                                >
-                                  View
-                                </Button>
-                                <Button
-                                  size="small"
-                                  variant="outlined"
-                                  startIcon={<Download fontSize="small" />}
-                                  onClick={() => handleDownload(item)}
-                                  sx={{ minWidth: 'auto', px: 1, py: 0.2, fontSize: '0.68rem', textTransform: 'none' }}
-                                >
-                                  Download
-                                </Button>
-                              </Stack>
-                            </Stack>
+                                  <Stack spacing={0.45} sx={{ minWidth: 0, flex: 1 }}>
+                                    <Stack direction="row" spacing={0.5} alignItems="center" sx={{ minWidth: 0 }}>
+                                      <Tooltip title={fileName} arrow>
+                                        <Typography
+                                          sx={{
+                                            fontSize: '0.75rem',
+                                            color: '#111827',
+                                            fontWeight: 500,
+                                            maxWidth: 190,
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            whiteSpace: 'nowrap',
+                                          }}
+                                        >
+                                          {fileName}
+                                        </Typography>
+                                      </Tooltip>
+
+                                      {fileUrls.length > 1 && (
+                                        <Box
+                                          component="span"
+                                          sx={{
+                                            px: 0.65,
+                                            py: 0.12,
+                                            borderRadius: 999,
+                                            bgcolor: '#eef2ff',
+                                            color: '#3730a3',
+                                            fontSize: '0.65rem',
+                                            fontWeight: 700,
+                                            flexShrink: 0,
+                                          }}
+                                        >
+                                          File {fileIndex + 1}/{fileUrls.length}
+                                        </Box>
+                                      )}
+                                    </Stack>
+
+                                    <Stack direction="row" spacing={0.5}>
+                                      <Button
+                                        size="small"
+                                        variant="outlined"
+                                        startIcon={<Visibility fontSize="small" />}
+                                        onClick={() => handleOpenPreview(item, fileUrl)}
+                                        sx={{ minWidth: 'auto', px: 1, py: 0.2, fontSize: '0.68rem', textTransform: 'none' }}
+                                      >
+                                        View
+                                      </Button>
+                                      <Button
+                                        size="small"
+                                        variant="outlined"
+                                        startIcon={<Download fontSize="small" />}
+                                        onClick={() => handleDownload(item, fileUrl)}
+                                        sx={{ minWidth: 'auto', px: 1, py: 0.2, fontSize: '0.68rem', textTransform: 'none' }}
+                                      >
+                                        Download
+                                      </Button>
+                                    </Stack>
+                                  </Stack>
+                                </Stack>
+                              );
+                            })}
                           </Stack>
                         ) : (
                           <Stack direction="row" spacing={1} alignItems="center">
@@ -1484,10 +1563,42 @@ export default function FormListDialog() {
           setOpenEdit(false);
           setCurrentItem(null);
         }}
-        onSuccess={() => {
+        onSuccess={(updatedItem) => {
           setOpenEdit(false);
           setCurrentItem(null);
-          fetchData();
+
+          /*
+           * UI-only fix:
+           * Do not refetch immediately after edit, because backend response/search
+           * may still include old fileUrls. Update local table state using the
+           * filtered fileUrls returned by EditFormDialog.
+           */
+          if (updatedItem?.id) {
+            setData((prev) =>
+              prev.map((item) => {
+                if (item.id !== updatedItem.id) return item;
+
+                const finalFileUrls = Array.isArray(updatedItem.fileUrls)
+                  ? updatedItem.fileUrls
+                  : getFileUrls(updatedItem);
+
+                const finalPreviewUrls = Array.isArray(updatedItem.previewUrls)
+                  ? updatedItem.previewUrls
+                  : finalFileUrls;
+
+                return {
+                  ...item,
+                  ...updatedItem,
+                  fileUrl: finalFileUrls[0] || null,
+                  previewUrl: finalPreviewUrls[0] || finalFileUrls[0] || null,
+                  fileUrls: finalFileUrls,
+                  previewUrls: finalPreviewUrls,
+                };
+              })
+            );
+          } else {
+            fetchData();
+          }
         }}
       />
 
@@ -1568,7 +1679,7 @@ export default function FormListDialog() {
                 <Button
                   variant="outlined"
                   startIcon={<Download />}
-                  onClick={() => handleDownload(previewState.item)}
+                  onClick={() => handleDownload(previewState.item, previewState.fileUrl || previewState.item?.fileUrl)}
                   sx={{ textTransform: 'none' }}
                 >
                   Download
@@ -1594,7 +1705,7 @@ export default function FormListDialog() {
                 <Button
                   variant="contained"
                   startIcon={<Download />}
-                  onClick={() => handleDownload(previewState.item)}
+                  onClick={() => handleDownload(previewState.item, previewState.fileUrl || previewState.item?.fileUrl)}
                   sx={{ textTransform: 'none' }}
                 >
                   Download File
@@ -1634,7 +1745,7 @@ export default function FormListDialog() {
                   <Button
                     variant="contained"
                     startIcon={<Download />}
-                    onClick={() => handleDownload(previewState.item)}
+                    onClick={() => handleDownload(previewState.item, previewState.fileUrl || previewState.item?.fileUrl)}
                     sx={{ textTransform: 'none' }}
                   >
                     Download File
@@ -1655,7 +1766,7 @@ export default function FormListDialog() {
             <Button
               variant="contained"
               startIcon={<Download />}
-              onClick={() => handleDownload(previewState.item)}
+              onClick={() => handleDownload(previewState.item, previewState.fileUrl || previewState.item?.fileUrl)}
               sx={{ textTransform: 'none' }}
             >
               Download
