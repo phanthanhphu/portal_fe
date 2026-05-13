@@ -13,25 +13,6 @@ const NOTICES_API_BASE = `${API_BASE_URL}/api/notices`;
 const DEPARTMENTS_API_BASE = `${API_BASE_URL}/api/departments`;
 
 
-// ITSM SSO bridge: chỉ áp dụng cho app có name chính xác là "ITSM".
-// Không mở thẳng login.do vì login.do không biết sau login phải đi ITSM.
-// Link này phải nằm trên domain GW2 để dùng được session/cookie GW2.
-// Nếu user chưa login GW2: bridge sẽ lưu flag rồi chuyển qua /covicore/login.do.
-// Sau khi login về GW2 home, script AutoOpenItsmAfterLogin.js sẽ tự mở lại bridge để lấy SSO và submit sang ITSM.
-const GW2_ITSM_BRIDGE_URL = "https://gw2.youngone.com/groupware/pnPortal/openItsm.do";
-
-function isItsmApp(app) {
-  return String(app?.name || "").trim().toUpperCase() === "ITSM";
-}
-
-function getAppOpenUrl(app) {
-  if (isItsmApp(app)) {
-    return GW2_ITSM_BRIDGE_URL;
-  }
-
-  return app?.url || "#";
-}
-
 const FORMS_PAGE_PATH = "/forms";
 const NOTICES_PAGE_PATH = "/notices";
 const COMPANY_BG_URL = companyBg;
@@ -1969,10 +1950,7 @@ export default function PageHome() {
       const normalizedApps = (data.content || []).map((item) => ({
         id: item.id,
         name: item.name || "Application",
-        url: getAppOpenUrl({
-          name: item.name,
-          url: item.url ? toAbsoluteUrl(item.url) : "#",
-        }),
+        url: item.url ? toAbsoluteUrl(item.url) : "#",
         icon: item.icon ? toAbsoluteUrl(item.icon) : "",
       }));
 
@@ -3117,7 +3095,7 @@ const visibleNotices = useMemo(() => {
                 {apps.map((app) => (
                   <a
                     key={app.id}
-                    href={getAppOpenUrl(app)}
+                    href={app.url || "#"}
                     target="_blank"
                     rel="noreferrer"
                     className="portal-mobile-subitem"
@@ -3280,7 +3258,7 @@ const visibleNotices = useMemo(() => {
                           {apps.map((app) => (
                             <a
                               key={app.id}
-                              href={getAppOpenUrl(app)}
+                              href={app.url || "#"}
                               target="_blank"
                               rel="noreferrer"
                               className="portal-link-card"
