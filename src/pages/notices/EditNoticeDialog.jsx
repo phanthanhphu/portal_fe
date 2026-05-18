@@ -29,9 +29,19 @@ import InsertDriveFileRoundedIcon from '@mui/icons-material/InsertDriveFileRound
 
 import axios from 'axios';
 import { API_BASE_URL } from '../../config';
+import NoticeContentEditor from './NoticeContentEditor';
 
 const DEPT_API = `${API_BASE_URL}/api/departments`;
 const MAX_FILES = 5;
+
+const stripHtml = (html = '') =>
+  String(html)
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .trim();
+
 
 const normalizeUrl = (value) => String(value || '').trim();
 
@@ -147,7 +157,7 @@ export default function EditNoticeDialog({
       const loggedInUserId = getLoggedInUserId();
 
       if (!loggedInUserId) {
-        toast('Không tìm thấy userId của user đang đăng nhập', 'error');
+        toast('Cannot find logged-in user ID', 'error');
         setDepartments([]);
         setDepartmentId('');
         setIsAdmin(false);
@@ -167,7 +177,7 @@ export default function EditNoticeDialog({
       setDepartmentId(admin ? currentItem?.departmentId || '' : list[0]?.id || '');
     } catch (err) {
       console.error(err);
-      toast('Không tải được danh sách phòng ban', 'error');
+      toast('Failed to load departments', 'error');
       setDepartments([]);
       setDepartmentId('');
       setIsAdmin(false);
@@ -212,7 +222,7 @@ export default function EditNoticeDialog({
   const validate = () => {
     if (!currentItem?.id) return 'Invalid Notice item';
     if (!title.trim()) return 'Title is required';
-    if (!content.trim()) return 'Content is required';
+    if (!stripHtml(content)) return 'Content is required';
     if (!departmentId) return 'Department is required';
     if (keepFileUrlsRef.current.length + newFiles.length > MAX_FILES) return `You can upload maximum ${MAX_FILES} files`;
     return null;
@@ -233,14 +243,14 @@ export default function EditNoticeDialog({
       const availableSlots = MAX_FILES - keepFileUrlsRef.current.length - prev.length;
 
       if (availableSlots <= 0) {
-        toast(`Notice này đã đủ ${MAX_FILES} file`, 'error');
+        toast(`This notice already has ${MAX_FILES} files`, 'error');
         return prev;
       }
 
       const acceptedFiles = selectedFiles.slice(0, availableSlots);
 
       if (selectedFiles.length > availableSlots) {
-        toast(`Chỉ nhận thêm ${availableSlots} file. Tối đa ${MAX_FILES} file`, 'warning');
+        toast(`Only ${availableSlots} more file(s) can be added. Maximum ${MAX_FILES} files`, 'warning');
       }
 
       return [...prev, ...acceptedFiles];
@@ -284,12 +294,25 @@ export default function EditNoticeDialog({
       const loggedInUserId = getLoggedInUserId();
 
       if (!loggedInUserId) {
-        toast('Không tìm thấy userId của user đang đăng nhập', 'error');
+        toast('Cannot find logged-in user ID', 'error');
         return;
       }
 
       const keepUrlsPayload = uniqueUrls(keepFileUrlsRef.current);
       const formData = new FormData();
+
+      /*
+       * IMPORTANT:
+       * Do not send title/content through axios params.
+       * Rich HTML content can be very long, and putting it in the URL
+       * can cause Network Error / net::ERR_FAILED.
+       * Send all notice fields inside multipart FormData instead.
+       */
+      formData.append('title', title.trim());
+      formData.append('content', content.trim());
+      formData.append('userId', loggedInUserId);
+      formData.append('departmentId', departmentId);
+      formData.append('pinned', String(Boolean(pinned)));
 
       keepUrlsPayload.forEach((fileUrl) => {
         formData.append('fileUrls', fileUrl);
@@ -305,16 +328,8 @@ export default function EditNoticeDialog({
         `${API_BASE_URL}/api/notices/${currentItem.id}`,
         formData,
         {
-          params: {
-            title: title.trim(),
-            content: content.trim(),
-            userId: loggedInUserId,
-            departmentId,
-            pinned
-          },
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`,
-            'Content-Type': 'multipart/form-data',
             accept: '*/*'
           }
         }
@@ -393,11 +408,11 @@ export default function EditNoticeDialog({
             </Stack>
           </Stack>
         </DialogTitle>
-
-        <DialogContent sx={{ p: 3 }}>
+        <br></br>
+        <DialogContent sx={{ px: 3, pt: 3.5, pb: 3 }}>
           <Stack spacing={2}>
             <TextField label="Title" value={title} onChange={(e) => setTitle(e.target.value)} disabled={locked} size="small" fullWidth sx={fieldSx} />
-            <TextField label="Content" value={content} onChange={(e) => setContent(e.target.value)} disabled={locked} size="small" fullWidth multiline minRows={5} sx={fieldSx} />
+            <NoticeContentEditor label="Content" value={content} onChange={setContent} disabled={locked} />
 
             {isAdmin && (
               <TextField select label="Department *" value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} disabled={locked || loadingDept} size="small" fullWidth sx={fieldSx}>

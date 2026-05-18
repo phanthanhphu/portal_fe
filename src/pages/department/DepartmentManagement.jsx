@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Box,
   Typography,
@@ -17,6 +17,8 @@ import {
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
+import SockJS from "sockjs-client";
+import { Client } from "@stomp/stompjs";
 import factoryImage from "../../assets/svg/logos/corporation.png";
 import { API_BASE_URL } from "../../config";
 
@@ -40,6 +42,9 @@ export default function DepartmentManagement() {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
 
   const [selectedDepartment, setSelectedDepartment] = useState(null);
+
+  const departmentRealtimeRefreshRef = useRef(null);
+  const socketRefreshingRef = useRef(false);
 
   const [notification, setNotification] = useState({
     open: false,
@@ -81,8 +86,12 @@ export default function DepartmentManagement() {
   // Fetch departments by logged-in user.
   // Admin: API returns all departments and isAdmin=true.
   // Normal user: API returns only user's department and isAdmin=false.
-  const fetchDepartments = useCallback(async (filters = {}) => {
-    setLoading(true);
+  const fetchDepartments = useCallback(async (filters = {}, options = {}) => {
+    const silent = Boolean(options?.silent);
+
+    if (!silent) {
+      setLoading(true);
+    }
 
     try {
       const loggedInUserId = getLoggedInUserId();
@@ -146,7 +155,9 @@ export default function DepartmentManagement() {
       setDepartments([]);
       setIsAdmin(false);
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -154,6 +165,97 @@ export default function DepartmentManagement() {
   useEffect(() => {
     fetchDepartments();
   }, [fetchDepartments]);
+
+  const refreshDepartmentsBySocket = useCallback(async (event) => {
+    const module = String(event?.module || "ALL").toUpperCase();
+
+    const shouldRefresh =
+      module === "DEPARTMENT" ||
+      module === "DEPARTMENTS" ||
+      module === "ALL";
+
+    if (!shouldRefresh) return;
+
+    console.log("Departments page refreshing by socket:", event);
+
+    await fetchDepartments(
+      {
+        division: searchDivision,
+        departmentName: searchDeptName
+      },
+      { silent: true }
+    );
+
+    console.log(
+      "Departments page data updated by socket:",
+      `${module} ${event?.action || "UPDATED"}`
+    );
+  }, [fetchDepartments, searchDivision, searchDeptName]);
+
+  useEffect(() => {
+    departmentRealtimeRefreshRef.current = refreshDepartmentsBySocket;
+  }, [refreshDepartmentsBySocket]);
+
+  useEffect(() => {
+    const client = new Client({
+      webSocketFactory: () => new SockJS(`${API_BASE_URL}/ws`),
+      reconnectDelay: 5000,
+      debug: () => {},
+
+      onConnect: () => {
+        console.log("Departments realtime connected");
+
+        client.subscribe("/topic/app-events", async (message) => {
+          let event = null;
+
+          try {
+            event = JSON.parse(message.body);
+          } catch {
+            event = {
+              module: "ALL",
+              action: "UPDATED",
+              id: ""
+            };
+          }
+
+          console.log("Departments realtime event received:", event);
+
+          const module = String(event?.module || "ALL").toUpperCase();
+
+          const shouldRefresh =
+            module === "DEPARTMENT" ||
+            module === "DEPARTMENTS" ||
+            module === "ALL";
+
+          if (!shouldRefresh) return;
+          if (socketRefreshingRef.current) return;
+
+          socketRefreshingRef.current = true;
+
+          try {
+            await departmentRealtimeRefreshRef.current?.(event);
+          } finally {
+            socketRefreshingRef.current = false;
+          }
+        });
+      },
+
+      onStompError: (frame) => {
+        console.error("Departments realtime STOMP error:", frame);
+      },
+
+      onWebSocketError: (error) => {
+        console.error("Departments realtime socket error:", error);
+      }
+    });
+
+    client.activate();
+
+    return () => {
+      client.deactivate();
+    };
+  }, []);
+
 
   const handleConfirmDelete = async () => {
     if (!isAdmin) {

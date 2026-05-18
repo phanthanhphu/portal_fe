@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import {
   Typography,
   Box,
@@ -24,7 +24,6 @@ import {
   Divider,
   Select,
   MenuItem,
-  useMediaQuery,
 } from '@mui/material';
 
 import {
@@ -40,6 +39,8 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 
 import axios from 'axios';
+import SockJS from 'sockjs-client';
+import { Client } from '@stomp/stompjs';
 import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../../config';
 import AddAppLinkDialog from './AddAppLinkDialog';
@@ -339,7 +340,6 @@ function PaginationBar({ count, page, rowsPerPage, onPageChange, onRowsPerPageCh
    ========================= */
 export default function AppLinksPage() {
   const navigate = useNavigate();
-  const isLargeScreen = useMediaQuery((theme) => theme.breakpoints.up('lg'));
 
   const btnSx = useMemo(() => ({ textTransform: 'none', fontWeight: 400 }), []);
   const pageWrapSx = useMemo(() => ({ bgcolor: '#f7f7f7', minHeight: '100vh', p: 1.5 }), []);
@@ -353,7 +353,7 @@ export default function AppLinksPage() {
   const [disableDepartmentSelect, setDisableDepartmentSelect] = useState(true);
 
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(isLargeScreen ? 20 : 12);
+  const [rowsPerPage, setRowsPerPage] = useState(20);
 
   const [loading, setLoading] = useState(false);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: null });
@@ -375,30 +375,143 @@ export default function AppLinksPage() {
   const [openEditDialog, setOpenEditDialog] = useState(false);
   const [currentItem, setCurrentItem] = useState(null);
 
+  const appLinksRealtimeRefreshRef = useRef(null);
+  const socketRefreshingRef = useRef(false);
+
   /* ====================== FETCH DATA ====================== */
   const fetchData = useCallback(
-    async (overrides = {}) => {
-      setLoading(true);
+    async (overrides = {}, options = {}) => {
+      const showLoading = options.showLoading !== false;
 
-      const effPage = overrides.page !== undefined ? overrides.page : page;
-      const effSize = overrides.size !== undefined ? overrides.size : rowsPerPage;
-      const effSort = overrides.sortConfig ?? sortConfig;
-      const effName = overrides.name !== undefined ? overrides.name : filterName;
-      const effDesc = overrides.desc !== undefined ? overrides.desc : filterDesc;
+      if (showLoading) {
+        setLoading(true);
+      }
 
-      const result = await fetchAppLinks(effPage, effSize, effName, effDesc);
-      const finalData = sortRowsClient(result.content, effSort);
+      try {
+        const effPage = overrides.page !== undefined ? overrides.page : page;
+        const effSize = overrides.size !== undefined ? overrides.size : rowsPerPage;
+        const effSort = overrides.sortConfig ?? sortConfig;
+        const effName = overrides.name !== undefined ? overrides.name : filterName;
+        const effDesc = overrides.desc !== undefined ? overrides.desc : filterDesc;
 
-      setData(finalData);
-      setTotalElements(result.totalElements);
-      setTotalPages(result.totalPages);
-      setIsAdmin(Boolean(result.isAdmin));
-      setCurrentDepartmentId(result.currentDepartmentId || '');
-      setDisableDepartmentSelect(Boolean(result.disableDepartmentSelect));
-      setLoading(false);
+        const result = await fetchAppLinks(effPage, effSize, effName, effDesc);
+        const finalData = sortRowsClient(result.content, effSort);
+
+        setData(finalData);
+        setTotalElements(result.totalElements);
+        setTotalPages(result.totalPages);
+        setIsAdmin(Boolean(result.isAdmin));
+        setCurrentDepartmentId(result.currentDepartmentId || '');
+        setDisableDepartmentSelect(Boolean(result.disableDepartmentSelect));
+      } finally {
+        if (showLoading) {
+          setLoading(false);
+        }
+      }
     },
     [page, rowsPerPage, sortConfig, filterName, filterDesc]
   );
+
+
+  const refreshAppLinksBySocket = useCallback(
+    async (event) => {
+      const module = String(event?.module || 'ALL').toUpperCase();
+
+      const shouldRefresh =
+        module === 'APP_LINK' ||
+        module === 'APP_LINKS' ||
+        module === 'APPLINK' ||
+        module === 'APPLINKS' ||
+        module === 'DEPARTMENT' ||
+        module === 'DEPARTMENTS' ||
+        module === 'ALL';
+
+      if (!shouldRefresh) return;
+
+      console.log('AppLinks page refreshing by socket:', event);
+
+      await fetchData(
+        {
+          page,
+          size: rowsPerPage,
+          sortConfig,
+          name: filterName,
+          desc: filterDesc,
+        },
+        { showLoading: false }
+      );
+
+      console.log('AppLinks page data updated by socket:', `${module} ${event?.action || ''}`.trim());
+    },
+    [fetchData, page, rowsPerPage, sortConfig, filterName, filterDesc]
+  );
+
+  useEffect(() => {
+    appLinksRealtimeRefreshRef.current = refreshAppLinksBySocket;
+  });
+
+  useEffect(() => {
+    const client = new Client({
+      webSocketFactory: () => new SockJS(`${API_BASE_URL}/ws`),
+      reconnectDelay: 5000,
+      debug: () => {},
+
+      onConnect: () => {
+        console.log('AppLinks realtime connected');
+
+        client.subscribe('/topic/app-events', async (message) => {
+          let event = null;
+
+          try {
+            event = JSON.parse(message.body);
+          } catch {
+            event = {
+              module: 'ALL',
+              action: 'UPDATED',
+              id: '',
+            };
+          }
+
+          console.log('AppLinks realtime event received:', event);
+
+          const module = String(event?.module || 'ALL').toUpperCase();
+          const shouldRefresh =
+            module === 'APP_LINK' ||
+            module === 'APP_LINKS' ||
+            module === 'APPLINK' ||
+            module === 'APPLINKS' ||
+            module === 'DEPARTMENT' ||
+            module === 'DEPARTMENTS' ||
+            module === 'ALL';
+
+          if (!shouldRefresh) return;
+          if (socketRefreshingRef.current) return;
+
+          socketRefreshingRef.current = true;
+
+          try {
+            await appLinksRealtimeRefreshRef.current?.(event);
+          } finally {
+            socketRefreshingRef.current = false;
+          }
+        });
+      },
+
+      onStompError: (frame) => {
+        console.error('AppLinks realtime STOMP error:', frame);
+      },
+
+      onWebSocketError: (error) => {
+        console.error('AppLinks realtime socket error:', error);
+      },
+    });
+
+    client.activate();
+
+    return () => {
+      client.deactivate();
+    };
+  }, []);
 
   // Initial load + check token
   useEffect(() => {
@@ -413,10 +526,6 @@ export default function AppLinksPage() {
     fetchData();
   }, [fetchData, navigate]);
 
-  useEffect(() => {
-    setRowsPerPage(isLargeScreen ? 20 : 12);
-    setPage(0);
-  }, [isLargeScreen]);
 
   useEffect(() => {
     fetchData();

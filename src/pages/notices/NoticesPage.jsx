@@ -1,5 +1,7 @@
 // NoticesPage.jsx
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import SockJS from 'sockjs-client';
+import { Client } from '@stomp/stompjs';
 import {
   Typography,
   Box,
@@ -51,7 +53,7 @@ import { API_BASE_URL } from '../../config';
 import AddNoticeDialog from './AddNoticeDialog';
 import EditNoticeDialog from './EditNoticeDialog';
 
-// Import từ utils
+// Import from utils
 import {
   formatDateTime,
   getPinnedColor,
@@ -97,6 +99,35 @@ const decodeJwtPayload = (token) => {
 };
 
 
+
+const stripHtml = (html = '') =>
+  String(html)
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<li[^>]*>/gi, '• ')
+    .replace(/<\/(p|div|li|h[1-6]|tr|table)>/gi, '\n')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n[ \t]+/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+const sanitizeNoticeHtml = (html = '') =>
+  String(html)
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/\s+on\w+=("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    .replace(/javascript:/gi, '');
+
+const isLongContent = (text = '') => String(text || '').trim().length > 180;
+
 const getNoticeFileUrlsFromItem = (item) => {
   const urls = [];
 
@@ -120,6 +151,55 @@ const createNoticeFileItem = (item, fileUrl) => ({
   fileUrl,
   previewUrl: fileUrl || item?.previewUrl || '',
 });
+
+const normalizeNoticeRowForTable = (item, fallback = {}) => {
+  const source = item || {};
+  const base = fallback || {};
+
+  const departmentName = source.departmentName ?? base.departmentName ?? '';
+  const division = source.division ?? base.division ?? '';
+  const fileUrls = Array.isArray(source.fileUrls)
+    ? source.fileUrls
+    : Array.isArray(base.fileUrls)
+      ? base.fileUrls
+      : getNoticeFileUrlsFromItem(source);
+  const previewUrls = Array.isArray(source.previewUrls)
+    ? source.previewUrls
+    : Array.isArray(base.previewUrls)
+      ? base.previewUrls
+      : fileUrls;
+
+  return {
+    ...base,
+    ...source,
+    departmentName,
+    division,
+    department: [departmentName, division].filter(Boolean).join(' '),
+    fileUrl: fileUrls[0] || source.fileUrl || base.fileUrl || null,
+    previewUrl: previewUrls[0] || source.previewUrl || base.previewUrl || fileUrls[0] || null,
+    fileUrls,
+    previewUrls,
+  };
+};
+
+const doesNoticeMatchCurrentFilters = (item, filters = {}) => {
+  const title = String(item?.title || '').toLowerCase();
+  const content = stripHtml(item?.content || '').toLowerCase();
+  const department = String(item?.departmentName || item?.department || '').toLowerCase();
+  const division = String(item?.division || '').toLowerCase();
+
+  const filterTitle = String(filters.searchTitle || '').trim().toLowerCase();
+  const filterContent = String(filters.searchContent || '').trim().toLowerCase();
+  const filterDepartment = String(filters.searchDepartment || '').trim().toLowerCase();
+  const filterDivision = String(filters.searchDivision || '').trim().toLowerCase();
+
+  if (filterTitle && !title.includes(filterTitle)) return false;
+  if (filterContent && !content.includes(filterContent)) return false;
+  if (filterDepartment && !department.includes(filterDepartment)) return false;
+  if (filterDivision && !division.includes(filterDivision)) return false;
+
+  return true;
+};
 
 const getCurrentUserId = () => {
   const directUserId = localStorage.getItem('userId');
@@ -699,7 +779,7 @@ export default function NoticesPage() {
   const [currentDepartmentId, setCurrentDepartmentId] = useState('');
   const [disableDepartmentSearch, setDisableDepartmentSearch] = useState(false);
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(isLargeScreen ? 20 : 12);
+  const [rowsPerPage, setRowsPerPage] = useState(20);
   const [loading, setLoading] = useState(false);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: null });
 
@@ -720,11 +800,22 @@ export default function NoticesPage() {
   const [openAddDialog, setOpenAddDialog] = useState(false);
   const [openEditDialog, setOpenEditDialog] = useState(false);
   const [currentItem, setCurrentItem] = useState(null);
+  const [contentDialogOpen, setContentDialogOpen] = useState(false);
+  const [contentDialogItem, setContentDialogItem] = useState(null);
   const [previewState, setPreviewState] = useState(emptyPreviewState);
+
+  // Realtime socket refs - same pattern as PageHome.
+  // Keep the latest refresh function without reconnecting socket on every render.
+  const noticeRealtimeRefreshRef = useRef(null);
+  const socketRefreshingRef = useRef(false);
 
   // Fetch data function
   const fetchData = useCallback(async (overrides = {}) => {
-    setLoading(true);
+    const silent = Boolean(overrides.silent);
+
+    if (!silent) {
+      setLoading(true);
+    }
 
     const effPage = Number.isInteger(overrides.page) ? overrides.page : page;
     const effSize = Number.isInteger(overrides.size) ? overrides.size : rowsPerPage;
@@ -765,10 +856,7 @@ export default function NoticesPage() {
       });
 
       const result = response?.data || {};
-      const normalizedContent = (result.content || []).map((item) => ({
-        ...item,
-        department: [item.departmentName, item.division].filter(Boolean).join(' '),
-      }));
+      const normalizedContent = (result.content || []).map((item) => normalizeNoticeRowForTable(item));
       const finalData = sortRowsClient(normalizedContent, sortConfig);
 
       setData(finalData);
@@ -779,18 +867,215 @@ export default function NoticesPage() {
       setDisableDepartmentSearch(Boolean(result.disableDepartmentSearch));
     } catch (error) {
       console.error(error);
-      setData([]);
-      setTotalElements(0);
-      setTotalPages(1);
-      setNotification({
-        open: true,
-        message: error?.response?.data?.message || 'Failed to fetch notices.',
-        severity: 'error',
-      });
+
+      if (!silent) {
+        setData([]);
+        setTotalElements(0);
+        setTotalPages(1);
+        setNotification({
+          open: true,
+          message: error?.response?.data?.message || 'Failed to fetch notices.',
+          severity: 'error',
+        });
+      }
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, [page, rowsPerPage, searchDivisionFilter, searchDepartmentFilter, searchTitleFilter, searchContentFilter, sortConfig, navigate]);
+
+  const fetchNoticeByIdForSocket = useCallback(async (noticeId) => {
+    if (!noticeId) return null;
+
+    const response = await axios.get(`${API_BASE_URL}/api/notices/${noticeId}`, {
+      headers: getAuthHeaders('*/*'),
+    });
+
+    return response?.data || null;
+  }, []);
+
+  const refreshNoticesBySocket = useCallback(async (event = {}) => {
+    const module = String(event?.module || 'ALL').toUpperCase();
+    const action = String(event?.action || 'UPDATED').toUpperCase();
+    const noticeId = String(event?.id || '').trim();
+
+    const shouldRefresh =
+      module === 'ALL' ||
+      module === 'NOTICE' ||
+      module === 'NOTICES' ||
+      module === 'DEPARTMENT';
+
+    if (!shouldRefresh) return;
+
+    console.log('Notices realtime event received:', event);
+
+    /*
+     * Do not refetch the whole page for normal Notice CRUD.
+     * Update the visible table data in-place so the page does not flash, reset,
+     * or change layout when another account saves a notice.
+     */
+    if ((module === 'NOTICE' || module === 'NOTICES') && noticeId) {
+      if (action === 'DELETED') {
+        setData((prev) => prev.filter((item) => String(item?.id) !== noticeId));
+        setTotalElements((prev) => Math.max(Number(prev || 0) - 1, 0));
+        setTotalPages((prev) => Math.max(Number(prev || 1), 1));
+
+        setCurrentItem((prev) => (String(prev?.id || '') === noticeId ? null : prev));
+        setContentDialogItem((prev) => (String(prev?.id || '') === noticeId ? null : prev));
+        setOpenEditDialog((prev) => (String(currentItem?.id || '') === noticeId ? false : prev));
+        setContentDialogOpen((prev) => (String(contentDialogItem?.id || '') === noticeId ? false : prev));
+
+        console.log(`Notices data updated in-place by socket: ${module} ${action}`);
+        return;
+      }
+
+      const latestNotice = await fetchNoticeByIdForSocket(noticeId);
+
+      if (!latestNotice) return;
+
+      setData((prev) => {
+        const existingIndex = prev.findIndex((item) => String(item?.id) === noticeId);
+        const existingItem = existingIndex >= 0 ? prev[existingIndex] : null;
+        const normalizedNotice = normalizeNoticeRowForTable(latestNotice, existingItem || {});
+
+        const filters = {
+          searchDivision: searchDivisionFilter,
+          searchDepartment: searchDepartmentFilter,
+          searchTitle: searchTitleFilter,
+          searchContent: searchContentFilter,
+        };
+
+        const matchesCurrentFilters = doesNoticeMatchCurrentFilters(normalizedNotice, filters);
+
+        if (existingIndex >= 0) {
+          if (!matchesCurrentFilters) {
+            return prev.filter((item) => String(item?.id) !== noticeId);
+          }
+
+          const next = prev.map((item) => (String(item?.id) === noticeId ? normalizedNotice : item));
+          return sortRowsClient(next, sortConfig);
+        }
+
+        if (action === 'CREATED' && page === 0 && matchesCurrentFilters) {
+          const next = [normalizedNotice, ...prev].slice(0, rowsPerPage);
+          return sortRowsClient(next, sortConfig);
+        }
+
+        return prev;
+      });
+
+      if (action === 'CREATED') {
+        setTotalElements((prev) => Number(prev || 0) + 1);
+        setTotalPages((prev) => Math.max(prev, Math.ceil((Number(totalElements || 0) + 1) / rowsPerPage)));
+      }
+
+      setCurrentItem((prev) => (String(prev?.id || '') === noticeId ? normalizeNoticeRowForTable(latestNotice, prev) : prev));
+      setContentDialogItem((prev) => (String(prev?.id || '') === noticeId ? normalizeNoticeRowForTable(latestNotice, prev) : prev));
+
+      console.log(`Notices data updated in-place by socket: ${module} ${action}`);
+      return;
+    }
+
+    /*
+     * Department/ALL events can affect displayed department names or permission data,
+     * so use a silent list refresh without showing loading and without resetting page.
+     */
+    await fetchData({
+      page,
+      silent: true,
+      searchDivision: searchDivisionFilter,
+      searchDepartment: searchDepartmentFilter,
+      searchTitle: searchTitleFilter,
+      searchContent: searchContentFilter,
+    });
+
+    console.log(`Notices data silently refreshed by socket: ${module} ${action}`);
+  }, [
+    fetchNoticeByIdForSocket,
+    fetchData,
+    page,
+    rowsPerPage,
+    totalElements,
+    sortConfig,
+    searchDivisionFilter,
+    searchDepartmentFilter,
+    searchTitleFilter,
+    searchContentFilter,
+    currentItem,
+    contentDialogItem,
+  ]);
+
+  useEffect(() => {
+    noticeRealtimeRefreshRef.current = refreshNoticesBySocket;
+  });
+
+  useEffect(() => {
+    const client = new Client({
+      webSocketFactory: () => new SockJS(`${API_BASE_URL}/ws`),
+      reconnectDelay: 5000,
+      debug: () => {},
+
+      onConnect: () => {
+        console.log('Notices realtime connected');
+
+        client.subscribe('/topic/app-events', async (message) => {
+          let event = {
+            module: 'ALL',
+            action: 'UPDATED',
+            id: '',
+          };
+
+          try {
+            event = JSON.parse(message.body);
+          } catch {
+            // Keep fallback event above.
+          }
+
+          const module = String(event?.module || 'ALL').toUpperCase();
+          const shouldRefresh =
+            module === 'ALL' ||
+            module === 'NOTICE' ||
+            module === 'NOTICES' ||
+            module === 'DEPARTMENT';
+
+          if (!shouldRefresh) return;
+
+          console.log('Notices realtime event received:', event);
+
+          if (socketRefreshingRef.current) return;
+
+          socketRefreshingRef.current = true;
+
+          try {
+            await noticeRealtimeRefreshRef.current?.(event);
+          } catch (error) {
+            console.error('Notices realtime refresh failed:', error);
+          } finally {
+            socketRefreshingRef.current = false;
+          }
+        });
+      },
+
+      onDisconnect: () => {
+        console.log('Notices realtime disconnected');
+      },
+
+      onStompError: (frame) => {
+        console.error('Notices realtime STOMP error:', frame);
+      },
+
+      onWebSocketError: (error) => {
+        console.error('Notices realtime socket error:', error);
+      },
+    });
+
+    client.activate();
+
+    return () => {
+      client.deactivate();
+    };
+  }, []);
 
   // Check token and fetch data on mount
   useEffect(() => {
@@ -807,11 +1092,7 @@ export default function NoticesPage() {
     fetchData();
   }, [fetchData, navigate]);
 
-  // Update rowsPerPage when screen size changes
-  useEffect(() => {
-    setRowsPerPage(isLargeScreen ? 20 : 12);
-    setPage(0);
-  }, [isLargeScreen]);
+  // Keep page size stable. Browser zoom/responsive changes must not reset page size or page index.
 
   // Cleanup blob URL
   useEffect(() => {
@@ -866,7 +1147,7 @@ export default function NoticesPage() {
     if (!canModifyItem(item, 'edit')) {
       setNotification({
         open: true,
-        message: 'Bạn chỉ được edit notice thuộc phòng ban chính của bạn.',
+        message: 'You can only edit notices from your primary department.',
         severity: 'error',
       });
       return;
@@ -881,7 +1162,7 @@ export default function NoticesPage() {
     if (!canModifyItem(item, 'delete')) {
       setNotification({
         open: true,
-        message: 'Bạn chỉ được delete notice thuộc phòng ban chính của bạn.',
+        message: 'You can only delete notices from your primary department.',
         severity: 'error',
       });
       return;
@@ -898,7 +1179,7 @@ export default function NoticesPage() {
     if (!canModifyItem(selectedItem, 'delete')) {
       setNotification({
         open: true,
-        message: 'Bạn chỉ được delete notice thuộc phòng ban chính của bạn.',
+        message: 'You can only delete notices from your primary department.',
         severity: 'error',
       });
       setDeleteDialogOpen(false);
@@ -978,6 +1259,16 @@ export default function NoticesPage() {
       }
       return emptyPreviewState;
     });
+  }, []);
+
+  const handleOpenContentDialog = useCallback((item) => {
+    setContentDialogItem(item);
+    setContentDialogOpen(true);
+  }, []);
+
+  const handleCloseContentDialog = useCallback(() => {
+    setContentDialogOpen(false);
+    setContentDialogItem(null);
   }, []);
 
   const handleOpenPreview = useCallback(async (item) => {
@@ -1275,6 +1566,8 @@ export default function NoticesPage() {
                   const fileUrls = getNoticeFileUrlsFromItem(item);
                   const editEnabled = canModifyItem(item, 'edit');
                   const deleteEnabled = canModifyItem(item, 'delete');
+                  const contentText = stripHtml(item.content);
+                  const showMoreContent = isLongContent(contentText);
 
                   return (
                     <TableRow
@@ -1293,8 +1586,42 @@ export default function NoticesPage() {
                         {item.title || '-'}
                       </TableCell>
 
-                      <TableCell sx={{ fontSize: '0.75rem', py: 0.45, px: 0.7, color: '#374151', whiteSpace: 'normal', wordBreak: 'break-word', minWidth: 220, maxWidth: 320 }}>
-                        {item.content || '-'}
+                      <TableCell sx={{ py: 0.55, px: 0.7, color: '#374151', minWidth: 240, maxWidth: 340 }}>
+                        <Stack spacing={0.35} alignItems="flex-start">
+                          <Typography
+                            sx={{
+                              fontSize: '0.75rem',
+                              lineHeight: 1.45,
+                              color: '#374151',
+                              whiteSpace: 'normal',
+                              wordBreak: 'break-word',
+                              overflow: 'hidden',
+                              display: '-webkit-box',
+                              WebkitLineClamp: 3,
+                              WebkitBoxOrient: 'vertical',
+                            }}
+                          >
+                            {contentText || '-'}
+                          </Typography>
+
+                          {contentText && showMoreContent && (
+                            <Button
+                              size="small"
+                              variant="text"
+                              onClick={() => handleOpenContentDialog(item)}
+                              sx={{
+                                minWidth: 'auto',
+                                p: 0,
+                                mt: 0.2,
+                                fontSize: '0.7rem',
+                                textTransform: 'none',
+                                fontWeight: 700,
+                              }}
+                            >
+                              More
+                            </Button>
+                          )}
+                        </Stack>
                       </TableCell>
 
                       <TableCell sx={{ fontSize: '0.75rem', py: 0.45, px: 0.7, color: '#374151', display: { xs: 'none', md: 'table-cell' }, minWidth: 180 }}>
@@ -1378,7 +1705,7 @@ export default function NoticesPage() {
                       <TableCell align="center" sx={{ py: 0.45, px: 0.7 }}>
                         <Stack direction="row" spacing={0.4} justifyContent="center">
                           <Tooltip
-                            title={editEnabled ? 'Edit Notice' : 'Bạn chỉ được edit notice thuộc phòng ban chính của bạn'}
+                            title={editEnabled ? 'Edit Notice' : 'You can only edit notices from your primary department.'}
                             arrow
                           >
                             <span>
@@ -1394,7 +1721,7 @@ export default function NoticesPage() {
                             </span>
                           </Tooltip>
                           <Tooltip
-                            title={deleteEnabled ? 'Delete Notice' : 'Bạn chỉ được delete notice thuộc phòng ban chính của bạn'}
+                            title={deleteEnabled ? 'Delete Notice' : 'You can only delete notices from your primary department.'}
                             arrow
                           >
                             <span>
@@ -1498,17 +1825,16 @@ export default function NoticesPage() {
                   ? updatedItem.previewUrls
                   : finalFileUrls;
 
-                return {
-                  ...item,
-                  ...updatedItem,
-                  department: [updatedItem.departmentName || item.departmentName, updatedItem.division || item.division]
-                    .filter(Boolean)
-                    .join(' '),
-                  fileUrl: finalFileUrls[0] || null,
-                  previewUrl: finalPreviewUrls[0] || finalFileUrls[0] || null,
-                  fileUrls: finalFileUrls,
-                  previewUrls: finalPreviewUrls,
-                };
+                return normalizeNoticeRowForTable(
+                  {
+                    ...updatedItem,
+                    fileUrl: finalFileUrls[0] || null,
+                    previewUrl: finalPreviewUrls[0] || finalFileUrls[0] || null,
+                    fileUrls: finalFileUrls,
+                    previewUrls: finalPreviewUrls,
+                  },
+                  item,
+                );
               })
             );
           } else {
@@ -1516,6 +1842,64 @@ export default function NoticesPage() {
           }
         }}
       />
+
+      {/* Notice Content Dialog */}
+      <Dialog
+        open={contentDialogOpen}
+        onClose={handleCloseContentDialog}
+        fullScreen={previewFullScreen}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: previewFullScreen ? 0 : 2,
+            maxHeight: previewFullScreen ? '100%' : '88vh',
+          },
+        }}
+      >
+        <DialogTitle sx={{ borderBottom: '1px solid #e5e7eb' }}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography fontWeight={800} noWrap>
+                Notice Content
+              </Typography>
+              <Typography fontSize={12} color="text.secondary" noWrap>
+                {contentDialogItem?.title || 'Full notice content'}
+              </Typography>
+            </Box>
+            <IconButton onClick={handleCloseContentDialog}>
+              <Close />
+            </IconButton>
+          </Stack>
+        </DialogTitle>
+
+        <DialogContent sx={{ p: 2.5, backgroundColor: '#f8fafc' }}>
+          <Paper
+            elevation={0}
+            sx={{
+              p: { xs: 2, md: 3 },
+              border: '1px solid #e5e7eb',
+              borderRadius: 2,
+              backgroundColor: '#fff',
+              color: '#111827',
+              fontSize: 14,
+              lineHeight: 1.7,
+              '& p': { my: 0.75 },
+              '& ul, & ol': { pl: 3, my: 1 },
+              '& table': { width: '100%', borderCollapse: 'collapse', my: 1.5 },
+              '& th, & td': { border: '1px solid #d1d5db', p: 0.75, verticalAlign: 'top' },
+              '& img': { maxWidth: '100%', height: 'auto' },
+            }}
+            dangerouslySetInnerHTML={{
+              __html: sanitizeNoticeHtml(contentDialogItem?.content || '<p>No content</p>'),
+            }}
+          />
+        </DialogContent>
+
+        <DialogActions sx={{ borderTop: '1px solid #e5e7eb', px: 2, py: 1.5 }}>
+          <Button onClick={handleCloseContentDialog}>Close</Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Preview Dialog */}
       <Dialog

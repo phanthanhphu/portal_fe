@@ -1,5 +1,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import SockJS from "sockjs-client";
+import { Client } from "@stomp/stompjs";
 import companyLogo from "./youngone-logo.png";
 import companyBg from "./background.JPG";
 import "./PageHome.css";
@@ -146,6 +148,12 @@ function getFileScopedItem(item, fileUrl, index = 0) {
     fileUrl,
     previewUrl,
     fileType,
+
+    // Item created from the More popup must represent only this selected file.
+    // This keeps popup download as "download one file", while the main item download can download all files.
+    fileUrls: [fileUrl],
+    previewUrls: [previewUrl],
+    __fileScopedItem: true,
   };
 }
 
@@ -359,6 +367,30 @@ function IconExternal() {
       <path d="M14 5h5v5" />
       <path d="M10 14 19 5" />
       <path d="M19 13v4.5A1.5 1.5 0 0 1 17.5 19h-11A1.5 1.5 0 0 1 5 17.5v-11A1.5 1.5 0 0 1 6.5 5H11" />
+    </svg>
+  );
+}
+
+function IconDownload() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M12 3v11" />
+      <path d="m7 10 5 5 5-5" />
+      <path d="M5 19h14" />
+    </svg>
+  );
+}
+
+
+function IconEye() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path
+        d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="12" cy="12" r="3" />
     </svg>
   );
 }
@@ -746,6 +778,19 @@ function getDownloadFileName(item) {
   return `${rawName}.${extension}`;
 }
 
+function getDownloadFileNameByUrl(item, fileUrl, index = 0) {
+  const urlFileName = getFileNameFromUrl(fileUrl);
+
+  if (urlFileName && urlFileName !== "file") {
+    return urlFileName;
+  }
+
+  const rawName = item?.title || item?.name || "tai-lieu";
+  const extension = String(inferFileType(fileUrl) || "file").toLowerCase();
+
+  return `${rawName}-${index + 1}.${extension}`;
+}
+
 function stripFileExtension(value) {
   return String(value || "").replace(/\.[^/.]+$/, "").trim();
 }
@@ -1076,20 +1121,34 @@ function FileActions({ item, onPreview, onDownload, compact = false, previewOpen
     <div className={`portal-file-actions ${compact ? "is-compact" : ""} ${showMoreFiles ? "is-showing-more-files" : ""}`}>
       <button
         type="button"
-        className="portal-btn portal-btn--dark"
+        className="portal-btn portal-btn--ghost portal-btn--view"
         onClick={() => onPreview(firstFileItem)}
-        title={`Xem ${getFileNameFromUrl(firstFileUrl)}`}
+        title={`View ${getFileNameFromUrl(firstFileUrl)}`}
+        aria-label={`View ${getFileNameFromUrl(firstFileUrl)}`}
       >
-        Xem
+        <span className="portal-btn__icon" aria-hidden="true">
+          <IconEye />
+        </span>
       </button>
 
       <button
         type="button"
-        className="portal-btn portal-btn--ghost"
-        onClick={() => onDownload(firstFileItem)}
-        title={`Tải xuống ${getFileNameFromUrl(firstFileUrl)}`}
+        className="portal-btn portal-btn--ghost portal-btn--download-icon"
+        onClick={() => onDownload(item)}
+        title={
+          fileUrls.length > 1
+            ? `Download all ${fileUrls.length} files`
+            : `Download ${getFileNameFromUrl(firstFileUrl)}`
+        }
+        aria-label={
+          fileUrls.length > 1
+            ? `Download all ${fileUrls.length} files`
+            : `Download ${getFileNameFromUrl(firstFileUrl)}`
+        }
       >
-        Tải xuống
+        <span className="portal-btn__icon" aria-hidden="true">
+          <IconDownload />
+        </span>
       </button>
 
       {moreFileUrls.length > 0 ? (
@@ -1097,9 +1156,9 @@ function FileActions({ item, onPreview, onDownload, compact = false, previewOpen
           type="button"
           className="portal-btn portal-btn--ghost portal-btn--more-files"
           onClick={() => setShowMoreFiles((prev) => !prev)}
-          title={showMoreFiles ? "Ẩn bớt file" : `Xem thêm ${moreFileUrls.length} file`}
+          title={showMoreFiles ? "Hide file list" : `View ${moreFileUrls.length} more files`}
         >
-          {showMoreFiles ? "Ẩn" : `+${moreFileUrls.length} more`}
+          {showMoreFiles ? "Hide" : `+${moreFileUrls.length} more`}
         </button>
       ) : null}
 
@@ -1108,7 +1167,7 @@ function FileActions({ item, onPreview, onDownload, compact = false, previewOpen
             <div
               className={`portal-more-file-popup-backdrop ${previewOpen ? "is-behind-preview" : ""}`}
               role="presentation"
-              onClick={() => {}}
+              onClick={() => setShowMoreFiles(false)}
             >
               <div
                 className="portal-more-file-popup"
@@ -1149,17 +1208,27 @@ function FileActions({ item, onPreview, onDownload, compact = false, previewOpen
                         <span className="portal-more-file-actions">
                           <button
                             type="button"
+                            className="portal-more-file-view-btn"
                             onClick={() => {
                               onPreview(fileItem);
                             }}
+                            title={`View ${fileName}`}
+                            aria-label={`View ${fileName}`}
                           >
-                            Xem
+                            <span className="portal-btn__icon" aria-hidden="true">
+                              <IconEye />
+                            </span>
                           </button>
                           <button
                             type="button"
+                            className="portal-more-file-download-icon"
                             onClick={() => onDownload(fileItem)}
+                            title={`Download ${fileName}`}
+                            aria-label={`Download ${fileName}`}
                           >
-                            Tải
+                            <span className="portal-btn__icon" aria-hidden="true">
+                              <IconDownload />
+                            </span>
                           </button>
                         </span>
                       </div>
@@ -1250,26 +1319,146 @@ function DocumentTypeSection({
 }
 
 
-function ExpandableText({ text, featured = false }) {
-  const [expanded, setExpanded] = useState(false);
-  const value = String(text || "").trim();
+function decodeHtmlText(value) {
+  const raw = String(value || "")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ");
 
-  if (!value) return null;
+  if (typeof document === "undefined") {
+    return raw
+      .replace(/&amp;/gi, "&")
+      .replace(/&lt;/gi, "<")
+      .replace(/&gt;/gi, ">")
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;/gi, "'")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.innerHTML = raw;
+  return textarea.value.replace(/\s+/g, " ").trim();
+}
+
+function sanitizeNoticeHtml(value) {
+  return String(value || "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<iframe[\s\S]*?<\/iframe>/gi, "")
+    .replace(/<object[\s\S]*?<\/object>/gi, "")
+    .replace(/<embed[\s\S]*?>/gi, "")
+    .replace(/<link[\s\S]*?>/gi, "")
+    .replace(/<meta[\s\S]*?>/gi, "")
+    .replace(/\son\w+=("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(/javascript:/gi, "");
+}
+
+function isHtmlContent(value) {
+  return /<([a-z][\w-]*)(\s|>|\/)/i.test(String(value || ""));
+}
+
+function ExpandableText({ text, featured = false, title = "", subtitle = "", onOpenChange }) {
+  const [moreOpen, setMoreOpen] = useState(false);
+  const value = String(text || "").trim();
+  const plainText = useMemo(() => decodeHtmlText(value), [value]);
+  const hasRichHtml = isHtmlContent(value);
+  const shouldShowMore = plainText.length > 180 || hasRichHtml;
+
+  useEffect(() => {
+    onOpenChange?.(moreOpen);
+    return () => onOpenChange?.(false);
+  }, [moreOpen, onOpenChange]);
+
+  useEffect(() => {
+    if (!moreOpen) return undefined;
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setMoreOpen(false);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [moreOpen]);
+
+  if (!plainText) return null;
+
+  const dialogSubtitle = title || subtitle || "Full notice content";
 
   return (
-    <div className={`portal-expandable-text ${featured ? "is-featured" : ""} ${expanded ? "is-expanded" : ""}`.trim()}>
-      <p>{value}</p>
-      {value.length > 130 ? (
+    <div className={`portal-expandable-text ${featured ? "is-featured" : ""}`.trim()}>
+      <p className="portal-expandable-text__preview">{plainText}</p>
+
+      {shouldShowMore ? (
         <button
           type="button"
           className="portal-expandable-text__toggle"
-          onClick={() => setExpanded((prev) => !prev)}
-          aria-expanded={expanded}
+          onClick={() => setMoreOpen(true)}
+          aria-label="View full notice content"
         >
-          <span>{expanded ? "Thu gọn" : "Xem thêm"}</span>
-          <IconChevronDown />
+          <span>More</span>
+          <IconArrowRight />
         </button>
       ) : null}
+
+      {moreOpen && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              className="portal-notice-more-backdrop"
+              role="presentation"
+              onClick={() => setMoreOpen(false)}
+            >
+              <div
+                className="portal-notice-more-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Notice content"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <div className="portal-notice-more-modal__head">
+                  <div>
+                    <strong>Notice Content</strong>
+                    <span title={dialogSubtitle}>{dialogSubtitle}</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="portal-notice-more-modal__close"
+                    onClick={() => setMoreOpen(false)}
+                    aria-label="Close notice content"
+                  >
+                    ×
+                  </button>
+                </div>
+
+                <div className="portal-notice-more-modal__body">
+                  <div className="portal-notice-more-modal__paper">
+                    {hasRichHtml ? (
+                      <div
+                        className="portal-notice-rich-content"
+                        dangerouslySetInnerHTML={{ __html: sanitizeNoticeHtml(value) }}
+                      />
+                    ) : (
+                      <p className="portal-notice-rich-content">{plainText}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="portal-notice-more-modal__actions">
+                  <button
+                    type="button"
+                    className="portal-notice-more-modal__button"
+                    onClick={() => setMoreOpen(false)}
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
     </div>
   );
 }
@@ -1278,39 +1467,160 @@ function DocumentWorkspaceCascade({
   documentTypes,
   loadingForms,
   errorForms,
-  departments,
-  loadingDepartments,
-  errorDepartments,
   activeType,
-  activeDepartment,
   activeForms,
   activeFormsLoading,
   activeFormsError,
   fileSearch,
   onFileSearchChange,
   onHoverType,
-  onHoverDepartment,
   onToggleType,
-  onToggleDepartment,
   onPreview,
   onDownload,
   previewOpen = false,
 }) {
+  const [typeMenuOpen, setTypeMenuOpen] = useState(false);
+  const selectRef = useRef(null);
+  const typeCloseTimerRef = useRef(null);
   const activeTypeId = activeType?.id || "";
-  const activeDepartmentId = activeDepartment?.id || "";
+
+
+  const clearTypeCloseTimer = () => {
+    if (typeCloseTimerRef.current) {
+      window.clearTimeout(typeCloseTimerRef.current);
+      typeCloseTimerRef.current = null;
+    }
+  };
+
+
+  const openTypeMenu = () => {
+    clearTypeCloseTimer();
+    setTypeMenuOpen(true);
+  };
+
+  const scheduleCloseTypeMenu = () => {
+    clearTypeCloseTimer();
+    typeCloseTimerRef.current = window.setTimeout(() => {
+      setTypeMenuOpen(false);
+    }, 220);
+  };
+
+
+  useEffect(() => {
+    if (activeTypeId || documentTypes.length === 0) return;
+    onHoverType?.(documentTypes[0]);
+  }, [activeTypeId, documentTypes, onHoverType]);
+
+  useEffect(() => {
+    const handleOutside = (event) => {
+      if (selectRef.current && selectRef.current.contains(event.target)) return;
+      setTypeMenuOpen(false);
+    };
+
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      clearTypeCloseTimer();
+    };
+  }, []);
+
+  const handleHoverPickType = (type) => {
+    if (!type?.id) return;
+    clearTypeCloseTimer();
+    onHoverType?.(type);
+  };
+
+  const handleClickPickType = (type) => {
+    if (!type?.id) return;
+    onToggleType?.(type);
+    setTypeMenuOpen(false);
+  };
+
+
+  const activeTypeName = activeType?.name || documentTypes[0]?.name || "Select type";
+  const activeSearchScope = activeTypeName;
 
   return (
-    <div className="portal-document-nested-board">
-      <div className="portal-document-nested-board__head">
-        <div>
-          <strong>Document</strong>
+    <div className="portal-document-select-board">
+      <div className="portal-document-select-head">
+        <div className="portal-document-select-title">
+          <span className="portal-panel__title-icon">
+            <IconFileText />
+          </span>
+          <div>
+            <h2>Document</h2>
+            <span>{loadingForms ? "Loading..." : `${documentTypes.length} types available`}</span>
+          </div>
         </div>
-        <em>{loadingForms ? "Loading..." : `${documentTypes.length} types`}</em>
+
+        <div className="portal-document-select-controls">
+          <div
+            className="portal-document-type-select"
+            ref={selectRef}
+            onMouseEnter={openTypeMenu}
+            onMouseLeave={scheduleCloseTypeMenu}
+          >
+            <button
+              type="button"
+              className={`portal-document-type-select__trigger ${typeMenuOpen ? "is-open" : ""}`}
+              onClick={() => setTypeMenuOpen((prev) => !prev)}
+              onFocus={openTypeMenu}
+            >
+              <span>
+                <small>Type</small>
+                <strong>{activeTypeName}</strong>
+              </span>
+              <i aria-hidden="true">
+                <IconChevronDown />
+              </i>
+            </button>
+
+            {typeMenuOpen ? (
+              <div
+                className="portal-document-type-select__menu"
+                role="listbox"
+                onMouseEnter={openTypeMenu}
+                onMouseLeave={scheduleCloseTypeMenu}
+              >
+                {documentTypes.map((type) => {
+                  const isActive = activeTypeId === type.id;
+                  const departmentCount = Array.isArray(type.departments) ? type.departments.length : 0;
+
+                  return (
+                    <button
+                      key={type.id}
+                      type="button"
+                      className={`portal-document-type-option ${isActive ? "is-active" : ""}`}
+                      onMouseEnter={() => handleHoverPickType(type)}
+                      onFocus={() => handleHoverPickType(type)}
+                      onClick={() => handleClickPickType(type)}
+                      role="option"
+                      aria-selected={isActive}
+                    >
+                      <span className="portal-document-type-option__icon">
+                        <IconFileText />
+                      </span>
+                      <span className="portal-document-type-option__text">
+                        <strong>{type.name || "Document"}</strong>
+                        <small>{departmentCount} departments</small>
+                      </span>
+                      {isActive ? <span className="portal-document-type-option__active">Active</span> : null}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
+
+        </div>
       </div>
 
       {errorForms ? <div className="portal-empty">{errorForms}</div> : null}
 
-      {!errorForms && loadingForms ? (
+      {!errorForms && loadingForms && documentTypes.length === 0 ? (
         <div className="portal-empty">Loading document types...</div>
       ) : null}
 
@@ -1318,198 +1628,40 @@ function DocumentWorkspaceCascade({
         <div className="portal-empty">No document types yet.</div>
       ) : null}
 
-      {!errorForms && !loadingForms && documentTypes.length > 0 ? (
-        <div className="portal-document-nested-list">
-          {documentTypes.map((type) => {
-            const isTypeActive = activeTypeId === type.id;
-            const typeDepartmentCount = Array.isArray(type.departments) ? type.departments.length : 0;
+      {!errorForms && documentTypes.length > 0 ? (
+        <>
+          <SearchInput
+            value={fileSearch}
+            onChange={onFileSearchChange}
+            placeholder={`Search documents in ${activeSearchScope}...`}
+          />
 
-            return (
-              <article
-                key={type.id}
-                className={`portal-document-nested-type ${isTypeActive ? "is-active" : ""}`}
-                onMouseEnter={() => onHoverType(type)}
-              >
-                <button
-                  type="button"
-                  className="portal-document-nested-type__row"
-                >
-                  <span
-                    className="portal-document-nested-icon portal-document-nested-icon--type"
-                    role="button"
-                    tabIndex={0}
-                    title={isTypeActive ? "Thu lại" : "Mở ra"}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      onToggleType(type);
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        onToggleType(type);
-                      }
-                    }}
-                  >
-                    <IconFileText />
-                  </span>
+          <div className="portal-document-list-one-row">
+            {activeFormsLoading ? <div className="portal-empty">Loading documents...</div> : null}
+            {activeFormsError ? <div className="portal-empty">{activeFormsError}</div> : null}
 
-                  <span className="portal-document-nested-type__text">
-                    <strong>{type.name || "Document"}</strong>
-                    <small>{typeDepartmentCount} departments</small>
-                  </span>
+            {!activeFormsLoading && !activeFormsError && activeForms.length === 0 ? (
+              <div className="portal-empty">No documents found for this type.</div>
+            ) : null}
 
-                  <span className="portal-document-nested-count">{typeDepartmentCount}</span>
-                  <span
-                    className="portal-document-nested-chevron"
-                    role="button"
-                    tabIndex={0}
-                    title={isTypeActive ? "Thu lại" : "Mở ra"}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      onToggleType(type);
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        onToggleType(type);
-                      }
-                    }}
-                  >
-                    <IconChevronDown />
-                  </span>
-                </button>
-
-                {isTypeActive ? (
-                  <div className="portal-document-nested-type__panel">
-                    {errorDepartments ? <div className="portal-empty">{errorDepartments}</div> : null}
-
-                    {!errorDepartments && loadingDepartments ? (
-                      <div className="portal-empty">Loading departments...</div>
-                    ) : null}
-
-                    {!errorDepartments && !loadingDepartments && departments.length === 0 ? (
-                      <div className="portal-empty">No departments for this type.</div>
-                    ) : null}
-
-                    {!errorDepartments && !loadingDepartments && departments.length > 0 ? (
-                      <div className="portal-document-nested-departments">
-                        {departments.map((department) => {
-                          const isDepartmentActive = activeDepartmentId === department.id;
-
-                          return (
-                            <article
-                              key={department.id}
-                              className={`portal-document-nested-department ${isDepartmentActive ? "is-active" : ""}`}
-                              onMouseEnter={() => onHoverDepartment(type, department)}
-                            >
-                              <button
-                                type="button"
-                                className="portal-document-nested-department__row"
-                              >
-                                <span
-                                  className="portal-document-nested-icon portal-document-nested-icon--department"
-                                  role="button"
-                                  tabIndex={0}
-                                  title={isDepartmentActive ? "Thu lại" : "Mở ra"}
-                                  onClick={(event) => {
-                                    event.preventDefault();
-                                    event.stopPropagation();
-                                    onToggleDepartment(type, department);
-                                  }}
-                                  onKeyDown={(event) => {
-                                    if (event.key === "Enter" || event.key === " ") {
-                                      event.preventDefault();
-                                      event.stopPropagation();
-                                      onToggleDepartment(type, department);
-                                    }
-                                  }}
-                                >
-                                  <IconBuilding />
-                                </span>
-
-                                <span className="portal-document-nested-department__text">
-                                  <strong>{department.departmentName || department.name}</strong>
-                                  <small>{department.division || "Department"}</small>
-                                </span>
-
-                                <span
-                                  className="portal-document-nested-chevron"
-                                  role="button"
-                                  tabIndex={0}
-                                  title={isDepartmentActive ? "Thu lại" : "Mở ra"}
-                                  onClick={(event) => {
-                                    event.preventDefault();
-                                    event.stopPropagation();
-                                    onToggleDepartment(type, department);
-                                  }}
-                                  onKeyDown={(event) => {
-                                    if (event.key === "Enter" || event.key === " ") {
-                                      event.preventDefault();
-                                      event.stopPropagation();
-                                      onToggleDepartment(type, department);
-                                    }
-                                  }}
-                                >
-                                  <IconChevronDown />
-                                </span>
-                              </button>
-
-                              {isDepartmentActive ? (
-                                <div className="portal-document-nested-files">
-                                  <div className="portal-document-nested-file-search">
-                                    <SearchInput
-                                      value={fileSearch}
-                                      onChange={onFileSearchChange}
-                                      placeholder={`Search files in ${department.departmentName || department.name || "department"}...`}
-                                    />
-                                  </div>
-
-                                  {activeFormsLoading ? (
-                                    <div className="portal-empty">Loading files...</div>
-                                  ) : null}
-
-                                  {activeFormsError ? (
-                                    <div className="portal-empty">{activeFormsError}</div>
-                                  ) : null}
-
-                                  {!activeFormsLoading && !activeFormsError && activeForms.length === 0 ? (
-                                    <div className="portal-empty">No files found.</div>
-                                  ) : null}
-
-
-                                  {!activeFormsLoading && !activeFormsError && activeForms.map((form) => (
-                                    <article key={form.id} className="portal-document-nested-file-row">
-                                      <div className="portal-document-nested-file-row__main">
-                                        <FileTypeBadge item={form} />
-                                        <div>
-                                          <strong>{form.title}</strong>
-                                          <span>
-                                            {form.typeName || type.name}
-                                            {form.departmentName ? ` • ${form.departmentName}` : ""}
-                                          </span>
-                                        </div>
-                                      </div>
-
-                                      <FileActions item={form} onPreview={onPreview} onDownload={onDownload} compact previewOpen={previewOpen} />
-                                    </article>
-                                  ))}
-                                </div>
-                              ) : null}
-                            </article>
-                          );
-                        })}
-                      </div>
-                    ) : null}
+            {!activeFormsLoading && !activeFormsError && activeForms.map((form) => (
+              <article key={form.id} className="portal-document-list-row">
+                <div className="portal-document-list-row__main">
+                  <FileTypeBadge item={form} />
+                  <div>
+                    <strong>{form.title}</strong>
+                    <span>
+                      {form.typeName || activeTypeName}
+                      {form.departmentName ? ` • ${form.departmentName}` : ""}
+                    </span>
                   </div>
-                ) : null}
+                </div>
+
+                <FileActions item={form} onPreview={onPreview} onDownload={onDownload} compact previewOpen={previewOpen} />
               </article>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        </>
       ) : null}
     </div>
   );
@@ -1883,7 +2035,6 @@ export default function PageHome() {
   const [hoverDepartmentId, setHoverDepartmentId] = useState("");
   const [documentFilePanelSticky, setDocumentFilePanelSticky] = useState(false);
   const [workspaceTypeId, setWorkspaceTypeId] = useState("");
-  const [workspaceDepartmentId, setWorkspaceDepartmentId] = useState("");
   const [menuFormsByKey, setMenuFormsByKey] = useState({});
   const [loadingMenuFormsByKey, setLoadingMenuFormsByKey] = useState({});
   const [errorMenuFormsByKey, setErrorMenuFormsByKey] = useState({});
@@ -1903,6 +2054,12 @@ export default function PageHome() {
 
   const navRef = useRef(null);
   const keepHoverMenuAfterPreviewRef = useRef(false);
+  const homeRealtimeRefreshRef = useRef(null);
+  const socketRefreshingRef = useRef(false);
+  const realtimeMessageTimerRef = useRef(null);
+
+  const [realtimeConnected, setRealtimeConnected] = useState(false);
+  const [realtimeMessage, setRealtimeMessage] = useState("");
 
   const handleMenuAreaEnter = () => {
     if (menuHoverLeaveTimerRef.current) {
@@ -1968,18 +2125,24 @@ export default function PageHome() {
     setErrorDepartments(null);
 
     try {
-      const response = await fetch(DEPARTMENTS_API_BASE, {
+      const params = new URLSearchParams({ skipDepartmentFilter: "false" });
+      const response = await fetch(`${DEPARTMENTS_API_BASE}/search?${params.toString()}`, {
         headers: { accept: "*/*" },
       });
 
       if (!response.ok) throw new Error("Failed to fetch departments");
       const data = await response.json();
+      const rawDepartments = Array.isArray(data?.departments)
+        ? data.departments
+        : Array.isArray(data)
+          ? data
+          : [];
 
-      const normalizedDepartments = (data || [])
+      const normalizedDepartments = rawDepartments
         .map((item) => ({
-          id: item.id,
+          id: item.id || item.idDepartment || item.departmentId,
           division: item.division || "",
-          departmentName: item.departmentName || "Unspecified",
+          departmentName: item.departmentName || item.name || "Unspecified",
           noticeIds: normalizeDepartmentIds(item.noticeIds),
         }))
         .filter((item) => item.id)
@@ -2018,10 +2181,10 @@ export default function PageHome() {
     };
   };
 
-  const fetchFormsByType = async (type, { title = "", force = false } = {}) => {
+  const fetchFormsByType = async (type, { title = "", departmentName = "", force = false } = {}) => {
     if (!type?.id) return;
 
-    if (!force && formsByTypeId[type.id]) {
+    if (!force && !departmentName && formsByTypeId[type.id]) {
       return;
     }
 
@@ -2031,7 +2194,7 @@ export default function PageHome() {
     try {
       const params = new URLSearchParams({
         userId: "",
-        departmentName: "",
+        departmentName,
         title,
         description: "",
         typeId: type.id,
@@ -2169,12 +2332,15 @@ export default function PageHome() {
       setDocumentTypes(normalizedTypes);
       setWorkspaceDocumentTypes(normalizedTypes);
 
-      const defaultType = normalizedTypes.find(isFormDocumentType) || normalizedTypes[0] || null;
+      const defaultType = normalizedTypes[0] || null;
 
       if (defaultType) {
         setDefaultDocumentTypeId(defaultType.id);
         setOpenDocumentTypeIds([defaultType.id]);
+        setWorkspaceTypeId(defaultType.id);
         await fetchFormsByType(defaultType, { title: "", force: true });
+      } else {
+        setWorkspaceTypeId("");
       }
     } catch (error) {
       setErrorForms("Unable to load document types.");
@@ -2206,6 +2372,13 @@ export default function PageHome() {
     if (!keyword) {
       setWorkspaceDocumentTypes(documentTypes);
       setWorkspaceTypesError(null);
+
+      const nextType = documentTypes.find((type) => type.id === workspaceTypeId) || documentTypes[0] || null;
+      if (nextType && nextType.id !== workspaceTypeId) {
+        setWorkspaceTypeId(nextType.id);
+        await fetchFormsByType(nextType, { title: workspaceFileSearch.trim(), departmentName: "", force: false });
+      }
+
       return;
     }
 
@@ -2225,9 +2398,17 @@ export default function PageHome() {
 
       setWorkspaceDocumentTypes(normalizedTypes);
 
-      if (workspaceTypeId && !normalizedTypes.some((type) => type.id === workspaceTypeId)) {
+      const nextType = normalizedTypes.find((type) => type.id === workspaceTypeId) || normalizedTypes[0] || null;
+
+      if (nextType) {
+        if (nextType.id !== workspaceTypeId) {
+          setWorkspaceTypeId(nextType.id);
+          setWorkspaceFileSearch("");
+        }
+
+        await fetchFormsByType(nextType, { title: workspaceFileSearch.trim(), departmentName: "", force: false });
+      } else {
         setWorkspaceTypeId("");
-        setWorkspaceDepartmentId("");
         setWorkspaceFileSearch("");
       }
     } catch (error) {
@@ -2326,6 +2507,130 @@ export default function PageHome() {
     }
   };
 
+  const showRealtimeMessage = (message) => {
+    if (realtimeMessageTimerRef.current) {
+      window.clearTimeout(realtimeMessageTimerRef.current);
+    }
+
+    setRealtimeMessage(message);
+
+    realtimeMessageTimerRef.current = window.setTimeout(() => {
+      setRealtimeMessage("");
+      realtimeMessageTimerRef.current = null;
+    }, 4200);
+  };
+
+  const refreshHomeDataBySocket = async (event = {}) => {
+    const module = String(event?.module || "ALL").toUpperCase();
+    const action = String(event?.action || "UPDATED").toUpperCase();
+
+    const refreshTasks = [];
+
+    if (module === "ALL" || module === "APP_LINK") {
+      refreshTasks.push(fetchApps(appNameSearch.trim()));
+    }
+
+    if (module === "ALL" || module === "DEPARTMENT") {
+      refreshTasks.push(fetchDepartments());
+    }
+
+    if (
+      module === "ALL" ||
+      module === "DOCUMENT_TYPE" ||
+      module === "FORM" ||
+      module === "DEPARTMENT"
+    ) {
+      refreshTasks.push(fetchDocumentTypes());
+    }
+
+    if (module === "ALL" || module === "NOTICE" || module === "DEPARTMENT") {
+      refreshTasks.push(fetchNotices());
+    }
+
+    if (refreshTasks.length === 0) return;
+
+    await Promise.all(refreshTasks);
+
+    showRealtimeMessage(`${module} ${action} - data updated`);
+  };
+
+  useEffect(() => {
+    homeRealtimeRefreshRef.current = refreshHomeDataBySocket;
+  });
+
+  useEffect(() => {
+    const client = new Client({
+      webSocketFactory: () => new SockJS(`${API_BASE_URL}/ws`),
+      reconnectDelay: 5000,
+      debug: () => {},
+
+      onConnect: () => {
+        setRealtimeConnected(true);
+        console.log("Portal realtime connected");
+
+        client.subscribe("/topic/app-events", async (message) => {
+          let event = {
+            module: "ALL",
+            action: "UPDATED",
+            id: "",
+          };
+
+          try {
+            event = JSON.parse(message.body);
+          } catch {
+            // Keep fallback event above.
+          }
+
+          console.log("Portal realtime event received:", event);
+
+          if (socketRefreshingRef.current) {
+            return;
+          }
+
+          socketRefreshingRef.current = true;
+          showRealtimeMessage(`${String(event?.module || "ALL").toUpperCase()} ${String(event?.action || "UPDATED").toUpperCase()} - syncing...`);
+
+          try {
+            await homeRealtimeRefreshRef.current?.(event);
+          } catch (error) {
+            console.error("Portal realtime refresh failed:", error);
+            showRealtimeMessage("Realtime received, but refresh failed");
+          } finally {
+            socketRefreshingRef.current = false;
+          }
+        });
+      },
+
+      onDisconnect: () => {
+        setRealtimeConnected(false);
+        console.log("Portal realtime disconnected");
+      },
+
+      onStompError: (frame) => {
+        setRealtimeConnected(false);
+        console.error("Portal realtime STOMP error:", frame);
+      },
+
+      onWebSocketError: (error) => {
+        setRealtimeConnected(false);
+        console.error("Portal realtime socket error:", error);
+      },
+    });
+
+    client.activate();
+
+    return () => {
+      setRealtimeConnected(false);
+
+      if (realtimeMessageTimerRef.current) {
+        window.clearTimeout(realtimeMessageTimerRef.current);
+        realtimeMessageTimerRef.current = null;
+      }
+
+      client.deactivate();
+    };
+  }, []);
+
   useEffect(() => {
     fetchApps("");
     fetchDepartments();
@@ -2350,17 +2655,18 @@ export default function PageHome() {
   }, [documentTypeSearch, documentTypes]);
 
   useEffect(() => {
-    if (!workspaceActiveType || !workspaceActiveDepartment) return;
+    if (!workspaceActiveType) return;
 
     const timeout = setTimeout(() => {
-      fetchFormsByTypeAndDepartment(workspaceActiveType, workspaceActiveDepartment, {
+      fetchFormsByType(workspaceActiveType, {
         title: workspaceFileSearch.trim(),
+        departmentName: "",
         force: true,
       });
     }, 320);
 
     return () => clearTimeout(timeout);
-  }, [workspaceFileSearch, workspaceTypeId, workspaceDepartmentId]);
+  }, [workspaceFileSearch, workspaceTypeId]);
 
   useEffect(() => {
     return () => {
@@ -2521,7 +2827,9 @@ export default function PageHome() {
 
 
   const handleDownloadFile = async (item) => {
-    if (!hasAttachedFile(item)) {
+    const fileUrls = getItemFileUrls(item);
+
+    if (fileUrls.length === 0) {
       setPreviewState({
         ...EMPTY_PREVIEW_STATE,
         open: true,
@@ -2532,21 +2840,42 @@ export default function PageHome() {
       return;
     }
 
-    try {
-      const { blob } = await fetchProtectedFile(item.fileUrl);
-      const blobUrl = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = blobUrl;
-      link.download = getDownloadFileName(item);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-    } catch (error) {
+    const failedFiles = [];
+
+    for (let index = 0; index < fileUrls.length; index += 1) {
+      const fileUrl = fileUrls[index];
+
+      try {
+        const { blob } = await fetchProtectedFile(fileUrl);
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+
+        link.href = blobUrl;
+        link.download = getDownloadFileNameByUrl(item, fileUrl, index);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+
+        window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+
+        // Small delay helps browsers register each download when multiple files are triggered together.
+        if (fileUrls.length > 1) {
+          await new Promise((resolve) => window.setTimeout(resolve, 250));
+        }
+      } catch (error) {
+        console.error("Unable to download file:", fileUrl, error);
+        failedFiles.push(fileUrl);
+      }
+    }
+
+    if (failedFiles.length > 0) {
       setPreviewState({
         ...EMPTY_PREVIEW_STATE,
         open: true,
-        error: "Unable to download the file. Please check your token or file access permission.",
+        error:
+          fileUrls.length > 1
+            ? `Unable to download ${failedFiles.length}/${fileUrls.length} files. Please check your token or file access permission.`
+            : "Unable to download the file. Please check your token or file access permission.",
         item,
         fileName: getDownloadFileName(item),
       });
@@ -2665,26 +2994,15 @@ export default function PageHome() {
     return workspaceDocumentTypes.find((type) => type.id === workspaceTypeId) || null;
   }, [workspaceDocumentTypes, workspaceTypeId]);
 
-  const workspaceTypeDepartments = useMemo(
-    () => getDepartmentsForDocumentType(workspaceActiveType),
-    [workspaceActiveType, departments],
-  );
 
-  const workspaceActiveDepartment = useMemo(() => {
-    if (!workspaceDepartmentId) return null;
-    return workspaceTypeDepartments.find((department) => department.id === workspaceDepartmentId) || null;
-  }, [workspaceTypeDepartments, workspaceDepartmentId]);
+  const workspaceFormsKey = workspaceActiveType?.id || "";
 
-  const workspaceFormsKey = workspaceActiveType && workspaceActiveDepartment
-    ? getTypeDepartmentKey(workspaceActiveType.id, workspaceActiveDepartment.id)
-    : "";
-
-  const workspaceRawForms = workspaceFormsKey ? menuFormsByKey[workspaceFormsKey] || [] : [];
+  const workspaceRawForms = workspaceFormsKey ? formsByTypeId[workspaceFormsKey] || [] : [];
   const workspaceFormsLoading = workspaceFormsKey
-    ? Boolean(loadingMenuFormsByKey[workspaceFormsKey])
+    ? Boolean(loadingFormsByTypeId[workspaceFormsKey])
     : false;
   const workspaceFormsError = workspaceFormsKey
-    ? errorMenuFormsByKey[workspaceFormsKey]
+    ? errorFormsByTypeId[workspaceFormsKey]
     : null;
 
   const workspaceActiveForms = workspaceRawForms;
@@ -2698,51 +3016,32 @@ export default function PageHome() {
     setWorkspaceTypeId(type.id);
 
     if (isSwitchingType) {
-      setWorkspaceDepartmentId("");
       setWorkspaceFileSearch("");
     }
 
-    if ((!Array.isArray(type.departments) || type.departments.length === 0) && departments.length === 0 && !loadingDepartments) {
-      await fetchDepartments();
-    }
-  };
-
-  const handleWorkspaceHoverDepartment = async (type, department) => {
-    if (!type?.id || !department?.id) return;
-
-    setWorkspaceDepartmentId(department.id);
-    await fetchFormsByTypeAndDepartment(type, department, { title: workspaceFileSearch.trim() });
+    await fetchFormsByType(type, {
+      title: isSwitchingType ? "" : workspaceFileSearch.trim(),
+      departmentName: "",
+      force: isSwitchingType,
+    });
   };
 
   const handleWorkspaceToggleType = async (type) => {
     if (!type?.id) return;
 
-    if (workspaceTypeId === type.id) {
-      setWorkspaceTypeId("");
-      setWorkspaceDepartmentId("");
-      return;
-    }
+    const isSwitchingType = workspaceTypeId !== type.id;
 
     setWorkspaceTypeId(type.id);
-    setWorkspaceDepartmentId("");
-    setWorkspaceFileSearch("");
 
-    if ((!Array.isArray(type.departments) || type.departments.length === 0) && departments.length === 0 && !loadingDepartments) {
-      await fetchDepartments();
-    }
-  };
-
-  const handleWorkspaceToggleDepartment = async (type, department) => {
-    if (!type?.id || !department?.id) return;
-
-    if (workspaceTypeId === type.id && workspaceDepartmentId === department.id) {
-      setWorkspaceDepartmentId("");
-      return;
+    if (isSwitchingType) {
+      setWorkspaceFileSearch("");
     }
 
-    setWorkspaceTypeId(type.id);
-    setWorkspaceDepartmentId(department.id);
-    await fetchFormsByTypeAndDepartment(type, department, { title: workspaceFileSearch.trim() });
+    await fetchFormsByType(type, {
+      title: isSwitchingType ? "" : workspaceFileSearch.trim(),
+      departmentName: "",
+      force: isSwitchingType,
+    });
   };
 
   const shouldShowMenuFileColumn = Boolean(
@@ -3069,6 +3368,7 @@ const visibleNotices = useMemo(() => {
               </MenuDropdown>
             </nav>
 
+
             <button
               type="button"
               className="portal-mobile-toggle"
@@ -3186,7 +3486,13 @@ const visibleNotices = useMemo(() => {
                     {heroPinnedNotice ? (
                       <>
                         <h3>{heroPinnedNotice.title}</h3>
-                        <p>{heroPinnedNotice.content || "This notice does not have a description yet."}</p>
+                        <ExpandableText
+                          text={heroPinnedNotice.content || "This notice does not have a description yet."}
+                          featured
+                          title={heroPinnedNotice.title}
+                          subtitle="Pinned notice"
+                          onOpenChange={setNoticeMoreFilesPopupOpen}
+                        />
                         <div className="portal-meta-row portal-hero-latest-notice__meta">
                           <FileTypeBadge item={heroPinnedNotice} />
                           {getDepartmentDisplayName(heroPinnedNotice) ? (
@@ -3282,19 +3588,7 @@ const visibleNotices = useMemo(() => {
                     </div>
                   </article>
 
-                  <article className="portal-panel">
-                    <PanelHeader
-                      title="Document"
-                      icon={<IconFileText />}
-                      count={workspaceDocumentTypes.length}
-                    />
-
-                    <SearchInput
-                      value={documentTypeSearch}
-                      onChange={setDocumentTypeSearch}
-                      placeholder="Search document types..."
-                    />
-
+                  <article className="portal-panel portal-panel--document-workspace">
                     <div className="portal-panel__scroll">
                       {(loadingForms || workspaceTypesLoading) && workspaceDocumentTypes.length === 0 ? <div className="portal-empty">Loading document types...</div> : null}
                       {(workspaceTypesError || errorForms) ? <div className="portal-empty">{workspaceTypesError || errorForms}</div> : null}
@@ -3308,20 +3602,14 @@ const visibleNotices = useMemo(() => {
                           documentTypes={workspaceDocumentTypes}
                           loadingForms={loadingForms || workspaceTypesLoading}
                           errorForms={workspaceTypesError || errorForms}
-                          departments={workspaceTypeDepartments}
-                          loadingDepartments={loadingDepartments && workspaceTypeDepartments.length === 0}
-                          errorDepartments={errorDepartments}
                           activeType={workspaceActiveType}
-                          activeDepartment={workspaceActiveDepartment}
                           activeForms={workspaceActiveForms}
                           activeFormsLoading={workspaceFormsLoading}
                           activeFormsError={workspaceFormsError}
                           fileSearch={workspaceFileSearch}
                           onFileSearchChange={setWorkspaceFileSearch}
                           onHoverType={handleWorkspaceHoverType}
-                          onHoverDepartment={handleWorkspaceHoverDepartment}
                           onToggleType={handleWorkspaceToggleType}
-                          onToggleDepartment={handleWorkspaceToggleDepartment}
                           onPreview={handleOpenPreview}
                           onDownload={handleDownloadFile}
                           previewOpen={previewState.open}
@@ -3349,20 +3637,28 @@ const visibleNotices = useMemo(() => {
                             <span>Priority pinned</span>
                           </div>
                           <h3>{priorityPinnedDisplayNotice.title}</h3>
-                          <ExpandableText text={priorityPinnedDisplayNotice.content} featured />
-                          <div className="portal-meta-row">
-                            <FileTypeBadge item={priorityPinnedDisplayNotice} />
-                            {getDepartmentDisplayName(priorityPinnedDisplayNotice) ? (
-                              <span className="portal-meta-pill">{getDepartmentDisplayName(priorityPinnedDisplayNotice)}</span>
-                            ) : null}
-                            {priorityPinnedDisplayNotice.createdAt ? (
-                              <span className="portal-meta-pill">
-                                <IconClock />
-                                {formatDateTime(priorityPinnedDisplayNotice.createdAt)}
-                              </span>
-                            ) : null}
+                          <ExpandableText
+                            text={priorityPinnedDisplayNotice.content}
+                            featured
+                            title={priorityPinnedDisplayNotice.title}
+                            subtitle="Priority pinned"
+                            onOpenChange={setNoticeMoreFilesPopupOpen}
+                          />
+                          <div className="portal-notice-meta-actions is-featured">
+                            <div className="portal-meta-row portal-meta-row--notice">
+                              <FileTypeBadge item={priorityPinnedDisplayNotice} />
+                              {getDepartmentDisplayName(priorityPinnedDisplayNotice) ? (
+                                <span className="portal-meta-pill">{getDepartmentDisplayName(priorityPinnedDisplayNotice)}</span>
+                              ) : null}
+                              {priorityPinnedDisplayNotice.createdAt ? (
+                                <span className="portal-meta-pill">
+                                  <IconClock />
+                                  {formatDateTime(priorityPinnedDisplayNotice.createdAt)}
+                                </span>
+                              ) : null}
+                            </div>
+                            <FileActions item={priorityPinnedDisplayNotice} onPreview={handleOpenPreview} onDownload={handleDownloadFile} compact previewOpen={previewState.open} onMoreFilesOpenChange={setNoticeMoreFilesPopupOpen} />
                           </div>
-                          <FileActions item={priorityPinnedDisplayNotice} onPreview={handleOpenPreview} onDownload={handleDownloadFile} previewOpen={previewState.open} onMoreFilesOpenChange={setNoticeMoreFilesPopupOpen} />
                         </div>
                       </div>
                     ) : null}
@@ -3392,20 +3688,27 @@ const visibleNotices = useMemo(() => {
                               </div>
                               <div className="portal-notice-card__body">
                                 <strong>{notice.title}</strong>
-                                <ExpandableText text={notice.content} />
-                                <div className="portal-meta-row">
-                                  <FileTypeBadge item={notice} />
-                                  {getDepartmentDisplayName(notice) ? (
-                                    <span className="portal-meta-pill">{getDepartmentDisplayName(notice)}</span>
-                                  ) : null}
-                                  {notice.createdAt ? (
-                                    <span className="portal-meta-pill">
-                                      <IconClock />
-                                      {formatDateTime(notice.createdAt)}
-                                    </span>
-                                  ) : null}
+                                <ExpandableText
+                                  text={notice.content}
+                                  title={notice.title}
+                                  subtitle={getDepartmentDisplayName(notice) || "Notice"}
+                                  onOpenChange={setNoticeMoreFilesPopupOpen}
+                                />
+                                <div className="portal-notice-meta-actions">
+                                  <div className="portal-meta-row portal-meta-row--notice">
+                                    <FileTypeBadge item={notice} />
+                                    {getDepartmentDisplayName(notice) ? (
+                                      <span className="portal-meta-pill">{getDepartmentDisplayName(notice)}</span>
+                                    ) : null}
+                                    {notice.createdAt ? (
+                                      <span className="portal-meta-pill">
+                                        <IconClock />
+                                        {formatDateTime(notice.createdAt)}
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                  <FileActions item={notice} onPreview={handleOpenPreview} onDownload={handleDownloadFile} compact previewOpen={previewState.open} onMoreFilesOpenChange={setNoticeMoreFilesPopupOpen} />
                                 </div>
-                                <FileActions item={notice} onPreview={handleOpenPreview} onDownload={handleDownloadFile} compact previewOpen={previewState.open} onMoreFilesOpenChange={setNoticeMoreFilesPopupOpen} />
                               </div>
                             </div>
                           ))}

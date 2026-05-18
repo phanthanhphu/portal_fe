@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Typography,
   Box,
@@ -36,6 +36,8 @@ import {
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import axios from 'axios';
+import SockJS from 'sockjs-client';
+import { Client } from '@stomp/stompjs';
 import { API_BASE_URL } from '../../config';
 
 import DocumentTypeSearch from './DocumentTypeSearch';
@@ -186,6 +188,10 @@ export default function DocumentTypesPage() {
   const [searchNameFilter, setSearchNameFilter] = useState('');
 
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'info' });
+
+  const documentTypeRealtimeRefreshRef = useRef(null);
+  const socketRefreshingRef = useRef(false);
+
   const [openAddDialog, setOpenAddDialog] = useState(false);
   const [openEditDialog, setOpenEditDialog] = useState(false);
   const [currentItem, setCurrentItem] = useState(null);
@@ -193,7 +199,11 @@ export default function DocumentTypesPage() {
   const [selectedItem, setSelectedItem] = useState(null);
 
   const fetchData = useCallback(async (overrides = {}) => {
-    setLoading(true);
+    const silent = Boolean(overrides.silent);
+
+    if (!silent) {
+      setLoading(true);
+    }
 
     const effPage = Number.isInteger(overrides.page) ? overrides.page : page;
     const effSize = Number.isInteger(overrides.size) ? overrides.size : rowsPerPage;
@@ -216,17 +226,110 @@ export default function DocumentTypesPage() {
       setTotalElements(Number(result.totalElements || 0));
     } catch (error) {
       console.error(error);
-      setData([]);
-      setTotalElements(0);
-      setNotification({
-        open: true,
-        message: error?.response?.data?.message || 'Failed to fetch document types.',
-        severity: 'error',
-      });
+
+      if (!silent) {
+        setData([]);
+        setTotalElements(0);
+        setNotification({
+          open: true,
+          message: error?.response?.data?.message || 'Failed to fetch document types.',
+          severity: 'error',
+        });
+      }
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, [page, rowsPerPage, searchNameFilter]);
+
+  const refreshDocumentTypesBySocket = useCallback(async (event) => {
+    const module = String(event?.module || 'ALL').toUpperCase();
+
+    const shouldRefresh =
+      module === 'DOCUMENT_TYPE' ||
+      module === 'DOCUMENT_TYPES' ||
+      module === 'DEPARTMENT' ||
+      module === 'DEPARTMENTS' ||
+      module === 'FORM' ||
+      module === 'FORMS' ||
+      module === 'ALL';
+
+    if (!shouldRefresh) return;
+
+    console.log('DocumentTypes page refreshing by socket:', event);
+
+    await fetchData({ silent: true });
+
+    console.log('DocumentTypes page data updated by socket:', module, event?.action || 'UPDATED');
+  }, [fetchData]);
+
+  useEffect(() => {
+    documentTypeRealtimeRefreshRef.current = refreshDocumentTypesBySocket;
+  });
+
+  useEffect(() => {
+    const client = new Client({
+      webSocketFactory: () => new SockJS(`${API_BASE_URL}/ws`),
+      reconnectDelay: 5000,
+      debug: () => {},
+
+      onConnect: () => {
+        console.log('DocumentTypes realtime connected');
+
+        client.subscribe('/topic/app-events', async (message) => {
+          let event = null;
+
+          try {
+            event = JSON.parse(message.body);
+          } catch {
+            event = {
+              module: 'ALL',
+              action: 'UPDATED',
+              id: '',
+            };
+          }
+
+          console.log('DocumentTypes realtime event received:', event);
+
+          const module = String(event?.module || 'ALL').toUpperCase();
+          const shouldRefresh =
+            module === 'DOCUMENT_TYPE' ||
+            module === 'DOCUMENT_TYPES' ||
+            module === 'DEPARTMENT' ||
+            module === 'DEPARTMENTS' ||
+            module === 'FORM' ||
+            module === 'FORMS' ||
+            module === 'ALL';
+
+          if (!shouldRefresh) return;
+          if (socketRefreshingRef.current) return;
+
+          socketRefreshingRef.current = true;
+
+          try {
+            await documentTypeRealtimeRefreshRef.current?.(event);
+          } finally {
+            socketRefreshingRef.current = false;
+          }
+        });
+      },
+
+      onStompError: (frame) => {
+        console.error('DocumentTypes realtime STOMP error:', frame);
+      },
+
+      onWebSocketError: (error) => {
+        console.error('DocumentTypes realtime socket error:', error);
+      },
+    });
+
+    client.activate();
+
+    return () => {
+      client.deactivate();
+    };
+  }, []);
 
   useEffect(() => {
     fetchData();

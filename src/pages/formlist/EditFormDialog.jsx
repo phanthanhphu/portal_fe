@@ -497,8 +497,9 @@ export default function EditFormDialog({
             </IconButton>
           </Stack>
         </DialogTitle>
-
+        <br></br>
         <DialogContent sx={{ p: 3 }}>
+          
           <Stack spacing={2.5}>
             <TextField
               label="Title *"

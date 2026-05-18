@@ -1,4 +1,6 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import SockJS from 'sockjs-client';
+import { Client } from '@stomp/stompjs';
 import {
   Typography,
   Box,
@@ -785,6 +787,12 @@ export default function FormListDialog() {
   const [selectedDeleteItem, setSelectedDeleteItem] = useState(null);
   const [previewState, setPreviewState] = useState(emptyPreviewState);
 
+
+  // Realtime socket refs - same pattern as PageHome.
+  // Keep the latest refresh function without reconnecting socket on every render.
+  const formRealtimeRefreshRef = useRef(null);
+  const socketRefreshingRef = useRef(false);
+
   const typeNameMap = useMemo(() => {
     return documentTypes.reduce((map, type) => {
       if (type?.id) {
@@ -872,6 +880,120 @@ export default function FormListDialog() {
     },
     [page, rowsPerPage, sortConfig],
   );
+
+
+  const getCurrentFilters = useCallback(() => {
+    const filters = {};
+
+    if (searchDeptName?.trim()) filters.departmentName = searchDeptName.trim();
+    if (searchTypeId?.trim()) filters.typeId = searchTypeId.trim();
+    if (searchTitle?.trim()) filters.title = searchTitle.trim();
+    if (searchDesc?.trim()) filters.description = searchDesc.trim();
+
+    return filters;
+  }, [searchDeptName, searchTypeId, searchTitle, searchDesc]);
+
+  const isDocumentsRealtimeModule = useCallback((moduleValue) => {
+    const module = String(moduleValue || 'ALL').toUpperCase();
+
+    return (
+      module === 'ALL' ||
+      module === 'FORM' ||
+      module === 'FORMS' ||
+      module === 'DOCUMENT' ||
+      module === 'DOCUMENTS' ||
+      module === 'DOCUMENT_TYPE' ||
+      module === 'DEPARTMENT'
+    );
+  }, []);
+
+  const refreshFormListBySocket = useCallback(async (event = {}) => {
+    const module = String(event?.module || 'ALL').toUpperCase();
+    const action = String(event?.action || 'UPDATED').toUpperCase();
+
+    if (!isDocumentsRealtimeModule(module)) return;
+
+    const refreshTasks = [];
+
+    if (module === 'ALL' || module === 'DOCUMENT_TYPE' || module === 'DEPARTMENT') {
+      refreshTasks.push(fetchDocumentTypes());
+    }
+
+    refreshTasks.push(fetchData(getCurrentFilters(), { page }));
+
+    await Promise.all(refreshTasks);
+
+    console.log(`Documents realtime ${module} ${action} - data updated`);
+  }, [fetchData, fetchDocumentTypes, getCurrentFilters, isDocumentsRealtimeModule, page]);
+
+  useEffect(() => {
+    formRealtimeRefreshRef.current = refreshFormListBySocket;
+  });
+
+  useEffect(() => {
+    const client = new Client({
+      webSocketFactory: () => new SockJS(`${API_BASE_URL}/ws`),
+      reconnectDelay: 5000,
+      debug: () => {},
+
+      onConnect: () => {
+        console.log('Documents realtime connected');
+
+        client.subscribe('/topic/app-events', async (message) => {
+          let event = {
+            module: 'ALL',
+            action: 'UPDATED',
+            id: '',
+          };
+
+          try {
+            event = JSON.parse(message.body);
+          } catch {
+            // Keep fallback event above.
+          }
+
+          console.log('Documents realtime event received:', event);
+
+          if (!isDocumentsRealtimeModule(event?.module)) return;
+
+          if (socketRefreshingRef.current) {
+            return;
+          }
+
+          socketRefreshingRef.current = true;
+          console.log(
+            `Documents realtime ${String(event?.module || 'ALL').toUpperCase()} ${String(event?.action || 'UPDATED').toUpperCase()} - syncing...`,
+          );
+
+          try {
+            await formRealtimeRefreshRef.current?.(event);
+          } catch (error) {
+            console.error('Documents realtime refresh failed:', error);
+          } finally {
+            socketRefreshingRef.current = false;
+          }
+        });
+      },
+
+      onDisconnect: () => {
+        console.log('Documents realtime disconnected');
+      },
+
+      onStompError: (frame) => {
+        console.error('Documents realtime STOMP error:', frame);
+      },
+
+      onWebSocketError: (error) => {
+        console.error('Documents realtime socket error:', error);
+      },
+    });
+
+    client.activate();
+
+    return () => {
+      client.deactivate();
+    };
+  }, [isDocumentsRealtimeModule]);
 
   useEffect(() => {
     fetchDocumentTypes();
@@ -1012,14 +1134,8 @@ export default function FormListDialog() {
 
   const handleSearch = useCallback(() => {
     setPage(0);
-    const filters = {};
-    if (searchDeptName?.trim()) filters.departmentName = searchDeptName.trim();
-    if (searchTypeId?.trim()) filters.typeId = searchTypeId.trim();
-    if (searchTitle?.trim()) filters.title = searchTitle.trim();
-    if (searchDesc?.trim()) filters.description = searchDesc.trim();
-
-    fetchData(filters, { page: 0 });
-  }, [fetchData, searchDeptName, searchTypeId, searchTitle, searchDesc]);
+    fetchData(getCurrentFilters(), { page: 0 });
+  }, [fetchData, getCurrentFilters]);
 
   const handleResetFilter = useCallback(() => {
     setSearchDeptName('');

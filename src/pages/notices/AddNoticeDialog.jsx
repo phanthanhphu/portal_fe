@@ -29,9 +29,19 @@ import InsertDriveFileRoundedIcon from "@mui/icons-material/InsertDriveFileRound
 
 import axios from "axios";
 import { API_BASE_URL } from "../../config";
+import NoticeContentEditor from "./NoticeContentEditor";
 
 const DEPT_API = `${API_BASE_URL}/api/departments`;
 const MAX_FILES = 5;
+
+const stripHtml = (html = "") =>
+  String(html)
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .trim();
+
 
 const formatFileSize = (size = 0) => {
   if (!size) return "0 MB";
@@ -92,7 +102,7 @@ export default function AddNoticeDialog({
       const loggedInUserId = getLoggedInUserId();
 
       if (!loggedInUserId) {
-        toast("Không tìm thấy userId đăng nhập", "error");
+        toast("Cannot find logged-in userId", "error");
         setDepartments([]);
         setDepartmentId("");
         setIsAdmin(false);
@@ -112,7 +122,7 @@ export default function AddNoticeDialog({
       setDepartmentId(admin ? "" : list[0]?.id || "");
     } catch (err) {
       console.error(err);
-      toast("Không tải được danh sách phòng ban", "error");
+      toast("Cannot load department list", "error");
       setDepartments([]);
       setDepartmentId("");
       setIsAdmin(false);
@@ -143,9 +153,9 @@ export default function AddNoticeDialog({
 
   const validate = () => {
     if (!title.trim()) return "Title is required";
-    if (!content.trim()) return "Content is required";
+    if (!stripHtml(content)) return "Content is required";
     if (!departmentId) return "Department is required";
-    if (files.length > MAX_FILES) return `Chỉ được upload tối đa ${MAX_FILES} file`;
+    if (files.length > MAX_FILES) return `You can upload maximum ${MAX_FILES} files`;
     return null;
   };
 
@@ -163,14 +173,14 @@ export default function AddNoticeDialog({
       const availableSlots = MAX_FILES - prev.length;
 
       if (availableSlots <= 0) {
-        toast(`Chỉ được upload tối đa ${MAX_FILES} file`, "error");
+        toast(`You can upload maximum ${MAX_FILES} files`, "error");
         return prev;
       }
 
       const acceptedFiles = selectedFiles.slice(0, availableSlots);
 
       if (selectedFiles.length > availableSlots) {
-        toast(`Chỉ nhận thêm ${availableSlots} file. Tối đa ${MAX_FILES} file`, "warning");
+        toast(`Only ${availableSlots} more file(s) can be added. Maximum ${MAX_FILES} files`, "warning");
       }
 
       return [...prev, ...acceptedFiles];
@@ -205,18 +215,21 @@ export default function AddNoticeDialog({
       }
 
       const formData = new FormData();
+
+      // IMPORTANT: do not send rich HTML content in query params.
+      // Long Word/TinyMCE HTML can make the URL too long and cause Network Error.
+      // Spring @RequestParam can still read these fields from multipart/form-data.
+      formData.append("title", title.trim());
+      formData.append("content", content.trim());
+      formData.append("userId", loggedInUserId);
+      formData.append("departmentId", departmentId);
+      formData.append("pinned", String(pinned));
+
       files.forEach((selectedFile) => {
         formData.append("files", selectedFile);
       });
 
       await axios.post(`${API_BASE_URL}/api/notices`, formData, {
-        params: {
-          title: title.trim(),
-          content: content.trim(),
-          userId: loggedInUserId,
-          departmentId,
-          pinned
-        },
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
           "Content-Type": "multipart/form-data"
@@ -268,7 +281,7 @@ export default function AddNoticeDialog({
           <Stack direction="row" alignItems="center" justifyContent="space-between" width="100%">
             <Box>
               <Typography variant="h6" fontWeight={700}>Add Notice</Typography>
-              <Typography fontSize={13} sx={{ opacity: 0.9 }}>Upload tối đa {MAX_FILES} file cho một notice</Typography>
+              <Typography fontSize={13} sx={{ opacity: 0.9 }}>Upload up to {MAX_FILES} files for one notice</Typography>
             </Box>
 
             <Stack direction="row" spacing={1} alignItems="center">
@@ -279,11 +292,11 @@ export default function AddNoticeDialog({
             </Stack>
           </Stack>
         </DialogTitle>
-
+        <br></br>
         <DialogContent sx={{ p: 3 }}>
           <Stack spacing={2}>
             <TextField label="Title" value={title} onChange={(e) => setTitle(e.target.value)} disabled={locked} size="small" fullWidth sx={fieldSx} />
-            <TextField label="Content" value={content} onChange={(e) => setContent(e.target.value)} disabled={locked} size="small" fullWidth multiline minRows={5} sx={fieldSx} />
+            <NoticeContentEditor label="Content" value={content} onChange={setContent} disabled={locked} />
 
             {isAdmin && (
               <TextField select label="Department *" value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} disabled={locked || loadingDept} size="small" fullWidth sx={fieldSx}>
