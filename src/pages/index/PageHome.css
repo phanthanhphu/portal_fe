@@ -7349,3 +7349,325 @@ body:has(.portal-more-file-popup-backdrop) {
   opacity: 1 !important;
   visibility: visible !important;
 }
+
+/* ===== FIX: Header menus show only 4 visible items; >4 scroll/drop-list =====
+   Applies to Links, Document and Notice hover menus, plus mobile dropdowns.
+   Keep this block at the END of PageHome.css so it overrides old V6/V8/V10 values. */
+.portal-menu-four,
+.portal-menu-six {
+  --menu-visible-items: 4;
+  --menu-visible-rows: 4;
+}
+
+/* Generic old dropdown lists: Links/Forms fallback */
+.portal-menu-four .portal-dropdown-list--apps,
+.portal-menu-four .portal-dropdown-list--forms,
+.portal-menu-six .portal-dropdown-list--apps,
+.portal-menu-six .portal-dropdown-list--forms {
+  max-height: calc((var(--menu-visible-rows, 4) * 58px) + ((var(--menu-visible-rows, 4) - 1) * 10px)) !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  align-content: start !important;
+  padding-right: 4px !important;
+  overscroll-behavior: contain !important;
+}
+
+/* New Links hover menu */
+.portal-links-mega-menu .portal-links-hover-menu__list {
+  max-height: calc((var(--menu-visible-items, 4) * 48px) + ((var(--menu-visible-items, 4) - 1) * 8px)) !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  overscroll-behavior: contain !important;
+  padding-right: 4px !important;
+}
+
+/* Document cascade: Type / Department / File columns */
+.portal-document-mega-menu .portal-document-hover-menu__list,
+.portal-document-mega-menu .portal-document-hover-menu__files,
+.portal-menu-four .fdp-grid,
+.portal-menu-four .ndp2-grid,
+.portal-menu-four .ndm-grid,
+.portal-menu-six .fdp-grid,
+.portal-menu-six .ndp2-grid,
+.portal-menu-six .ndm-grid {
+  max-height: calc((var(--menu-visible-items, 4) * 43px) + ((var(--menu-visible-items, 4) - 1) * 7px)) !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  align-content: start !important;
+  padding-right: 4px !important;
+  overscroll-behavior: contain !important;
+}
+
+/* Notice cascade: Department / Notice columns */
+.portal-notice-mega-menu .portal-notice-cascade-menu__list,
+.portal-notice-mega-menu .portal-notice-cascade-menu__notices {
+  max-height: calc((var(--menu-visible-items, 4) * 48px) + ((var(--menu-visible-items, 4) - 1) * 8px)) !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  overscroll-behavior: contain !important;
+  padding-right: 4px !important;
+}
+
+/* Mobile Links / Document / Notice menus */
+.portal-mobile-group__body--scroll-6 {
+  max-height: calc((var(--menu-visible-items, 4) * 42px) + ((var(--menu-visible-items, 4) - 1) * 10px)) !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  overscroll-behavior: contain !important;
+  padding-right: 4px !important;
+}
+
+/* Soft visual cue when there are more items below */
+.portal-links-hover-menu__list,
+.portal-document-hover-menu__list,
+.portal-document-hover-menu__files,
+.portal-notice-cascade-menu__list,
+.portal-notice-cascade-menu__notices,
+.portal-mobile-group__body--scroll-6 {
+  scrollbar-gutter: stable;
+}
+
+.portal-links-hover-menu__list::-webkit-scrollbar,
+.portal-document-hover-menu__list::-webkit-scrollbar,
+.portal-document-hover-menu__files::-webkit-scrollbar,
+.portal-notice-cascade-menu__list::-webkit-scrollbar,
+.portal-notice-cascade-menu__notices::-webkit-scrollbar,
+.portal-mobile-group__body--scroll-6::-webkit-scrollbar {
+  width: 7px;
+}
+
+.portal-links-hover-menu__list::-webkit-scrollbar-thumb,
+.portal-document-hover-menu__list::-webkit-scrollbar-thumb,
+.portal-document-hover-menu__files::-webkit-scrollbar-thumb,
+.portal-notice-cascade-menu__list::-webkit-scrollbar-thumb,
+.portal-notice-cascade-menu__notices::-webkit-scrollbar-thumb,
+.portal-mobile-group__body--scroll-6::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(126, 148, 182, 0.32);
+}
+
+/* ===== FIX: Document Type hover stability =====
+   - The Document Type selector no longer jumps while hovering through options.
+   - The header Document cascade keeps its left edge stable when Type/Department/File columns open.
+   Keep this block at the END of PageHome.css. */
+.portal-document-type-select {
+  isolation: isolate;
+}
+
+.portal-document-type-select__menu {
+  width: min(340px, 82vw) !important;
+  max-height: calc((4 * 58px) + (3 * 8px) + 16px) !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  overscroll-behavior: contain !important;
+  scrollbar-gutter: stable !important;
+  transform: none !important;
+  right: 0 !important;
+  left: auto !important;
+}
+
+.portal-document-type-option,
+.portal-document-type-option:hover,
+.portal-document-type-option.is-active {
+  transform: none !important;
+}
+
+.portal-document-type-option {
+  min-height: 58px !important;
+  margin: 0 0 8px !important;
+}
+
+.portal-document-type-option:last-child {
+  margin-bottom: 0 !important;
+}
+
+.portal-document-type-option__active {
+  min-width: 56px;
+  justify-content: center;
+}
+
+.portal-document-type-select__menu::-webkit-scrollbar {
+  width: 7px;
+}
+
+.portal-document-type-select__menu::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(126, 148, 182, 0.32);
+}
+
+/* Header Document cascade: remove hover translate and keep expansion stable. */
+.portal-document-mega-menu {
+  transform-origin: top left !important;
+  transition: opacity 0.12s ease, box-shadow 0.12s ease !important;
+}
+
+.portal-document-hover-menu__item,
+.portal-document-hover-menu__item:hover,
+.portal-document-hover-menu__item.is-active {
+  transform: none !important;
+}
+
+.portal-document-hover-menu__item {
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease !important;
+}
+
+.portal-document-hover-menu__list,
+.portal-document-hover-menu__files {
+  scrollbar-gutter: stable !important;
+}
+
+@media (max-width: 720px) {
+  .portal-document-type-select__menu {
+    left: 0 !important;
+    right: auto !important;
+    width: 100% !important;
+  }
+}
+
+
+/* ===== FIX: Links card text + quick-open icon =====
+   - Link names are smaller and can wrap to a second line when long.
+   - The old "Open quickly" text is replaced by a compact icon in PageHome.jsx.
+   Keep this block at the END of PageHome.css. */
+.portal-link-card {
+  align-items: center;
+}
+
+.portal-link-card__left {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.portal-link-card__text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+  justify-items: start;
+}
+
+.portal-link-card__text strong {
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: normal;
+  text-overflow: clip;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  font-size: 0.86rem;
+  line-height: 1.32;
+  letter-spacing: -0.01em;
+}
+
+.portal-link-card__quick-icon {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--portal-primary);
+  background: rgba(39, 73, 255, 0.08);
+  border: 1px solid rgba(39, 73, 255, 0.1);
+  line-height: 0;
+}
+
+.portal-link-card__quick-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Header Links hover menu: allow long link names to wrap instead of jumping/ellipsis. */
+.portal-links-hover-menu__item {
+  min-height: 52px !important;
+  align-items: center !important;
+}
+
+.portal-links-hover-menu__item > span:nth-child(2) {
+  display: -webkit-box !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  white-space: normal !important;
+  text-overflow: clip !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow-wrap: anywhere !important;
+  word-break: break-word !important;
+  font-size: 0.74rem !important;
+  line-height: 1.28 !important;
+  font-weight: 800 !important;
+}
+
+.portal-mobile-subitem {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  min-height: 44px;
+}
+
+
+/* Final fix: use the selected chain-link icon as the small secondary action icon. */
+.portal-link-card__quick-icon {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--portal-primary);
+  background: rgba(39, 73, 255, 0.08);
+  border: 1px solid rgba(39, 73, 255, 0.08);
+  box-shadow: none;
+}
+
+.portal-link-card__quick-icon svg {
+  width: 13px;
+  height: 13px;
+  stroke-width: 2;
+}
+
+
+/* FIX: Remove the small secondary icon under link names (marked as icon #1 in screenshot). */
+.portal-link-card__quick-icon {
+  display: none !important;
+}
+
+.portal-link-card__text {
+  gap: 0 !important;
+}
+
+.portal-link-card__text strong {
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
+
+
+/* FIX: Lighten dark background overlays / filters.
+   The hero image overlay was too dark, so this block softens the extra CSS overlay
+   while the JSX inline gradient has also been reduced from 0.72/0.34 to 0.42/0.14. */
+.portal-hero__surface::before {
+  background:
+    linear-gradient(90deg, rgba(8, 19, 43, 0.08), transparent 68%),
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.24), transparent 30%) !important;
+}
+
+.portal-hero__surface::after {
+  opacity: 0.55;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.34), transparent 76%) !important;
+}
+
+/* Preview/modal overlay is also lighter, so the page behind it is not too dark. */
+.portal-modal-backdrop {
+  background: rgba(8, 18, 39, 0.26) !important;
+  backdrop-filter: blur(8px) !important;
+}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box, Typography, GlobalStyles } from '@mui/material';
 import { Editor } from '@tinymce/tinymce-react';
 
 // TinyMCE self-host imports. Install: npm install @tinymce/tinymce-react tinymce
@@ -66,6 +66,22 @@ export default function NoticeContentEditor({
 
   return (
     <Box>
+      <GlobalStyles
+        styles={{
+          // Keep TinyMCE table popup/menu/dialog above MUI Dialog.
+          '.tox-tinymce-aux, .tox-silver-sink, .tox-dialog-wrap, .tox-notifications-container': {
+            zIndex: '17000 !important',
+          },
+          '.tox .tox-menu, .tox .tox-collection, .tox .tox-pop, .tox .tox-pop__dialog': {
+            zIndex: '17001 !important',
+          },
+          // Make the table resize handles easier to catch by mouse.
+          '.tox .tox-table-resize-handle': {
+            zIndex: '17002 !important',
+          },
+        }}
+      />
+
       <Typography fontSize={13} fontWeight={700} sx={{ mb: 0.8 }}>
         {label}
       </Typography>
@@ -97,8 +113,11 @@ export default function NoticeContentEditor({
             branding: false,
             promotion: false,
             statusbar: true,
+
+            // Because this project self-hosts TinyMCE CSS by import above.
             skin: false,
             content_css: false,
+
             plugins: [
               'advlist',
               'autolink',
@@ -116,16 +135,46 @@ export default function NoticeContentEditor({
               'help',
               'wordcount',
             ],
+
             toolbar:
               'undo redo | blocks fontfamily fontsize | bold italic underline strikethrough | ' +
               'forecolor backcolor | alignleft aligncenter alignright alignjustify | ' +
               'bullist numlist outdent indent | table link | uppercase lowercase removeformat | preview code fullscreen',
+
+            table_toolbar:
+              'tableprops tabledelete | ' +
+              'tableinsertrowbefore tableinsertrowafter tabledeleterow | ' +
+              'tableinsertcolbefore tableinsertcolafter tabledeletecol | ' +
+              'tablecellprops tablemergecells tablesplitcells',
+
+            contextmenu: 'link table',
             toolbar_mode: 'sliding',
             block_formats: 'Paragraph=p; Heading 1=h1; Heading 2=h2; Heading 3=h3; Quote=blockquote',
             font_size_formats: '10px 12px 13px 14px 16px 18px 20px 24px 28px 32px',
+
             paste_data_images: false,
             paste_as_text: false,
             entity_encoding: 'raw',
+
+            // TABLE RESIZE LIKE WORD
+            // Hover the border between 2 columns/rows, then drag to resize.
+            object_resizing: true,
+            table_resize_bars: true,
+            table_use_colgroups: true,
+            table_sizing_mode: 'relative',
+            table_column_resizing: 'preservetable',
+            table_default_attributes: {
+              border: '1',
+            },
+            table_default_styles: {
+              width: '100%',
+              borderCollapse: 'collapse',
+            },
+            table_class_list: [
+              { title: 'Default', value: '' },
+              { title: 'Bordered', value: 'notice-table-bordered' },
+            ],
+
             content_style: `
               body {
                 font-family: Arial, Helvetica, sans-serif;
@@ -134,12 +183,42 @@ export default function NoticeContentEditor({
                 color: #111827;
                 padding: 10px 12px;
               }
+
               p { margin: 6px 0; }
               ul, ol { padding-left: 24px; margin: 8px 0; }
-              table { border-collapse: collapse; width: 100%; }
-              table td, table th { border: 1px solid #d1d5db; padding: 6px 8px; }
-              blockquote { border-left: 4px solid #d1d5db; margin-left: 0; padding-left: 12px; color: #4b5563; }
+
+              table {
+                border-collapse: collapse;
+                width: 100%;
+                max-width: 100%;
+                table-layout: fixed;
+              }
+
+              table td,
+              table th {
+                border: 1px solid #d1d5db;
+                padding: 6px 8px;
+                min-width: 24px;
+                vertical-align: top;
+                word-break: break-word;
+              }
+
+              td[data-mce-selected],
+              th[data-mce-selected],
+              .mce-item-selected {
+                background-color: #bfdbfe !important;
+                outline: 2px solid #2563eb !important;
+                outline-offset: -2px !important;
+              }
+
+              blockquote {
+                border-left: 4px solid #d1d5db;
+                margin-left: 0;
+                padding-left: 12px;
+                color: #4b5563;
+              }
             `,
+
             setup: (editor) => {
               editor.ui.registry.addButton('uppercase', {
                 text: 'UPPERCASE',

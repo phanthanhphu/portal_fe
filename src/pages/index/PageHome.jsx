@@ -18,7 +18,7 @@ const DEPARTMENTS_API_BASE = `${API_BASE_URL}/api/departments`;
 const FORMS_PAGE_PATH = "/forms";
 const NOTICES_PAGE_PATH = "/notices";
 const COMPANY_BG_URL = companyBg;
-const MENU_MAX_VISIBLE_ITEMS = 6;
+const MENU_MAX_VISIBLE_ITEMS = 4;
 
 function toAbsoluteUrl(path) {
   if (!path) return "";
@@ -1482,6 +1482,7 @@ function DocumentWorkspaceCascade({
   const [typeMenuOpen, setTypeMenuOpen] = useState(false);
   const selectRef = useRef(null);
   const typeCloseTimerRef = useRef(null);
+  const typeHoverTimerRef = useRef(null);
   const activeTypeId = activeType?.id || "";
 
 
@@ -1489,6 +1490,13 @@ function DocumentWorkspaceCascade({
     if (typeCloseTimerRef.current) {
       window.clearTimeout(typeCloseTimerRef.current);
       typeCloseTimerRef.current = null;
+    }
+  };
+
+  const clearTypeHoverTimer = () => {
+    if (typeHoverTimerRef.current) {
+      window.clearTimeout(typeHoverTimerRef.current);
+      typeHoverTimerRef.current = null;
     }
   };
 
@@ -1500,6 +1508,7 @@ function DocumentWorkspaceCascade({
 
   const scheduleCloseTypeMenu = () => {
     clearTypeCloseTimer();
+    clearTypeHoverTimer();
     typeCloseTimerRef.current = window.setTimeout(() => {
       setTypeMenuOpen(false);
     }, 220);
@@ -1524,17 +1533,30 @@ function DocumentWorkspaceCascade({
   useEffect(() => {
     return () => {
       clearTypeCloseTimer();
+      clearTypeHoverTimer();
     };
   }, []);
 
   const handleHoverPickType = (type) => {
     if (!type?.id) return;
+
     clearTypeCloseTimer();
-    onHoverType?.(type);
+    clearTypeHoverTimer();
+
+    // Debounce hover selection so moving the mouse across Type items does not
+    // continuously reload the Document list and make the menu feel unstable.
+    if (type.id === activeTypeId) return;
+
+    typeHoverTimerRef.current = window.setTimeout(() => {
+      onHoverType?.(type);
+      typeHoverTimerRef.current = null;
+    }, 140);
   };
 
   const handleClickPickType = (type) => {
     if (!type?.id) return;
+    clearTypeCloseTimer();
+    clearTypeHoverTimer();
     onToggleType?.(type);
     setTypeMenuOpen(false);
   };
@@ -1855,7 +1877,9 @@ function MenuDropdown({
       );
 
       let left;
-      if (isLinksMegaMenu || isNoticeMegaMenu) {
+      // Keep cascade menus anchored to the trigger left edge.
+      // This prevents the Document Type menu from jumping left/right when columns appear.
+      if (isLinksMegaMenu || isNoticeMegaMenu || isDocumentMegaMenu) {
         left = triggerRect.left;
       } else {
         left = triggerRect.left + triggerRect.width / 2 - measuredWidth / 2;
@@ -3223,6 +3247,7 @@ const visibleNotices = useMemo(() => {
 
   const mobileDropdownStyle = {
     "--menu-visible-items": String(MENU_MAX_VISIBLE_ITEMS),
+    "--menu-visible-rows": String(MENU_MAX_VISIBLE_ITEMS),
   };
 
   useEffect(() => {
@@ -3257,15 +3282,14 @@ const visibleNotices = useMemo(() => {
           <div className="portal-shell portal-topbar" ref={navRef}
           onMouseEnter={handleMenuAreaEnter}
           onMouseLeave={handleMenuAreaLeave}>
-            <a href="/" className="portal-brand">
-              <span className="portal-brand__mark">
-                <img src={companyLogo} alt="YOUNGONE" />
-              </span>
-              <span className="portal-brand__text">
-                <strong>BROADPEAK SOC TRANG</strong>
-                <small>HOME PAGE</small>
-              </span>
-            </a>
+            <span className="portal-brand__mark">
+              <img src={companyLogo} alt="YOUNGONE" />
+            </span>
+            <span className="portal-brand__text">
+              <strong>BROADPEAK SOC TRANG</strong>
+              <small>HOME PAGE</small>
+            </span>
+            
 
             <nav className="portal-nav">
               <MenuDropdown
@@ -3276,7 +3300,7 @@ const visibleNotices = useMemo(() => {
                 onMouseEnter={() => setOpenDropdown("links")}
                 onMouseLeave={() => setOpenDropdown(null)}
                 count={apps.length || undefined}
-                popoverClassName="portal-menu-six portal-links-mega-menu"
+                popoverClassName="portal-menu-six portal-menu-four portal-links-mega-menu"
                 viewportSafe
               >
                 <LinksHoverMenu
@@ -3302,7 +3326,7 @@ const visibleNotices = useMemo(() => {
                 onMouseEnter={openDocumentMegaMenu}
                 onMouseLeave={closeDocumentMegaMenu}
                 count={documentTypes.length || undefined}
-                popoverClassName={`portal-menu-six portal-document-mega-menu ${activeMenuType ? "is-type-active" : ""} ${shouldShowMenuFileColumn ? "is-file-panel-visible" : ""} ${activeMenuDepartment ? "is-department-active" : ""}`.trim()}
+                popoverClassName={`portal-menu-six portal-menu-four portal-document-mega-menu ${activeMenuType ? "is-type-active" : ""} ${shouldShowMenuFileColumn ? "is-file-panel-visible" : ""} ${activeMenuDepartment ? "is-department-active" : ""}`.trim()}
                 viewportSafe
               >
                 <DocumentHoverMenu
@@ -3347,7 +3371,7 @@ const visibleNotices = useMemo(() => {
                 onMouseEnter={openNoticeMegaMenu}
                 onMouseLeave={closeNoticeMegaMenu}
                 count={noticeMenuDepartments.length || undefined}
-                popoverClassName={`portal-menu-six portal-notice-mega-menu ${noticeMenuLayout.hasDepartment ? "is-department-active" : ""} ${noticeMenuLayout.hasNoticePanel ? "is-file-panel-visible" : ""}`.trim()}
+                popoverClassName={`portal-menu-six portal-menu-four portal-notice-mega-menu ${noticeMenuLayout.hasDepartment ? "is-department-active" : ""} ${noticeMenuLayout.hasNoticePanel ? "is-file-panel-visible" : ""}`.trim()}
                 viewportSafe
               >
                 <NoticeHoverMenu
@@ -3455,7 +3479,7 @@ const visibleNotices = useMemo(() => {
             <div className="portal-shell">
               <div
                 className="portal-hero__surface"
-                style={{ backgroundImage: `linear-gradient(120deg, rgba(7, 16, 39, 0.72), rgba(7, 16, 39, 0.34)), url(${COMPANY_BG_URL})` }}
+                style={{ backgroundImage: `linear-gradient(120deg, rgba(7, 16, 39, 0.42), rgba(7, 16, 39, 0.14)), url(${COMPANY_BG_URL})` }}
               >
                 <div className="portal-hero__copy">
                   <div className="portal-tag">HOME PAGE</div>
@@ -3575,7 +3599,6 @@ const visibleNotices = useMemo(() => {
                                 </div>
                                 <div className="portal-link-card__text">
                                   <strong>{app.name}</strong>
-                                  <span>Open quickly</span>
                                 </div>
                               </div>
                               <span className="portal-link-card__arrow">

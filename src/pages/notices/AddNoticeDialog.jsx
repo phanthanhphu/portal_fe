@@ -276,7 +276,17 @@ export default function AddNoticeDialog({
 
   return (
     <>
-      <Dialog open={open} onClose={locked ? undefined : handleClose} fullScreen={fullScreen} maxWidth="md" fullWidth PaperProps={{ sx: paperSx }}>
+      {/* IMPORTANT: disableEnforceFocus lets TinyMCE table popups receive clicks inside MUI Dialog. */}
+      <Dialog
+        open={open}
+        onClose={locked ? undefined : handleClose}
+        fullScreen={fullScreen}
+        maxWidth="md"
+        fullWidth
+        disableEnforceFocus
+        disableRestoreFocus
+        PaperProps={{ sx: paperSx }}
+      >
         <DialogTitle sx={headerSx}>
           <Stack direction="row" alignItems="center" justifyContent="space-between" width="100%">
             <Box>
