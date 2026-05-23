@@ -469,7 +469,7 @@ svg {
     radial-gradient(circle at 15% 18%, rgba(94, 198, 255, 0.3), transparent 28%),
     linear-gradient(135deg, #102451 0%, #183f8f 46%, #2f94d6 100%);
   background-size: cover;
-  background-position: center;
+  background-position: center 32%, center 32%;
   box-shadow: var(--portal-shadow-lg);
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
@@ -7670,4 +7670,557 @@ body:has(.portal-more-file-popup-backdrop) {
 .portal-modal-backdrop {
   background: rgba(8, 18, 39, 0.26) !important;
   backdrop-filter: blur(8px) !important;
+}
+
+/* ===== FIX: hero background no stretch, moved down more ===== */
+.portal-hero__surface {
+  background-size: cover, cover;
+  background-position: center center, center 65%;
+  background-repeat: no-repeat, no-repeat;
+}
+
+.portal-hero__surface::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(8, 19, 43, 0.30), rgba(8, 19, 43, 0.14) 62%),
+    linear-gradient(180deg, rgba(10, 22, 46, 0.08), rgba(10, 22, 46, 0.18)),
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.07), transparent 30%);
+  pointer-events: none;
+}
+
+/* ===== FIX FINAL V5: Company TOP LEFT + Pinned notice RIGHT COMPANY POSITION =====
+   Yêu cầu:
+   - Khối YOUNGONE / BROADPEAK SOC TRANG / Founded / Factories / Workers / Lines lên TOP bên tay trái.
+   - Card Pinned notice đưa vào vị trí cũ của khối BROADPEAK SOC TRANG, tức bên phải phía dưới.
+   - Khối Internal portal giữ bên phải phía trên, không bị chồng nội dung.
+*/
+
+.portal-hero__surface {
+  position: relative !important;
+  overflow: hidden !important;
+
+  min-height: clamp(580px, 43vw, 650px) !important;
+  padding: 46px !important;
+
+  display: grid !important;
+  grid-template-columns: minmax(520px, 0.95fr) minmax(560px, 1.05fr) !important;
+  grid-template-rows: auto 1fr !important;
+  gap: 24px 58px !important;
+  align-items: start !important;
+
+  background-size: cover !important;
+  background-position: center 70% !important;
+  background-repeat: no-repeat !important;
+}
+
+/* Nền tối nhẹ, bên trái và bên phải đều đọc chữ rõ */
+.portal-hero__surface::before {
+  background:
+    linear-gradient(90deg, rgba(8, 19, 43, 0.38), rgba(8, 19, 43, 0.16) 45%, rgba(8, 19, 43, 0.42)),
+    linear-gradient(180deg, rgba(8, 19, 43, 0.08), rgba(8, 19, 43, 0.22)) !important;
+}
+
+.portal-hero__surface::after {
+  opacity: 0.12 !important;
+}
+
+/* Cho Pinned notice absolute bám theo hero surface, không bám theo hero copy */
+.portal-hero__copy {
+  position: static !important;
+
+  grid-column: 2 !important;
+  grid-row: 1 !important;
+  justify-self: end !important;
+  align-self: start !important;
+
+  width: min(100%, 720px) !important;
+  max-width: 720px !important;
+  padding-top: 4px !important;
+
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  text-align: left !important;
+  z-index: 3 !important;
+}
+
+/* Khối Internal portal bên phải phía trên */
+.portal-tag,
+.portal-hero__intro,
+.portal-hero__copy h1,
+.portal-hero__copy p,
+.portal-hero__chips {
+  position: relative !important;
+  z-index: 3 !important;
+}
+
+.portal-hero__copy h1 {
+  max-width: 700px !important;
+  font-size: clamp(2rem, 3vw, 3.25rem) !important;
+  line-height: 1.08 !important;
+  letter-spacing: -0.045em !important;
+}
+
+.portal-hero__intro,
+.portal-hero__intro p,
+.portal-hero__chips {
+  width: 100% !important;
+  max-width: 700px !important;
+}
+
+.portal-hero__chips {
+  justify-content: flex-start !important;
+}
+
+/* Khối YOUNGONE / BROADPEAK SOC TRANG lên top bên tay trái */
+.portal-hero__card--company {
+  position: relative !important;
+
+  grid-column: 1 !important;
+  grid-row: 1 !important;
+  justify-self: start !important;
+  align-self: start !important;
+
+  width: min(100%, 650px) !important;
+  max-width: 650px !important;
+  margin: 0 !important;
+  padding: 20px !important;
+
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 14px !important;
+  z-index: 3 !important;
+}
+
+.portal-hero__logo-box {
+  grid-column: 1 / -1 !important;
+  min-height: 122px !important;
+}
+
+.portal-hero-stat {
+  min-height: 112px !important;
+}
+
+/* Card Pinned notice đưa vào vị trí cũ của BROADPEAK SOC TRANG: bên phải phía dưới */
+.portal-hero-latest-notice {
+  position: absolute !important;
+  right: 46px !important;
+  left: auto !important;
+  bottom: 46px !important;
+  top: auto !important;
+
+  width: min(620px, calc(50% - 75px)) !important;
+  max-width: 620px !important;
+  margin: 0 !important;
+
+  z-index: 4 !important;
+}
+
+/* Tablet */
+@media (max-width: 1280px) {
+  .portal-hero__surface {
+    grid-template-columns: minmax(420px, 0.48fr) minmax(480px, 0.52fr) !important;
+    gap: 22px 28px !important;
+    min-height: clamp(620px, 56vw, 760px) !important;
+  }
+
+  .portal-hero__card--company {
+    grid-column: 1 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .portal-hero__copy {
+    grid-column: 2 !important;
+    width: 100% !important;
+  }
+
+  .portal-hero-latest-notice {
+    right: 32px !important;
+    bottom: 32px !important;
+    width: min(520px, calc(52% - 48px)) !important;
+    max-width: 520px !important;
+  }
+}
+
+/* Mobile: chuyển về 1 cột để không vỡ layout */
+@media (max-width: 900px) {
+  .portal-hero__surface {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto !important;
+    padding: 28px 20px !important;
+    min-height: auto !important;
+    background-position: center center !important;
+  }
+
+  .portal-hero__card--company,
+  .portal-hero__copy {
+    grid-column: 1 !important;
+    grid-row: auto !important;
+    justify-self: stretch !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .portal-hero__card--company {
+    order: 1 !important;
+    grid-template-columns: 1fr !important;
+  }
+
+  .portal-hero__copy {
+    order: 2 !important;
+  }
+
+  .portal-hero-latest-notice {
+    position: relative !important;
+    right: auto !important;
+    left: auto !important;
+    bottom: auto !important;
+    top: auto !important;
+
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-top: 18px !important;
+    margin-left: 0 !important;
+    align-self: stretch !important;
+  }
+}
+
+/* ===== FIX FINAL V6: Smaller hero cards and title text =====
+   Yêu cầu:
+   - Giảm kích thước các khối trong hero.
+   - Giảm chữ "Internal portal for notices, documents, and links."
+   - Giữ bố cục: Company top-left, Pinned notice bên phải vị trí cũ.
+*/
+
+/* Giảm chiều cao và padding tổng thể của hero */
+.portal-hero__surface {
+  min-height: clamp(500px, 38vw, 570px) !important;
+  padding: 38px !important;
+  gap: 18px 44px !important;
+}
+
+/* Giảm khối chữ Internal portal */
+.portal-hero__copy {
+  width: min(100%, 620px) !important;
+  max-width: 620px !important;
+  padding-top: 0 !important;
+}
+
+.portal-hero__copy h1 {
+  max-width: 600px !important;
+  font-size: clamp(1.55rem, 2.25vw, 2.55rem) !important;
+  line-height: 1.12 !important;
+  letter-spacing: -0.035em !important;
+  margin-bottom: 10px !important;
+}
+
+.portal-hero__copy p,
+.portal-hero__intro p {
+  max-width: 600px !important;
+  font-size: 0.88rem !important;
+  line-height: 1.58 !important;
+}
+
+.portal-tag {
+  min-height: 32px !important;
+  padding: 0 12px !important;
+  margin-bottom: 12px !important;
+  font-size: 0.68rem !important;
+}
+
+/* Giảm kích thước các nút Pinned notice / Internal documents / Work links / Quick search */
+.portal-hero__chips {
+  gap: 8px !important;
+  margin-top: 14px !important;
+  max-width: 600px !important;
+}
+
+.portal-chip {
+  min-height: 32px !important;
+  padding: 0 12px !important;
+  font-size: 0.72rem !important;
+}
+
+/* Giảm khối company bên trái */
+.portal-hero__card--company {
+  width: min(100%, 560px) !important;
+  max-width: 560px !important;
+  padding: 16px !important;
+  gap: 10px !important;
+}
+
+.portal-hero__logo-box {
+  min-height: 96px !important;
+  padding: 16px !important;
+  border-radius: 20px !important;
+  gap: 14px !important;
+}
+
+.portal-hero__logo {
+  width: 150px !important;
+  max-width: 38% !important;
+}
+
+.portal-hero__logo-copy strong {
+  font-size: 0.92rem !important;
+}
+
+.portal-hero__logo-copy span {
+  font-size: 0.78rem !important;
+  line-height: 1.55 !important;
+}
+
+.portal-hero-stat {
+  min-height: 88px !important;
+  padding: 12px 10px !important;
+  border-radius: 18px !important;
+}
+
+.portal-hero-stat small {
+  font-size: 0.66rem !important;
+  letter-spacing: 0.07em !important;
+}
+
+.portal-hero-stat strong {
+  margin-top: 8px !important;
+  font-size: clamp(1.25rem, 1.65vw, 1.75rem) !important;
+}
+
+/* Giảm kích thước card Pinned notice bên phải */
+.portal-hero-latest-notice {
+  right: 38px !important;
+  bottom: 38px !important;
+  width: min(500px, calc(50% - 62px)) !important;
+  max-width: 500px !important;
+  padding: 14px !important;
+  border-radius: 22px !important;
+}
+
+.portal-hero-latest-notice__badge {
+  min-height: 30px !important;
+  padding: 0 11px !important;
+  font-size: 0.68rem !important;
+}
+
+.portal-hero-latest-notice h3 {
+  margin-top: 10px !important;
+  font-size: 0.92rem !important;
+  line-height: 1.34 !important;
+}
+
+.portal-hero-latest-notice p {
+  margin-top: 6px !important;
+  font-size: 0.78rem !important;
+  line-height: 1.5 !important;
+}
+
+.portal-hero-latest-notice .portal-file-actions {
+  margin-top: 10px !important;
+}
+
+.portal-hero-latest-notice .portal-file-actions .portal-btn {
+  min-height: 32px !important;
+  padding: 0 11px !important;
+  font-size: 0.72rem !important;
+}
+
+.portal-hero-latest-notice .portal-meta-pill {
+  min-height: 28px !important;
+  padding: 0 9px !important;
+  font-size: 0.68rem !important;
+}
+
+/* Tablet */
+@media (max-width: 1280px) {
+  .portal-hero__surface {
+    min-height: clamp(560px, 52vw, 680px) !important;
+    padding: 34px !important;
+    gap: 18px 26px !important;
+  }
+
+  .portal-hero__card--company {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .portal-hero-latest-notice {
+    right: 34px !important;
+    bottom: 34px !important;
+    width: min(480px, calc(52% - 50px)) !important;
+    max-width: 480px !important;
+  }
+}
+
+/* Mobile */
+@media (max-width: 900px) {
+  .portal-hero__surface {
+    padding: 24px 18px !important;
+    min-height: auto !important;
+  }
+
+  .portal-hero__copy h1 {
+    font-size: 1.75rem !important;
+  }
+
+  .portal-hero__card--company,
+  .portal-hero-latest-notice {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .portal-hero-latest-notice {
+    right: auto !important;
+    bottom: auto !important;
+  }
+}
+
+/* ===== FIX: Company card top spacing =====
+   Chỉnh khoảng cách top cho card:
+   <div className="portal-hero__card portal-hero__card--company">
+*/
+.portal-hero__card--company {
+  align-self: start !important;
+  margin-top: 72px !important;
+}
+
+/* Tablet */
+@media (max-width: 1280px) {
+  .portal-hero__card--company {
+    margin-top: 56px !important;
+  }
+}
+
+/* Mobile */
+@media (max-width: 900px) {
+  .portal-hero__card--company {
+    margin-top: 0 !important;
+  }
+}
+
+/* ===== FIX FINAL V10: Align Internal portal with Pinned notice =====
+   Yêu cầu:
+   - Căn lại khối "Internal portal for notices, documents, and links."
+   - Card Pinned notice nằm cùng trục, cùng độ rộng với khối Internal portal.
+   - Hai khối hài hòa hơn, không lệch phải quá nhiều.
+*/
+
+/* Cột bên phải chứa Internal portal + Pinned notice */
+.portal-hero__copy {
+  grid-column: 2 !important;
+  justify-self: end !important;
+  align-self: start !important;
+
+  width: min(100%, 620px) !important;
+  max-width: 620px !important;
+  padding-top: 8px !important;
+
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  text-align: left !important;
+
+  position: relative !important;
+  z-index: 5 !important;
+}
+
+/* Giảm nhẹ chữ title để không bị quá to và cân với Pinned notice */
+.portal-hero__copy h1 {
+  max-width: 620px !important;
+  font-size: clamp(1.9rem, 2.8vw, 3rem) !important;
+  line-height: 1.08 !important;
+  letter-spacing: -0.04em !important;
+  margin-bottom: 10px !important;
+}
+
+.portal-hero__copy p,
+.portal-hero__intro p {
+  max-width: 620px !important;
+  font-size: 0.92rem !important;
+  line-height: 1.62 !important;
+}
+
+/* Các nút nằm cùng hàng và cùng mép với title */
+.portal-hero__chips {
+  width: 100% !important;
+  max-width: 620px !important;
+  margin-top: 16px !important;
+  justify-content: flex-start !important;
+  gap: 8px !important;
+}
+
+/* Pinned notice đưa về nằm trong cùng cột với Internal portal */
+.portal-hero-latest-notice {
+  position: relative !important;
+  left: auto !important;
+  right: auto !important;
+  top: auto !important;
+  bottom: auto !important;
+
+  width: 100% !important;
+  max-width: 620px !important;
+  margin: 22px 0 0 0 !important;
+
+  padding: 16px !important;
+  border-radius: 24px !important;
+  z-index: 5 !important;
+}
+
+/* Gọn lại phần nội dung trong Pinned notice */
+.portal-hero-latest-notice h3 {
+  margin-top: 10px !important;
+  font-size: 0.98rem !important;
+  line-height: 1.35 !important;
+}
+
+.portal-hero-latest-notice p {
+  margin-top: 7px !important;
+  font-size: 0.82rem !important;
+  line-height: 1.52 !important;
+  -webkit-line-clamp: 2 !important;
+}
+
+.portal-hero-latest-notice .portal-file-actions {
+  margin-top: 12px !important;
+}
+
+/* Đảm bảo company card bên trái không bị ảnh hưởng */
+.portal-hero__card--company {
+  grid-column: 1 !important;
+  justify-self: start !important;
+  z-index: 4 !important;
+}
+
+/* Tablet */
+@media (max-width: 1280px) {
+  .portal-hero__copy {
+    width: min(100%, 580px) !important;
+    max-width: 580px !important;
+  }
+
+  .portal-hero__copy h1,
+  .portal-hero__copy p,
+  .portal-hero__intro p,
+  .portal-hero__chips,
+  .portal-hero-latest-notice {
+    max-width: 580px !important;
+  }
+}
+
+/* Mobile */
+@media (max-width: 900px) {
+  .portal-hero__copy {
+    grid-column: 1 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding-top: 0 !important;
+  }
+
+  .portal-hero-latest-notice {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-top: 18px !important;
+  }
 }

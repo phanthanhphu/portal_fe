@@ -26,6 +26,57 @@ function toAbsoluteUrl(path) {
   return `${API_BASE_URL}${path.startsWith("/") ? "" : "/"}${path}`;
 }
 
+function normalizeExternalUrl(value) {
+  const rawUrl = String(value || "").trim();
+
+  if (!rawUrl) return "#";
+  if (/^(https?:\/\/|mailto:|tel:|sms:)/i.test(rawUrl)) return rawUrl;
+  if (rawUrl.startsWith("//")) return `${window.location.protocol}${rawUrl}`;
+  if (rawUrl.startsWith("/") || rawUrl.startsWith("#")) return rawUrl;
+
+  // Browser address bar auto-fixes values like "10.232.100.68:8081" or "intranet.local".
+  // React <a href> does not, so the portal accidentally routes them through the current app.
+  const looksLikeHost =
+    /^(\d{1,3}\.){3}\d{1,3}(:\d+)?([/?#].*)?$/i.test(rawUrl) ||
+    /^[a-z0-9.-]+\.[a-z]{2,}(:\d+)?([/?#].*)?$/i.test(rawUrl) ||
+    /^[a-z0-9-]+:\d+([/?#].*)?$/i.test(rawUrl);
+
+  return looksLikeHost ? `http://${rawUrl}` : rawUrl;
+}
+
+function openExternalUrl(event, value) {
+  const targetUrl = normalizeExternalUrl(value);
+
+  if (!targetUrl || targetUrl === "#") {
+    event?.preventDefault();
+    return;
+  }
+
+  // Open immediately from the click event, with noopener, to avoid slow portal-side navigation.
+  event?.preventDefault();
+  window.open(targetUrl, "_blank", "noopener,noreferrer");
+}
+
+function getPreviewFileUrlParam(fileUrl) {
+  const rawUrl = String(fileUrl || "").trim();
+  if (!rawUrl) return "";
+
+  try {
+    const apiBase = new URL(API_BASE_URL, window.location.origin);
+    const parsedUrl = new URL(rawUrl, apiBase.origin);
+
+    // The backend preview endpoint should receive the internal file path, not a full URL.
+    // Passing http://host/files/... can be rejected by the backend as an external URL.
+    if (parsedUrl.origin === apiBase.origin) {
+      return `${parsedUrl.pathname}${parsedUrl.search}`;
+    }
+  } catch (error) {
+    // Keep the original value below when URL parsing is not available.
+  }
+
+  return rawUrl;
+}
+
 
 function normalizeFileUrl(value) {
   return String(value || "").trim();
@@ -199,8 +250,8 @@ function isOfficePreviewFile(item, mimeType = "") {
 function getPreviewDisplayType(previewState) {
   const type = String(previewState.originalFileType || previewState.item?.fileType || inferFileType(previewState.item?.fileUrl) || "").toUpperCase();
 
-  if (previewState.previewKind === "pdf" && OFFICE_PREVIEW_TYPES.has(type)) {
-    return `${type} preview`;
+  if (previewState.previewKind === "pdf") {
+    return `${type || "File"} PDF preview`;
   }
 
   if (previewState.previewKind === "office-fallback") return `${type || "Office"} preview`;
@@ -846,10 +897,8 @@ function getPreviewKind(item, mimeType = "") {
   return "other";
 }
 
-function isOfficeFileForPreview(item) {
-  const fileType = String(item?.fileType || inferFileType(item?.fileUrl) || "").toUpperCase();
-
-  return ["DOC", "DOCX", "XLS", "XLSX", "PPT", "PPTX"].includes(fileType);
+function shouldUsePdfPreview(item) {
+  return Boolean(item?.fileUrl || getItemFileUrls(item)[0]);
 }
 
 async function fetchPreviewBlob(fileUrl, accept = "*/*") {
@@ -867,7 +916,7 @@ async function fetchPreviewBlob(fileUrl, accept = "*/*") {
   return { blob, mimeType };
 }
 
-async function buildOfficePreviewAsPdf(item) {
+async function buildFilePreviewAsPdf(item) {
   const previewUrl = item?.previewUrl || "";
   const previewFileType = inferFileType(previewUrl);
 
@@ -883,12 +932,18 @@ async function buildOfficePreviewAsPdf(item) {
     };
   }
 
+  const backendFileUrl = getPreviewFileUrlParam(item?.fileUrl || "");
+
+  if (!backendFileUrl) {
+    throw new Error("Missing file URL for PDF preview.");
+  }
+
   const token = localStorage.getItem("token");
   const headers = { Accept: "application/pdf" };
   if (token) headers.Authorization = `Bearer ${token}`;
 
   const response = await fetch(
-    `${API_BASE_URL}/api/files/preview-pdf?fileUrl=${encodeURIComponent(item?.fileUrl || "")}`,
+    `${API_BASE_URL}/api/files/preview-pdf?fileUrl=${encodeURIComponent(backendFileUrl)}`,
     { headers },
   );
 
@@ -907,7 +962,7 @@ async function buildOfficePreviewAsPdf(item) {
     }
 
     throw new Error(
-      backendMessage || `Failed to convert Office file to PDF: ${response.status}`,
+      backendMessage || `Failed to convert file to PDF: ${response.status}`,
     );
   }
 
@@ -926,6 +981,17 @@ async function buildPreviewData(item, blob, mimeType = "") {
   const previewKind = getPreviewKind(item, mimeType);
   const originalFileType = String(item?.fileType || inferFileType(item?.fileUrl) || "").toUpperCase();
 
+  // Main rule: preview should be PDF for every attached file type.
+  // If backend cannot convert a specific type, the old viewer below remains as a fallback.
+  try {
+    return {
+      ...(await buildFilePreviewAsPdf(item)),
+      originalFileType,
+    };
+  } catch (error) {
+    console.warn("PDF preview conversion failed, falling back to legacy preview:", error);
+  }
+
   if (previewKind === "image" || previewKind === "pdf") {
     return {
       previewKind,
@@ -941,11 +1007,11 @@ async function buildPreviewData(item, blob, mimeType = "") {
   if (previewKind === "office") {
     try {
       return {
-        ...(await buildOfficePreviewAsPdf(item)),
+        ...(await buildFilePreviewAsPdf(item)),
         originalFileType,
       };
     } catch (error) {
-      console.warn("Office PDF preview conversion failed:", error);
+      console.warn("PDF preview conversion failed:", error);
     }
 
     if (originalFileType === "DOCX") {
@@ -2131,7 +2197,7 @@ export default function PageHome() {
       const normalizedApps = (data.content || []).map((item) => ({
         id: item.id,
         name: item.name || "Application",
-        url: item.url ? toAbsoluteUrl(item.url) : "#",
+        url: normalizeExternalUrl(item.url),
         icon: item.icon ? toAbsoluteUrl(item.icon) : "",
       }));
 
@@ -2795,13 +2861,12 @@ export default function PageHome() {
     try {
       const originalFileType = String(item?.fileType || inferFileType(item?.fileUrl) || "").toUpperCase();
 
-      // Optimization:
-      // Office files should go directly to backend PDF preview.
-      // Do not download the original DOC/XLS/PPT to the browser first.
-      // This avoids double network work: browser download + backend convert.
-      if (isOfficeFileForPreview(item)) {
+      // All preview files should go through backend PDF preview.
+      // This keeps DOC/DOCX/XLS/XLSX/CSV/PPT/PPTX/PDF/IMG/TXT and other files
+      // in one preview flow instead of mixing direct image/text/Office preview paths.
+      if (shouldUsePdfPreview(item)) {
         try {
-          const previewData = await buildOfficePreviewAsPdf(item);
+          const previewData = await buildFilePreviewAsPdf(item);
 
           setPreviewState({
             open: true,
@@ -2814,23 +2879,29 @@ export default function PageHome() {
             ...previewData,
           });
           return;
-        } catch (officeError) {
-          console.warn("Office PDF preview conversion failed:", officeError);
-          // Fall through to old browser-side fallback for DOCX/XLSX where possible.
+        } catch (pdfError) {
+          console.warn("PDF preview conversion failed:", pdfError);
+          setPreviewState({
+            ...EMPTY_PREVIEW_STATE,
+            open: true,
+            loading: false,
+            error: "Unable to convert this file to PDF preview. Please check the backend preview-pdf service or download the original file.",
+            item,
+            fileName: getDownloadFileName(item),
+            originalFileType,
+          });
+          return;
         }
       }
 
-      const { blob, mimeType } = await fetchProtectedFile(item.fileUrl);
-      const previewData = await buildPreviewData(item, blob, mimeType);
-
       setPreviewState({
+        ...EMPTY_PREVIEW_STATE,
         open: true,
         loading: false,
-        error: "",
+        error: "This item has no attached file.",
         item,
-        mimeType,
         fileName: getDownloadFileName(item),
-        ...previewData,
+        originalFileType,
       });
     } catch (error) {
       setPreviewState({
@@ -3421,7 +3492,9 @@ const visibleNotices = useMemo(() => {
                     key={app.id}
                     href={app.url || "#"}
                     target="_blank"
-                    rel="noreferrer"
+                    rel="noopener noreferrer"
+                    referrerPolicy="no-referrer"
+                    onClick={(event) => openExternalUrl(event, app.url)}
                     className="portal-mobile-subitem"
                   >
                     {app.name}
@@ -3479,7 +3552,9 @@ const visibleNotices = useMemo(() => {
             <div className="portal-shell">
               <div
                 className="portal-hero__surface"
-                style={{ backgroundImage: `linear-gradient(120deg, rgba(7, 16, 39, 0.42), rgba(7, 16, 39, 0.14)), url(${COMPANY_BG_URL})` }}
+                style={{
+                  backgroundImage: `linear-gradient(120deg, rgba(7, 16, 39, 0.34), rgba(7, 16, 39, 0.18)), url(${COMPANY_BG_URL})`
+                }}
               >
                 <div className="portal-hero__copy">
                   <div className="portal-tag">HOME PAGE</div>
@@ -3590,7 +3665,9 @@ const visibleNotices = useMemo(() => {
                               key={app.id}
                               href={app.url || "#"}
                               target="_blank"
-                              rel="noreferrer"
+                              rel="noopener noreferrer"
+                              referrerPolicy="no-referrer"
+                              onClick={(event) => openExternalUrl(event, app.url)}
                               className="portal-link-card"
                             >
                               <div className="portal-link-card__left">
