@@ -901,10 +901,25 @@ function shouldUsePdfPreview(item) {
   return Boolean(item?.fileUrl || getItemFileUrls(item)[0]);
 }
 
+function isPreviewPublicUrl(url = "") {
+  const value = String(url || "");
+
+  return value.includes("/api/files/preview-pdf")
+    || value.includes("/files/")
+    || value.includes("/uploads/");
+}
+
 async function fetchPreviewBlob(fileUrl, accept = "*/*") {
   const token = localStorage.getItem("token");
-  const headers = { Accept: accept };
-  if (token) headers.Authorization = `Bearer ${token}`;
+  const headers = {
+    Accept: accept || "*/*",
+  };
+
+  // Không gắn Authorization cho file public/preview.
+  // Tránh trường hợp token cũ/hết hạn làm riêng API preview bị 403.
+  if (token && !isPreviewPublicUrl(fileUrl)) {
+    headers.Authorization = `Bearer ${token}`;
+  }
 
   const response = await fetch(fileUrl, { headers });
   if (!response.ok) {
@@ -938,13 +953,17 @@ async function buildFilePreviewAsPdf(item) {
     throw new Error("Missing file URL for PDF preview.");
   }
 
-  const token = localStorage.getItem("token");
-  const headers = { Accept: "application/pdf" };
-  if (token) headers.Authorization = `Bearer ${token}`;
+  const previewPdfUrl = `${API_BASE_URL}/api/files/preview-pdf?fileUrl=${encodeURIComponent(backendFileUrl)}`;
 
   const response = await fetch(
-    `${API_BASE_URL}/api/files/preview-pdf?fileUrl=${encodeURIComponent(backendFileUrl)}`,
-    { headers },
+    previewPdfUrl,
+    {
+      method: "GET",
+      headers: {
+        // Vẫn ưu tiên nhận PDF, nhưng cho phép backend trả JSON/text khi có lỗi.
+        Accept: "application/pdf, application/json, text/plain, */*",
+      },
+    },
   );
 
   if (!response.ok) {
