@@ -1658,7 +1658,7 @@ function DocumentWorkspaceCascade({
             <IconFileText />
           </span>
           <div>
-            <h2>Document</h2>
+            <h2>Documents</h2>
             <span>{loadingForms ? "Loading..." : `${documentTypes.length} types available`}</span>
           </div>
         </div>
@@ -3740,7 +3740,7 @@ const visibleNotices = useMemo(() => {
 
                 <article className="portal-panel portal-panel--notice">
                   <PanelHeader
-                    title="Notice"
+                    title="Notices"
                     icon={<IconBell />}
                     count={noticeDisplayCount}
                   />
