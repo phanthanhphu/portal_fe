@@ -8224,3 +8224,31 @@ body:has(.portal-more-file-popup-backdrop) {
     margin-top: 18px !important;
   }
 }
+
+/* ===== FINAL FIX: hero background full width, taller, show lower part =====
+   2 background layers:
+   1) gradient overlay/background: full hero layout
+   2) background.JPG image: full width, taller vertically, shifted downward to show more lower area
+*/
+.portal-hero__surface {
+  background-size: 100% 100%, 100% 118% !important;
+  background-position: center center, center 68% !important;
+  background-repeat: no-repeat, no-repeat !important;
+  background-color: #102451 !important;
+}
+
+/* Tablet */
+@media (max-width: 1280px) {
+  .portal-hero__surface {
+    background-size: 100% 100%, 100% 114% !important;
+    background-position: center center, center 64% !important;
+  }
+}
+
+/* Mobile */
+@media (max-width: 900px) {
+  .portal-hero__surface {
+    background-size: 100% 100%, 100% 108% !important;
+    background-position: center center, center 58% !important;
+  }
+}
