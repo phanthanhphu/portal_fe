@@ -100,7 +100,7 @@ export default function ResetPasswordDialog({ open, onClose, onUpdate, user }) {
     setSaving(true);
 
     try {
-      const res = await fetch(`${API_BASE_URL}/users/reset-password`, {
+      const res = await fetch(`${API_BASE_URL}/api/users/reset-password`, {
         method: 'POST',
         headers: {
           accept: '*/*',

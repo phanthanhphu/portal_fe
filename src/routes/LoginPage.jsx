@@ -39,6 +39,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [loginError, setLoginError] = useState('');
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -47,21 +48,30 @@ export default function LoginPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email || !password) {
-      toast.error('Please enter both email and password.');
+
+    const cleanEmail = email.trim();
+
+    if (!cleanEmail || !password) {
+      const message = 'Please enter both email and password.';
+      setLoginError(message);
+      toast.error(message);
       return;
     }
 
     setSubmitting(true);
+    setLoginError('');
+
     try {
-      const res = await fetch(`${API_BASE_URL}/users/login`, {
+      const res = await fetch(`${API_BASE_URL}/api/users/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email: cleanEmail, password })
       });
 
-      if (res.ok) {
-        const data = await res.json();
+      const contentType = res.headers.get('content-type') || '';
+      const data = contentType.includes('application/json') ? await res.json() : null;
+
+      if (res.ok && data?.token) {
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
         localStorage.setItem('isAuthenticated', 'true');
@@ -69,21 +79,32 @@ export default function LoginPage() {
 
         toast.success('Login successful! Redirecting...');
         navigate(APP_LINKS_PATH, { replace: true });
-
-        setTimeout(() => window.location.reload(), 120);
         return;
       }
 
-      const contentType = res.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        const errData = await res.json();
-        toast.error(`Login failed: ${errData.message || 'Unknown error'}`);
-      } else {
-        toast.error('The email or password you entered is incorrect. Please try again.');
+      let message = data?.message || 'The email or password you entered is incorrect. Please try again.';
+
+      if (res.status === 401 || res.status === 404) {
+        message = 'The email or password you entered is incorrect. Please try again.';
       }
+
+      if (res.status === 403) {
+        message = data?.message || 'Your account has been disabled. Please contact the administrator.';
+      }
+
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('isAuthenticated');
+      localStorage.removeItem('role');
+
+      setLoginError(message);
+      setPassword('');
+      toast.error(message);
     } catch (err) {
       console.error(err);
-      toast.error('Unable to connect to the server!');
+      const message = 'Unable to connect to the server!';
+      setLoginError(message);
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }
@@ -351,13 +372,16 @@ export default function LoginPage() {
                   If you don’t have an account, contact admin to request access.
                 </Typography>
 
-                <Box component="form" onSubmit={handleSubmit} sx={{ mt: 3 }}>
+                <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 3 }}>
                   <Stack spacing={2}>
                     <TextField
                       label="Email"
                       placeholder="join.st@youngonevn.com"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        if (loginError) setLoginError('');
+                      }}
                       autoComplete="email"
                       fullWidth
                       InputLabelProps={{ sx: { fontWeight: 700 } }}
@@ -373,7 +397,10 @@ export default function LoginPage() {
                       label="Password"
                       placeholder="Enter password"
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        if (loginError) setLoginError('');
+                      }}
                       type={showPw ? 'text' : 'password'}
                       autoComplete="current-password"
                       fullWidth
@@ -387,6 +414,7 @@ export default function LoginPage() {
                           </InputAdornment>
                         )
                       }}
+                      error={Boolean(loginError)}
                       sx={{
                         '& .MuiOutlinedInput-root': {
                           borderRadius: 3,
@@ -394,6 +422,21 @@ export default function LoginPage() {
                         }
                       }}
                     />
+
+                    {loginError && (
+                      <Box
+                        sx={{
+                          p: 1.35,
+                          borderRadius: 2.5,
+                          border: `1px solid ${alpha('#ef4444', 0.35)}`,
+                          backgroundColor: alpha('#ef4444', 0.08)
+                        }}
+                      >
+                        <Typography sx={{ fontSize: '0.88rem', fontWeight: 800, color: '#b91c1c' }}>
+                          {loginError}
+                        </Typography>
+                      </Box>
+                    )}
 
                     <Button
                       type="submit"

@@ -6,14 +6,16 @@ import companyLogo from "./youngone-logo.png";
 import companyBg from "./background.JPG";
 import "./PageHome.css";
 import { LinksHoverMenu, DocumentHoverMenu, NoticeHoverMenu } from "./HeaderHoverMenus";
+
 import { API_BASE_URL } from '../../config';
 
-const APPS_API_BASE = `${API_BASE_URL}/api/app-links`;
-const FORMS_API_BASE = `${API_BASE_URL}/api/forms`;
-const DOCUMENT_TYPES_API_BASE = `${API_BASE_URL}/api/document-types`;
-const NOTICES_API_BASE = `${API_BASE_URL}/api/notices`;
-const DEPARTMENTS_API_BASE = `${API_BASE_URL}/api/departments`;
+const API_ORIGIN = API_BASE_URL.replace(/\/$/, '');
 
+const APPS_API_BASE = `${API_ORIGIN}/api/app-links`;
+const FORMS_API_BASE = `${API_ORIGIN}/api/forms`;
+const DOCUMENT_TYPES_API_BASE = `${API_ORIGIN}/api/document-types`;
+const NOTICES_API_BASE = `${API_ORIGIN}/api/notices`;
+const DEPARTMENTS_API_BASE = `${API_ORIGIN}/api/departments`;
 
 const FORMS_PAGE_PATH = "/forms";
 const NOTICES_PAGE_PATH = "/notices";
@@ -22,8 +24,28 @@ const MENU_MAX_VISIBLE_ITEMS = 4;
 
 function toAbsoluteUrl(path) {
   if (!path) return "";
-  if (path.startsWith("http://") || path.startsWith("https://")) return path;
-  return `${API_BASE_URL}${path.startsWith("/") ? "" : "/"}${path}`;
+
+  const raw = String(path).trim();
+  const origin = API_ORIGIN; // https://homepage.youngone.com.vn:8081
+
+  try {
+    const parsed = new URL(raw, origin);
+
+    const isLocalFile =
+      parsed.pathname.startsWith("/uploads") ||
+      parsed.pathname.startsWith("/files") ||
+      parsed.pathname.startsWith("/api") ||
+      parsed.pathname.startsWith("/ws");
+
+    if (isLocalFile) {
+      return `${origin}${parsed.pathname}${parsed.search}${parsed.hash}`;
+    }
+
+    return raw;
+  } catch {
+    if (raw.startsWith("/")) return `${origin}${raw}`;
+    return `${origin}/${raw}`;
+  }
 }
 
 function normalizeExternalUrl(value) {
@@ -62,7 +84,7 @@ function getPreviewFileUrlParam(fileUrl) {
   if (!rawUrl) return "";
 
   try {
-    const apiBase = new URL(API_BASE_URL, window.location.origin);
+    const apiBase = new URL(API_ORIGIN, window.location.origin);
     const parsedUrl = new URL(rawUrl, apiBase.origin);
 
     // The backend preview endpoint should receive the internal file path, not a full URL.
@@ -953,7 +975,7 @@ async function buildFilePreviewAsPdf(item) {
     throw new Error("Missing file URL for PDF preview.");
   }
 
-  const previewPdfUrl = `${API_BASE_URL}/api/files/preview-pdf?fileUrl=${encodeURIComponent(backendFileUrl)}`;
+  const previewPdfUrl = `${API_ORIGIN}/api/files/preview-pdf?fileUrl=${encodeURIComponent(backendFileUrl)}`;
 
   const response = await fetch(
     previewPdfUrl,
@@ -2669,7 +2691,7 @@ export default function PageHome() {
 
   useEffect(() => {
     const client = new Client({
-      webSocketFactory: () => new SockJS(`${API_BASE_URL}/ws`),
+      webSocketFactory: () => new SockJS(`${API_ORIGIN}/ws`),
       reconnectDelay: 5000,
       debug: () => {},
 
@@ -3469,7 +3491,7 @@ const visibleNotices = useMemo(() => {
                   loading={loadingDepartments}
                   error={errorDepartments}
                   noticesApiBase={NOTICES_API_BASE}
-                  apiBaseUrl={API_BASE_URL}
+                  apiBaseUrl={API_ORIGIN}
                   onPreview={handleOpenMenuPreview}
                   onDownload={handleDownloadFile}
                   FileTypeBadge={FileTypeBadge}

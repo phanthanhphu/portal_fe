@@ -301,7 +301,7 @@ const AddUserDialog = ({ open, onClose, onAdd }) => {
 
     setSaving(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/users/add`, {
+      const res = await fetch(`${API_BASE_URL}/api/users/add`, {
         method: 'POST',
         headers: { accept: '*/*' },
         body: formDataToSend,

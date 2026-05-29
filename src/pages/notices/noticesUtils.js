@@ -1,16 +1,23 @@
 // noticesUtils.js
 import axios from 'axios';
-import { API_BASE_URL } from '../../config';
+import { API_ROOT, FILE_ROOT } from '../../config';
 
 export const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  headers: { Accept: '*/*', 'Content-Type': 'application/json' },
+  baseURL: API_ROOT,
+  headers: {
+    Accept: '*/*',
+    'Content-Type': 'application/json'
+  }
 });
 
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
-    if (token) config.headers.Authorization = `Bearer ${token}`;
+
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
     return config;
   },
   (error) => Promise.reject(error)
@@ -23,6 +30,7 @@ apiClient.interceptors.response.use(
       localStorage.removeItem('token');
       window.location.href = '/login';
     }
+
     return Promise.reject(error);
   }
 );
@@ -34,11 +42,14 @@ export const formatDateTime = (value) => {
   if (Array.isArray(value)) {
     const [y, m, d, hh = 0, mm = 0, ss = 0] = value;
     const dt = new Date(y, m - 1, d, hh, mm, ss);
+
     if (Number.isNaN(dt.getTime())) return '-';
+
     return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y} ${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
   }
 
   const dt = new Date(value);
+
   if (Number.isNaN(dt.getTime())) return '-';
 
   return `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}/${dt.getFullYear()} ${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
@@ -58,29 +69,23 @@ export const pillSx = {
   mx: 'auto',
 };
 
-export const getApiOrigin = () => {
-  try {
-    return new URL(API_BASE_URL).origin;
-  } catch {
-    return window.location.origin;
-  }
-};
-
 export const getNoticeFileUrl = (item) => {
   const rawUrl = item?.fileUrl || '';
+
   if (!rawUrl) return '';
 
-  if (/^(https?:|blob:|data:)/i.test(rawUrl)) return rawUrl;
-
-  const origin = getApiOrigin();
-  if (rawUrl.startsWith('/')) {
-    return `${origin}${rawUrl}`;
+  if (/^(https?:|blob:|data:)/i.test(rawUrl)) {
+    return rawUrl;
   }
-  return `${origin}/${String(rawUrl).replace(/^\.?\//, '')}`;
+
+  const cleanPath = String(rawUrl).replace(/^\.?\//, '').replace(/^\/+/, '');
+
+  return `${FILE_ROOT}/${cleanPath}`;
 };
 
 export const getNoticeFileName = (item) => {
   const fileUrl = getNoticeFileUrl(item);
+
   if (!fileUrl) return '';
 
   try {
@@ -93,10 +98,12 @@ export const getNoticeFileName = (item) => {
 
 export const getFileTypeFromUrl = (item) => {
   const name = String(getNoticeFileName(item) || '').toLowerCase();
+
   if (name.endsWith('.pdf')) return 'PDF';
   if (/\.(png|jpg|jpeg|gif|webp|bmp|svg)$/.test(name)) return 'IMAGE';
   if (name.endsWith('.doc')) return 'DOC';
   if (name.endsWith('.docx')) return 'DOCX';
+
   return 'FILE';
 };
 
@@ -112,11 +119,11 @@ export const getFileTypeColor = (fileType) =>
 export const getPreviewKind = (item, mimeType = '') => {
   const lowerMime = String(mimeType || '').toLowerCase();
   const fileType = String(getFileTypeFromUrl(item) || '').toUpperCase();
-  const fileName = String(getNoticeFileName(item) || '').toLowerCase();
 
   if (lowerMime.startsWith('image/') || fileType === 'IMAGE') return 'image';
   if (lowerMime.includes('pdf') || fileType === 'PDF') return 'pdf';
   if (fileType === 'DOC' || fileType === 'DOCX') return 'doc';
+
   return 'other';
 };
 
@@ -146,9 +153,15 @@ export const headers = [
 /* ====================== API FUNCTIONS ====================== */
 export const fetchNotices = async (page = 0, size = 12, searchTitle = '', searchContent = '') => {
   try {
-    const response = await apiClient.get('/api/notices/search', {
-      params: { page, size, title: searchTitle, content: searchContent },
+    const response = await apiClient.get('/notices/search', {
+      params: {
+        page,
+        size,
+        title: searchTitle,
+        content: searchContent,
+      },
     });
+
     return {
       content: response.data?.content || [],
       totalElements: response.data?.totalElements || 0,
@@ -156,16 +169,26 @@ export const fetchNotices = async (page = 0, size = 12, searchTitle = '', search
     };
   } catch (error) {
     console.error('Error fetching notices:', error);
-    return { content: [], totalElements: 0, totalPages: 1 };
+
+    return {
+      content: [],
+      totalElements: 0,
+      totalPages: 1,
+    };
   }
 };
 
 export const deleteNotice = async (id) => {
   try {
-    const response = await apiClient.delete(`/api/notices/${id}`);
-    return { success: true, message: response.data?.message || 'Notice deleted successfully' };
+    const response = await apiClient.delete(`/notices/${id}`);
+
+    return {
+      success: true,
+      message: response.data?.message || 'Notice deleted successfully',
+    };
   } catch (error) {
     console.error('Error deleting notice:', error);
+
     return {
       success: false,
       message: error.response?.data?.message || 'Failed to delete Notice',
@@ -175,21 +198,27 @@ export const deleteNotice = async (id) => {
 
 export const deleteNotices = async (ids) => {
   if (!Array.isArray(ids) || ids.length === 0) {
-    return { success: false, message: 'No IDs provided' };
+    return {
+      success: false,
+      message: 'No IDs provided',
+    };
   }
 
   try {
-    const response = await apiClient.delete('/api/notices', {
+    const response = await apiClient.delete('/notices', {
       data: ids,
-      headers: { 'Content-Type': 'application/json' }
+      headers: {
+        'Content-Type': 'application/json',
+      },
     });
 
-    return { 
-      success: true, 
-      message: response.data?.message || `${ids.length} notice(s) deleted successfully` 
+    return {
+      success: true,
+      message: response.data?.message || `${ids.length} notice(s) deleted successfully`,
     };
   } catch (error) {
     console.error('Error bulk deleting notices:', error);
+
     return {
       success: false,
       message: error.response?.data?.message || 'Failed to delete selected notices',
@@ -200,20 +229,27 @@ export const deleteNotices = async (ids) => {
 /* ====================== SORTING ====================== */
 const toTimestamp = (v) => {
   if (!v) return 0;
+
   if (Array.isArray(v)) {
     const [y, m, d, hh = 0, mm = 0, ss = 0] = v;
     const dt = new Date(y, m - 1, d, hh, mm, ss);
+
     return Number.isFinite(dt.getTime()) ? dt.getTime() : 0;
   }
+
   const t = new Date(v).getTime();
+
   return Number.isFinite(t) ? t : 0;
 };
 
 const getComparableValue = (row, key) => {
   const dateKeys = new Set(['createdAt', 'updatedAt']);
+
   if (dateKeys.has(key)) return toTimestamp(row?.[key]);
   if (key === 'pinned') return row?.pinned ? 1 : 0;
+
   const value = row?.[key];
+
   return value == null ? '' : String(value).trim().toLowerCase();
 };
 
@@ -236,8 +272,13 @@ export const sortRowsClient = (rows, sortConfig) => {
       return a.i - b.i;
     }
 
-    const cmp = String(va).localeCompare(String(vb), undefined, { numeric: true, sensitivity: 'base' });
+    const cmp = String(va).localeCompare(String(vb), undefined, {
+      numeric: true,
+      sensitivity: 'base',
+    });
+
     if (cmp !== 0) return cmp * dir;
+
     return a.i - b.i;
   });
 

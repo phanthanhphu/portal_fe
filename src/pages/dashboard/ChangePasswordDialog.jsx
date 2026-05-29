@@ -90,7 +90,7 @@ export default function ChangePasswordDialog({ open, onClose, onUpdate, user }) 
 
     setSaving(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/users/change-password`, {
+      const res = await fetch(`${API_BASE_URL}/api/users/change-password`, {
         method: 'POST',
         headers: {
           accept: '*/*',
@@ -119,7 +119,7 @@ export default function ChangePasswordDialog({ open, onClose, onUpdate, user }) 
 
       // Logout (best-effort)
       try {
-        await fetch(`${API_BASE_URL}/users/logout`, {
+        await fetch(`${API_BASE_URL}/api/users/logout`, {
           method: 'DELETE',
           headers: { accept: '*/*', Authorization: `Bearer ${token}` },
         });

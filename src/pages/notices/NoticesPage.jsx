@@ -156,18 +156,42 @@ const normalizeNoticeRowForTable = (item, fallback = {}) => {
   const source = item || {};
   const base = fallback || {};
 
+  const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj || {}, key);
+  const sourceHasFileUrls = Array.isArray(source.fileUrls);
+  const sourceHasPreviewUrls = Array.isArray(source.previewUrls);
+  const sourceHasFileUrl = hasOwn(source, 'fileUrl');
+  const sourceHasPreviewUrl = hasOwn(source, 'previewUrl');
+
   const departmentName = source.departmentName ?? base.departmentName ?? '';
   const division = source.division ?? base.division ?? '';
-  const fileUrls = Array.isArray(source.fileUrls)
+
+  const fileUrls = sourceHasFileUrls
     ? source.fileUrls
     : Array.isArray(base.fileUrls)
       ? base.fileUrls
       : getNoticeFileUrlsFromItem(source);
-  const previewUrls = Array.isArray(source.previewUrls)
+
+  const previewUrls = sourceHasPreviewUrls
     ? source.previewUrls
-    : Array.isArray(base.previewUrls)
-      ? base.previewUrls
-      : fileUrls;
+    : sourceHasFileUrls
+      ? fileUrls
+      : Array.isArray(base.previewUrls)
+        ? base.previewUrls
+        : fileUrls;
+
+  /*
+   * IMPORTANT:
+   * If Edit Notice sends fileUrls: [], it means the user removed all files.
+   * Do NOT fallback to base.fileUrl, otherwise the old file appears again on UI.
+   */
+  const nextFileUrl = fileUrls[0]
+    || (sourceHasFileUrl ? source.fileUrl : base.fileUrl)
+    || null;
+
+  const nextPreviewUrl = previewUrls[0]
+    || (sourceHasPreviewUrl ? source.previewUrl : base.previewUrl)
+    || nextFileUrl
+    || null;
 
   return {
     ...base,
@@ -175,8 +199,8 @@ const normalizeNoticeRowForTable = (item, fallback = {}) => {
     departmentName,
     division,
     department: [departmentName, division].filter(Boolean).join(' '),
-    fileUrl: fileUrls[0] || source.fileUrl || base.fileUrl || null,
-    previewUrl: previewUrls[0] || source.previewUrl || base.previewUrl || fileUrls[0] || null,
+    fileUrl: nextFileUrl,
+    previewUrl: nextPreviewUrl,
     fileUrls,
     previewUrls,
   };
@@ -1808,7 +1832,7 @@ export default function NoticesPage() {
           setOpenEditDialog(false);
           setCurrentItem(null);
         }}
-        onOk={(updatedItem) => {
+        onOk={async (updatedItem) => {
           setOpenEditDialog(false);
           setCurrentItem(null);
 
@@ -1837,9 +1861,14 @@ export default function NoticesPage() {
                 );
               })
             );
-          } else {
-            fetchData({ page });
           }
+
+          /*
+           * Force reload from backend after edit.
+           * This is especially important when all files are removed because
+           * the old table row may still contain the previous fileUrl fallback.
+           */
+          await fetchData({ page });
         }}
       />
 

@@ -20,7 +20,6 @@ const icons = {
   users: Profile2User
 };
 
-// CSS styles giống file mẫu
 const menuStyles = {
   menuItem: {
     display: 'flex',
@@ -55,18 +54,28 @@ const menuStyles = {
   }
 };
 
+const normalizeRole = (value) => String(value || '').trim().toUpperCase();
+
+const getCurrentRole = () => {
+  const roleFromStorage = localStorage.getItem('role');
+
+  if (roleFromStorage) {
+    return normalizeRole(roleFromStorage);
+  }
+
+  try {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    return normalizeRole(user?.role);
+  } catch {
+    return '';
+  }
+};
+
 const getDashboardMenu = () => {
-  const role = localStorage.getItem('role');
+  const role = getCurrentRole();
+  const isAdmin = role === 'ADMIN';
 
   const baseChildren = [
-    // {
-    //   id: 'dashboard',
-    //   title: 'Dashboard',
-    //   type: 'item',
-    //   url: '/dashboard',
-    //   icon: icons.dashboard,
-    //   breadcrumbs: false
-    // },
     {
       id: 'app-links',
       title: 'App Links',
@@ -106,7 +115,7 @@ const getDashboardMenu = () => {
       url: '/department-forms',
       icon: icons.departmentForms,
       breadcrumbs: false
-    },
+    }
   ];
 
   const userManagementItem = {
@@ -123,13 +132,11 @@ const getDashboardMenu = () => {
     title: 'Portal Management',
     icon: icons.navigation,
     type: 'group',
-    children: role === 'Admin'
-      ? [...baseChildren, userManagementItem]
-      : baseChildren
+    children: isAdmin ? [...baseChildren, userManagementItem] : baseChildren
   };
 };
 
 const dashboard = getDashboardMenu();
 
 export default dashboard;
-export { menuStyles };
+export { getDashboardMenu, menuStyles };

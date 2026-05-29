@@ -1,43 +1,76 @@
 import axios from 'axios';
+import { API_BASE_URL, API_ROOT, FILE_ROOT } from '../config';
 
-/* -----------------------------------------------------
- * 1️⃣ SETUP API BASE URL
- * ----------------------------------------------------- */
-const setupApiBaseUrl = () => {
-  if (!window.API_BASE_URL) {
-    window.API_BASE_URL =
-      window.location.hostname === 'localhost'
-        ? 'http://localhost:8081'
-        : `http://${window.location.hostname}:8081`;
-  }
-  console.log('🌐 API BASE URL:', window.API_BASE_URL);
+window.API_BASE_URL = API_BASE_URL;
+
+const isBadUrl = (url) => {
+  return (
+    url === undefined ||
+    url === null ||
+    url === '' ||
+    url === 'undefined' ||
+    url === '/undefined' ||
+    String(url).includes('/undefined')
+  );
 };
 
-setupApiBaseUrl();
+const getRawUrl = (input) => {
+  if (typeof input === 'string') return input;
+  if (input instanceof URL) return input.toString();
+  if (input instanceof Request) return input.url;
+  return input?.url;
+};
 
-/* -----------------------------------------------------
- * 2️⃣ GLOBAL AXIOS INSTANCE
- * ----------------------------------------------------- */
+const normalizeApiUrl = (rawUrl) => {
+  if (isBadUrl(rawUrl)) {
+    console.error('❌ BAD API URL:', rawUrl);
+    throw new Error('API URL is undefined. Please check caller file.');
+  }
+
+  try {
+    const parsedUrl = new URL(rawUrl, window.location.origin);
+    const pathname = parsedUrl.pathname;
+
+    if (pathname.startsWith('/api')) {
+      return `${API_BASE_URL}${pathname}${parsedUrl.search}${parsedUrl.hash}`;
+    }
+
+    if (
+      pathname.startsWith('/files') ||
+      pathname.startsWith('/uploads') ||
+      pathname.startsWith('/ws')
+    ) {
+      return `${FILE_ROOT}${pathname}${parsedUrl.search}${parsedUrl.hash}`;
+    }
+
+    if (String(rawUrl).startsWith('/')) {
+      return `${API_ROOT}${pathname}${parsedUrl.search}${parsedUrl.hash}`;
+    }
+
+    return rawUrl;
+  } catch {
+    return rawUrl;
+  }
+};
+
 export const apiClient = axios.create({
-  baseURL: window.API_BASE_URL,
+  baseURL: API_BASE_URL,
   timeout: 15000,
   withCredentials: true,
 });
 
-/* -----------------------------------------------------
- * 3️⃣ AXIOS REQUEST INTERCEPTOR
- * ----------------------------------------------------- */
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
+
+    config.url = normalizeApiUrl(config.url);
 
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    // Only set Content-Type when there is a body (not GET)
     if (config.data instanceof FormData) {
-      config.headers['Content-Type'] = 'multipart/form-data';
+      delete config.headers['Content-Type'];
     } else if (config.data && config.method !== 'get') {
       config.headers['Content-Type'] = 'application/json';
     }
@@ -47,13 +80,8 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-/* -----------------------------------------------------
- * 4️⃣ AXIOS RESPONSE INTERCEPTOR (FIXED)
- * ----------------------------------------------------- */
 apiClient.interceptors.response.use(
-  // ✔ Always return JSON body directly
   (response) => response.data,
-
   (error) => {
     const status = error.response?.status;
     const url = error.config?.url;
@@ -62,6 +90,7 @@ apiClient.interceptors.response.use(
 
     if (status === 401) {
       localStorage.clear();
+
       if (window.location.pathname !== '/react/login') {
         window.location.href = '/react/login?sessionExpired=true';
       }
@@ -71,27 +100,29 @@ apiClient.interceptors.response.use(
   }
 );
 
-/* -----------------------------------------------------
- * 5️⃣ SAFE FETCH OVERRIDE (FIXED)
- * ----------------------------------------------------- */
 const originalFetch = window.fetch;
 
 window.fetch = async function (input, init = {}) {
-  const url = typeof input === 'string' ? input : input.url;
+  const rawUrl = getRawUrl(input);
+
+  if (isBadUrl(rawUrl)) {
+    console.error('❌ FETCH URL UNDEFINED:', rawUrl, input);
+    throw new Error('Fetch URL is undefined. Please check the file calling fetch().');
+  }
+
+  const normalizedUrl = normalizeApiUrl(rawUrl);
+
   const token = localStorage.getItem('token');
   const hasFiles = init.body instanceof FormData;
-
   const headers = new Headers(init.headers || {});
 
-  // Only set Content-Type when body exists and NOT FormData
-  if (hasFiles) {
-    // Browser will handle boundary
-  } else if (init.body && init.method !== 'GET') {
+  if (!hasFiles && init.body && init.method !== 'GET') {
     headers.set('Content-Type', 'application/json');
   }
 
-  // Add token
-  if (token) headers.set('Authorization', `Bearer ${token}`);
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
 
   const config = {
     ...init,
@@ -99,70 +130,29 @@ window.fetch = async function (input, init = {}) {
     credentials: 'include',
   };
 
-  try {
-    const response = await originalFetch(input, config);
+  const response = await originalFetch(normalizedUrl, config);
 
-    // HANDLE 401
-    if (response.status === 401) {
-      console.warn('🔓 FETCH 401 → force logout');
-      localStorage.clear();
-      if (window.location.pathname !== '/react/login') {
-        window.location.href = '/react/login?sessionExpired=true';
-      }
+  if (response.status === 401) {
+    localStorage.clear();
+
+    if (window.location.pathname !== '/react/login') {
+      window.location.href = '/react/login?sessionExpired=true';
     }
-
-    return response;
-  } catch (error) {
-    console.error('❌ FETCH ERROR:', url, error);
-    throw error;
   }
+
+  return response;
 };
 
-/* -----------------------------------------------------
- * 6️⃣ AXIOS CREATE OVERRIDE (optional support)
- * ----------------------------------------------------- */
-if (window.axios) {
-  const originalCreate = window.axios.create;
-
-  window.axios.create = function (...args) {
-    const instance = originalCreate.call(this, ...args);
-
-    instance.interceptors.request.use((config) => {
-      const token = localStorage.getItem('token');
-      if (token) config.headers.Authorization = `Bearer ${token}`;
-
-      if (config.data instanceof FormData) {
-        config.headers['Content-Type'] = 'multipart/form-data';
-      } else if (config.data && config.method !== 'get') {
-        config.headers['Content-Type'] = 'application/json';
-      }
-
-      return config;
-    });
-
-    return instance;
-  };
-}
-
-/* -----------------------------------------------------
- * 7️⃣ SIMPLE API WRAPPER (auto returns response.data)
- * ----------------------------------------------------- */
 export const api = {
-  get: (url, params = {}) => apiClient.get(url, { params }),
-  post: (url, data = {}) => apiClient.post(url, data),
-  postForm: (url, formData) =>
-    apiClient.post(url, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    }),
-  upload: (url, formData) =>
-    apiClient.post(url, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    }),
+  get: (url, params = {}) => apiClient.get(normalizeApiUrl(url), { params }),
+  post: (url, data = {}) => apiClient.post(normalizeApiUrl(url), data),
+  put: (url, data = {}) => apiClient.put(normalizeApiUrl(url), data),
+  patch: (url, data = {}) => apiClient.patch(normalizeApiUrl(url), data),
+  delete: (url, config = {}) => apiClient.delete(normalizeApiUrl(url), config),
+  postForm: (url, formData) => apiClient.post(normalizeApiUrl(url), formData),
+  upload: (url, formData) => apiClient.post(normalizeApiUrl(url), formData),
 };
 
-/* -----------------------------------------------------
- * 8️⃣ GLOBAL ERROR HANDLER
- * ----------------------------------------------------- */
 window.addEventListener('unhandledrejection', (event) => {
   const err = event.reason;
 
@@ -172,7 +162,4 @@ window.addEventListener('unhandledrejection', (event) => {
   }
 });
 
-/* -----------------------------------------------------
- * INIT MESSAGE
- * ----------------------------------------------------- */
-console.log('🚀 GLOBAL API v3 READY');
+console.log('🚀 API BASE URL:', API_BASE_URL);

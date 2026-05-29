@@ -299,6 +299,7 @@ export default function EditNoticeDialog({
       }
 
       const keepUrlsPayload = uniqueUrls(keepFileUrlsRef.current);
+      const removedUrlsPayload = uniqueUrls(removedFileUrlsRef.current);
       const formData = new FormData();
 
       /*
@@ -314,15 +315,30 @@ export default function EditNoticeDialog({
       formData.append('departmentId', departmentId);
       formData.append('pinned', String(Boolean(pinned)));
 
-      keepUrlsPayload.forEach((fileUrl) => {
-        formData.append('fileUrls', fileUrl);
+      if (keepUrlsPayload.length > 0) {
+        keepUrlsPayload.forEach((fileUrl) => {
+          formData.append('fileUrls', fileUrl);
+        });
+      } else {
+        /*
+         * IMPORTANT:
+         * Send an empty fileUrls field when all existing files are removed.
+         * If this field is not sent, backend treats it as old FE behavior
+         * and keeps all existing files unchanged.
+         */
+        formData.append('fileUrls', '');
+      }
+
+      removedUrlsPayload.forEach((fileUrl) => {
+        formData.append('removeFileUrls', fileUrl);
       });
 
       newFiles.forEach((selectedFile) => {
         formData.append('files', selectedFile);
       });
 
-      console.log('Notice edit fileUrls sent to BE:', keepUrlsPayload);
+      console.log('Notice edit keep fileUrls sent to BE:', keepUrlsPayload);
+      console.log('Notice edit removeFileUrls sent to BE:', removedUrlsPayload);
 
       const response = await axios.put(
         `${API_BASE_URL}/api/notices/${currentItem.id}`,
@@ -330,7 +346,7 @@ export default function EditNoticeDialog({
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`,
-            accept: '*/*'
+            Accept: '*/*'
           }
         }
       );

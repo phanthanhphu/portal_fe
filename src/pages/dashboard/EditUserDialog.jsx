@@ -327,7 +327,7 @@ export default function EditUserDialog({ open, onClose, onUpdate, user, disabled
     if (removedImageUrl) formDataToSend.append('imageToDelete', removedImageUrl);
 
     try {
-      const res = await fetch(`${API_BASE_URL}/users/${user.id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/users/${user.id}`, {
         method: 'PUT',
         headers: { accept: '*/*' },
         body: formDataToSend,

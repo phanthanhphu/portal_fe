@@ -47,6 +47,9 @@ import ResetPasswordDialog from './ResetPasswordDialog';
 import UserSearch from './UserSearch';
 import { API_BASE_URL } from '../../config';
 
+const STATIC_ROOT = API_BASE_URL.replace(/\/$/, '');
+const API_ROOT = `${STATIC_ROOT}/api`;
+
 /* =========================
    Headers (giống Group: có backendKey)
    ========================= */
@@ -293,9 +296,9 @@ export default function UserManagementPage() {
   const [popoverImgSrc, setPopoverImgSrc] = useState('');
   const isPopoverOpen = Boolean(anchorEl);
 
-  const API_BASE_URL_FULL = useMemo(() => API_BASE_URL.replace(/\/$/, ''), []);
+  const API_BASE_URL_FULL = useMemo(() => STATIC_ROOT, []);
   const DEFAULT_IMAGE_URL = useMemo(
-    () => `${API_BASE_URL}/uploads/users/default-user.png?v=${cacheBust}`,
+    () => `${STATIC_ROOT}/uploads/users/default-user.png?v=${cacheBust}`,
     [cacheBust]
   );
 
@@ -311,7 +314,7 @@ export default function UserManagementPage() {
       if (normalized.startsWith('http://') || normalized.startsWith('https://')) {
         finalUrl = `${normalized}?v=${cacheBust}`;
       } else if (normalized.startsWith('/uploads/users/')) {
-        finalUrl = `${API_BASE_URL}${normalized}?v=${cacheBust}`;
+        finalUrl = `${STATIC_ROOT}${normalized}?v=${cacheBust}`;
       } else {
         const cleanPath = normalized.replace(/^\/?[Uu]ploads\/users\//i, '');
         finalUrl = `${API_BASE_URL_FULL}/Uploads/users/${cleanPath}?v=${cacheBust}`;
@@ -353,7 +356,7 @@ export default function UserManagementPage() {
         const effEmail = overrides.searchEmail ?? searchEmail;
         const effRole = overrides.searchRole ?? searchRole;
 
-        const url = new URL(`${API_BASE_URL}/users`);
+        const url = new URL(`${API_ROOT}/users`);
         url.searchParams.append('page', String(effPage));
         url.searchParams.append('size', String(effSize));
 
@@ -369,7 +372,7 @@ export default function UserManagementPage() {
           url.searchParams.append('sort', `${backendKey},${effSort.direction}`);
         }
 
-        const res = await fetch(url, { headers: { accept: '*/*' }, credentials: 'include' });
+        const res = await fetch(url, { headers: { accept: 'application/json' }, credentials: 'include' });
         if (!res.ok) throw new Error(`Failed to fetch users: ${res.status}`);
 
         const data = await res.json();
@@ -485,7 +488,7 @@ export default function UserManagementPage() {
     if (!selectedUser) return;
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/users/${selectedUser.id}`, {
+      const res = await fetch(`${API_ROOT}/users/${selectedUser.id}`, {
         method: 'DELETE',
         headers: { accept: '*/*' },
         credentials: 'include',

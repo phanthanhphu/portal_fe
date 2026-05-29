@@ -232,7 +232,8 @@ export default function AddNoticeDialog({
       await axios.post(`${API_BASE_URL}/api/notices`, formData, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
-          "Content-Type": "multipart/form-data"
+          Accept: "*/*"
+          // Do not set Content-Type manually; axios/browser will add multipart boundary.
         }
       });
 

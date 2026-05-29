@@ -48,7 +48,7 @@ export const useUser = () => {
   const fetchUser = async (userId) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/users/${userId}`, {
         method: 'GET',
         headers: {
           accept: '*/*',

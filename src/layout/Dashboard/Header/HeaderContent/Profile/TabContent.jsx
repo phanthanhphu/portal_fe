@@ -96,7 +96,7 @@ export default function TabContent({ onRequestClose }) {
   const handleLogout = async () => {
     try {
       const token = localStorage.getItem('token');
-      await fetch(`${API_BASE_URL}/users/logout`, {
+      await fetch(`${API_BASE_URL}/api/users/logout`, {
         method: 'DELETE',
         headers: { accept: '*/*', ...(token && { Authorization: `Bearer ${token}` }) }
       });
