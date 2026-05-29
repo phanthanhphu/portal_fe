@@ -9,7 +9,7 @@ export const GRID_COMMON_SPACING = { xs: 2, md: 2.5 };
 
 // ==============================|| API CONFIG ||============================== //
 
-export const API_BASE_URL = 'https://homepage.youngone.com.vn:8081';
+export const API_BASE_URL = 'https://10.232.100.68:8081';
 
 export const API_ROOT = `${API_BASE_URL}/api`;
 export const FILE_ROOT = API_BASE_URL;
@@ -35,11 +35,38 @@ export const toFileUrl = (path = '') => {
 
   const raw = String(path).trim();
 
+  if (raw.startsWith('data:')) return raw;
+
   if (raw.startsWith('http://') || raw.startsWith('https://')) {
-    return raw;
+    try {
+      const url = new URL(raw);
+      const cleanPath = url.pathname.replace(/^\/+/, '');
+
+      if (
+        url.hostname === 'homepage.youngone.com.vn' ||
+        url.hostname === '10.232.100.68' ||
+        url.hostname === '10.232.132.40'
+      ) {
+        if (cleanPath.startsWith('uploads/') || cleanPath.startsWith('files/')) {
+          return `${API_BASE_URL}/${cleanPath}${url.search}${url.hash}`;
+        }
+
+        return `${API_BASE_URL}/files/${cleanPath}${url.search}${url.hash}`;
+      }
+
+      return raw;
+    } catch {
+      return raw;
+    }
   }
 
-  return `${FILE_ROOT}/${raw.replace(/^\/+/, '')}`;
+  const cleanPath = raw.replace(/^\/+/, '');
+
+  if (cleanPath.startsWith('uploads/') || cleanPath.startsWith('files/')) {
+    return `${FILE_ROOT}/${cleanPath}`;
+  }
+
+  return `${FILE_ROOT}/files/${cleanPath}`;
 };
 
 // ==============================|| THEME CONFIG ||============================== //

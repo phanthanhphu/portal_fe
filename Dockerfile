@@ -10,7 +10,7 @@ COPY . .
 
 ARG VITE_APP_VERSION=v2.1.0
 ARG VITE_APP_BASE_NAME=/
-ARG VITE_API_BASE_URL=http://10.232.100.68:8081
+ARG VITE_API_BASE_URL=https://10.232.100.68:8081
 
 ENV VITE_APP_VERSION=$VITE_APP_VERSION
 ENV VITE_APP_BASE_NAME=$VITE_APP_BASE_NAME
@@ -23,9 +23,8 @@ RUN npm run build
 FROM nginx:alpine
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-
 COPY --from=build /app/dist /usr/share/nginx/html
 
-EXPOSE 80
+EXPOSE 443
 
 CMD ["nginx", "-g", "daemon off;"]
