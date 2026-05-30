@@ -224,12 +224,15 @@ export default function AddNoticeDialog({
       formData.append("userId", loggedInUserId);
       formData.append("departmentId", departmentId);
       formData.append("pinned", String(pinned));
+      // Approval workflow: every new notice should wait for admin approval first.
+      // Backend can ignore this field if it already sets PENDING by default.
+      formData.append("status", "PENDING");
 
       files.forEach((selectedFile) => {
         formData.append("files", selectedFile);
       });
 
-      await axios.post(`${API_BASE_URL}/api/notices`, formData, {
+      const response = await axios.post(`${API_BASE_URL}/api/notices`, formData, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
           Accept: "*/*"
@@ -237,8 +240,18 @@ export default function AddNoticeDialog({
         }
       });
 
-      toast("Notice created successfully");
-      onOk?.();
+      const createdNotice = response?.data || {};
+      const createdStatus = String(createdNotice?.status || "").trim().toUpperCase();
+
+      if (createdStatus === "PENDING") {
+        toast("Notice submitted and waiting for approval", "info");
+      } else if (createdStatus === "APPROVED") {
+        toast("Notice created and approved successfully", "success");
+      } else {
+        toast("Notice created successfully", "success");
+      }
+
+      onOk?.(createdNotice);
       onCancel?.();
     } catch (err) {
       console.error(err);
@@ -350,7 +363,7 @@ export default function AddNoticeDialog({
         <DialogActions sx={{ p: 3, pt: 0 }}>
           <Button onClick={handleClose} disabled={locked}>Cancel</Button>
           <Button onClick={handleSubmit} disabled={locked || loadingDept} variant="contained" sx={gradientBtnSx}>
-            {saving ? <CircularProgress size={20} color="inherit" /> : "Create Notice"}
+            {saving ? <CircularProgress size={20} color="inherit" /> : "Submit Notice"}
           </Button>
         </DialogActions>
       </Dialog>

@@ -30,13 +30,41 @@ const companyStats = [
   { t: 'Lines', d: '240+' }
 ];
 
+const LOGIN_DRAFT_EMAIL_KEY = 'loginDraftEmail';
+const LOGIN_DRAFT_PASSWORD_KEY = 'loginDraftPassword';
+
+const getSavedLoginDraft = (key) => {
+  try {
+    return sessionStorage.getItem(key) || '';
+  } catch {
+    return '';
+  }
+};
+
+const saveLoginDraft = (key, value) => {
+  try {
+    sessionStorage.setItem(key, value || '');
+  } catch {
+    // Ignore storage errors. The React state will still keep the value.
+  }
+};
+
+const clearLoginDraft = () => {
+  try {
+    sessionStorage.removeItem(LOGIN_DRAFT_EMAIL_KEY);
+    sessionStorage.removeItem(LOGIN_DRAFT_PASSWORD_KEY);
+  } catch {
+    // Ignore storage errors.
+  }
+};
+
 export default function LoginPage() {
   const navigate = useNavigate();
 
   const APP_LINKS_PATH = useMemo(() => '/app-links', []);
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState(() => getSavedLoginDraft(LOGIN_DRAFT_EMAIL_KEY));
+  const [password, setPassword] = useState(() => getSavedLoginDraft(LOGIN_DRAFT_PASSWORD_KEY));
   const [showPw, setShowPw] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [loginError, setLoginError] = useState('');
@@ -71,14 +99,30 @@ export default function LoginPage() {
       const contentType = res.headers.get('content-type') || '';
       const data = contentType.includes('application/json') ? await res.json() : null;
 
-      if (res.ok && data?.token) {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
+      const token = data?.token || data?.data?.token || '';
+      const loggedInUser = data?.user || data?.data?.user || data?.data || {};
+      const loggedInRole = loggedInUser?.role || data?.role || '';
+
+      if (res.ok && token) {
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(loggedInUser || {}));
         localStorage.setItem('isAuthenticated', 'true');
-        localStorage.setItem('role', data.user?.role || '');
+        localStorage.setItem('role', loggedInRole || '');
+        clearLoginDraft();
 
         toast.success('Login successful! Redirecting...');
-        navigate(APP_LINKS_PATH, { replace: true });
+
+        /*
+         * IMPORTANT:
+         * The sidebar menu is created from localStorage role when the app loads.
+         * If we use react-router navigate() only, the menu module may not rebuild immediately,
+         * so Admin users may not see the Users menu until manual refresh.
+         * A full reload after storing role/user fixes that.
+         */
+        setTimeout(() => {
+          window.location.replace(APP_LINKS_PATH);
+        }, 300);
+
         return;
       }
 
@@ -97,8 +141,12 @@ export default function LoginPage() {
       localStorage.removeItem('isAuthenticated');
       localStorage.removeItem('role');
 
+      // Keep both email and password so the user can correct only the wrong field.
+      setEmail(cleanEmail);
+      setPassword(password);
+      saveLoginDraft(LOGIN_DRAFT_EMAIL_KEY, cleanEmail);
+      saveLoginDraft(LOGIN_DRAFT_PASSWORD_KEY, password);
       setLoginError(message);
-      setPassword('');
       toast.error(message);
     } catch (err) {
       console.error(err);
@@ -379,7 +427,9 @@ export default function LoginPage() {
                       placeholder="join.st@youngonevn.com"
                       value={email}
                       onChange={(e) => {
-                        setEmail(e.target.value);
+                        const nextEmail = e.target.value;
+                        setEmail(nextEmail);
+                        saveLoginDraft(LOGIN_DRAFT_EMAIL_KEY, nextEmail);
                         if (loginError) setLoginError('');
                       }}
                       autoComplete="email"
@@ -398,7 +448,9 @@ export default function LoginPage() {
                       placeholder="Enter password"
                       value={password}
                       onChange={(e) => {
-                        setPassword(e.target.value);
+                        const nextPassword = e.target.value;
+                        setPassword(nextPassword);
+                        saveLoginDraft(LOGIN_DRAFT_PASSWORD_KEY, nextPassword);
                         if (loginError) setLoginError('');
                       }}
                       type={showPw ? 'text' : 'password'}

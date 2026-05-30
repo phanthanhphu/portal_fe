@@ -16,6 +16,14 @@ import {
   MenuItem,
 } from '@mui/material';
 
+const APPROVE_PERMISSION_OPTIONS = [
+  { value: '', label: 'All' },
+  { value: 'NONE', label: 'No approve permission' },
+  { value: 'NOTICE', label: 'Approve Notice' },
+  { value: 'DOCUMENT', label: 'Approve Document' },
+  { value: 'BOTH', label: 'Approve Notice & Document' },
+];
+
 export default function UserSearch({
   searchUsername,
   setSearchUsername,
@@ -27,6 +35,8 @@ export default function UserSearch({
   setSearchEmail,
   searchRole,
   setSearchRole,
+  searchApprovePermission,
+  setSearchApprovePermission,
   setPage,
   onSearch,
   onReset,
@@ -123,6 +133,7 @@ export default function UserSearch({
     setSearchPhone('');
     setSearchEmail('');
     setSearchRole('');
+    setSearchApprovePermission?.('');
     onReset?.();
   }, [
     onReset,
@@ -130,6 +141,7 @@ export default function UserSearch({
     setSearchEmail,
     setSearchPhone,
     setSearchRole,
+    setSearchApprovePermission,
     setSearchUsername,
     setPage,
   ]);
@@ -172,12 +184,12 @@ export default function UserSearch({
         sx={{
           display: 'grid',
           gridTemplateColumns: {
-            xs: 'repeat(7, minmax(180px, 1fr))',
-            md: 'repeat(7, minmax(160px, 1fr))',
+            xs: 'repeat(8, minmax(180px, 1fr))',
+            md: 'repeat(8, minmax(160px, 1fr))',
           },
           gap: 1,
           alignItems: 'center',
-          minWidth: { xs: 7 * 180, md: 'unset' }, // ép nó thành 1 hàng thật sự (xs sẽ scroll)
+          minWidth: { xs: 8 * 180, md: 'unset' }, // ép nó thành 1 hàng thật sự (xs sẽ scroll)
         }}
       >
         <TextField
@@ -239,6 +251,25 @@ export default function UserSearch({
           </Select>
         </FormControl>
 
+        <FormControl fullWidth size="small" sx={inputSx}>
+          <InputLabel sx={{ fontSize: '0.8rem' }}>Approve</InputLabel>
+          <Select
+            value={searchApprovePermission || ''}
+            label="Approve"
+            onChange={(e) => {
+              setPage0();
+              setSearchApprovePermission?.(e.target.value);
+            }}
+            disabled={disabled}
+          >
+            {APPROVE_PERMISSION_OPTIONS.map((option) => (
+              <MenuItem key={option.value || 'ALL'} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
         <TextField
           label="Address"
           size="small"
@@ -275,6 +306,8 @@ UserSearch.propTypes = {
   setSearchEmail: PropTypes.func.isRequired,
   searchRole: PropTypes.string,
   setSearchRole: PropTypes.func.isRequired,
+  searchApprovePermission: PropTypes.string,
+  setSearchApprovePermission: PropTypes.func,
   setPage: PropTypes.func,
   onSearch: PropTypes.func,
   onReset: PropTypes.func,

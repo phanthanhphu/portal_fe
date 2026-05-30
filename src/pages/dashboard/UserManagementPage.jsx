@@ -50,6 +50,18 @@ import { API_BASE_URL } from '../../config';
 const STATIC_ROOT = API_BASE_URL.replace(/\/$/, '');
 const API_ROOT = `${STATIC_ROOT}/api`;
 
+const APPROVE_PERMISSION_META = {
+  NONE: { label: 'None', bg: '#f3f4f6', color: '#374151' },
+  NOTICE: { label: 'Notice', bg: '#dbeafe', color: '#1d4ed8' },
+  DOCUMENT: { label: 'Document', bg: '#fef3c7', color: '#92400e' },
+  BOTH: { label: 'Both', bg: '#dcfce7', color: '#166534' },
+};
+
+const normalizeApprovePermission = (value) => {
+  const normalized = String(value || 'NONE').trim().toUpperCase();
+  return Object.prototype.hasOwnProperty.call(APPROVE_PERMISSION_META, normalized) ? normalized : 'NONE';
+};
+
 /* =========================
    Headers (giống Group: có backendKey)
    ========================= */
@@ -60,6 +72,7 @@ const headers = [
   { label: 'Address', key: 'address', sortable: true, backendKey: 'address' },
   { label: 'Phone', key: 'phone', sortable: true, backendKey: 'phone' },
   { label: 'Role', key: 'role', sortable: true, backendKey: 'role' },
+  { label: 'Approve', key: 'approvePermission', sortable: true, backendKey: 'approvePermission' },
   // ✅ backend thường là enabled, không phải isEnabled
   { label: 'Status', key: 'isEnabled', sortable: true, backendKey: 'enabled' },
   { label: 'Profile Image', key: 'profileImage', sortable: false, backendKey: 'profileImage' },
@@ -270,6 +283,7 @@ export default function UserManagementPage() {
   const [searchPhone, setSearchPhone] = useState('');
   const [searchEmail, setSearchEmail] = useState('');
   const [searchRole, setSearchRole] = useState('');
+  const [searchApprovePermission, setSearchApprovePermission] = useState('');
 
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -335,6 +349,7 @@ export default function UserManagementPage() {
         profileImageUrl: imageUrl,
         displayImageUrl: finalImageUrl,
         isEnabled: user.enabled,
+        approvePermission: normalizeApprovePermission(user.approvePermission),
       };
     });
   }, [users, normalizeImageUrl, DEFAULT_IMAGE_URL]);
@@ -355,6 +370,7 @@ export default function UserManagementPage() {
         const effPhone = overrides.searchPhone ?? searchPhone;
         const effEmail = overrides.searchEmail ?? searchEmail;
         const effRole = overrides.searchRole ?? searchRole;
+        const effApprovePermission = overrides.searchApprovePermission ?? searchApprovePermission;
 
         const url = new URL(`${API_ROOT}/users`);
         url.searchParams.append('page', String(effPage));
@@ -365,6 +381,7 @@ export default function UserManagementPage() {
         if (effPhone) url.searchParams.append('phone', effPhone);
         if (effEmail) url.searchParams.append('email', effEmail);
         if (effRole) url.searchParams.append('role', effRole);
+        if (effApprovePermission) url.searchParams.append('approvePermission', effApprovePermission);
 
         // ✅ sort param
         if (effSort?.key && effSort?.direction) {
@@ -403,6 +420,7 @@ export default function UserManagementPage() {
       searchPhone,
       searchEmail,
       searchRole,
+      searchApprovePermission,
     ]
   );
 
@@ -445,6 +463,7 @@ export default function UserManagementPage() {
       searchPhone: '',
       searchEmail: '',
       searchRole: '',
+      searchApprovePermission: '',
     };
 
     setSearchUsername('');
@@ -452,6 +471,7 @@ export default function UserManagementPage() {
     setSearchPhone('');
     setSearchEmail('');
     setSearchRole('');
+    setSearchApprovePermission('');
     setSortConfig({ key: null, direction: null });
     setPage(0);
 
@@ -550,8 +570,8 @@ export default function UserManagementPage() {
   );
 
   const hasActiveSearch = useMemo(
-    () => [searchUsername, searchAddress, searchPhone, searchEmail, searchRole].some((v) => v?.trim?.()),
-    [searchUsername, searchAddress, searchPhone, searchEmail, searchRole]
+    () => [searchUsername, searchAddress, searchPhone, searchEmail, searchRole, searchApprovePermission].some((v) => v?.trim?.()),
+    [searchUsername, searchAddress, searchPhone, searchEmail, searchRole, searchApprovePermission]
   );
 
   /* =========================
@@ -629,6 +649,36 @@ export default function UserManagementPage() {
         title={role || 'User'}
       >
         {role || 'User'}
+      </Box>
+    );
+  };
+
+
+  const approvePermissionBadge = (value) => {
+    const normalized = normalizeApprovePermission(value);
+    const meta = APPROVE_PERMISSION_META[normalized] || APPROVE_PERMISSION_META.NONE;
+
+    return (
+      <Box
+        sx={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          px: 1,
+          py: 0.3,
+          borderRadius: 999,
+          border: '1px solid #e5e7eb',
+          backgroundColor: meta.bg,
+          color: meta.color,
+          fontSize: '0.72rem',
+          fontWeight: 800,
+          width: '100%',
+          maxWidth: 120,
+          mx: 'auto',
+        }}
+        title={meta.label}
+      >
+        {meta.label}
       </Box>
     );
   };
@@ -756,6 +806,8 @@ export default function UserManagementPage() {
           setSearchEmail={setSearchEmail}
           searchRole={searchRole}
           setSearchRole={setSearchRole}
+          searchApprovePermission={searchApprovePermission}
+          setSearchApprovePermission={setSearchApprovePermission}
           setPage={setPage}
           onSearch={handleSearch}
           onReset={handleReset}
@@ -776,20 +828,21 @@ export default function UserManagementPage() {
           <Table stickyHeader size="small" sx={{ width: '100%', tableLayout: 'fixed' }}>
             <colgroup>
               <col style={{ width: '5%' }} />
-              <col style={{ width: '12%' }} />
-              <col style={{ width: '18%' }} />
-              <col style={{ width: '20%' }} />
+              <col style={{ width: '11%' }} />
+              <col style={{ width: '17%' }} />
+              <col style={{ width: '17%' }} />
+              <col style={{ width: '9%' }} />
+              <col style={{ width: '9%' }} />
               <col style={{ width: '10%' }} />
-              <col style={{ width: '10%' }} />
-              <col style={{ width: '10%' }} />
+              <col style={{ width: '9%' }} />
+              <col style={{ width: '6%' }} />
               <col style={{ width: '7%' }} />
-              <col style={{ width: '8%' }} />
             </colgroup>
 
             <TableHead>
               <TableRow>
                 {headers.map(({ label, key, sortable }) => {
-                  const align = ['no', 'profileImage', 'actions', 'isEnabled', 'role'].includes(key) ? 'center' : 'left';
+                  const align = ['no', 'profileImage', 'actions', 'isEnabled', 'role', 'approvePermission'].includes(key) ? 'center' : 'left';
                   const active = sortConfig.key === key && !!sortConfig.direction;
 
                   return (
@@ -851,7 +904,7 @@ export default function UserManagementPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={9} sx={{ py: 3 }}>
+                  <TableCell colSpan={10} sx={{ py: 3 }}>
                     <Stack direction="row" spacing={1} alignItems="center" justifyContent="center">
                       <CircularProgress size={18} />
                       <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>Loading data...</Typography>
@@ -893,6 +946,10 @@ export default function UserManagementPage() {
 
                       <TableCell align="center" sx={{ py: 0.4, px: 0.6 }}>
                         {roleBadge(u.role)}
+                      </TableCell>
+
+                      <TableCell align="center" sx={{ py: 0.4, px: 0.6 }}>
+                        {approvePermissionBadge(u.approvePermission)}
                       </TableCell>
 
                       <TableCell align="center" sx={{ py: 0.4, px: 0.6 }}>
@@ -940,7 +997,7 @@ export default function UserManagementPage() {
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={9} align="center" sx={{ py: 3 }}>
+                  <TableCell colSpan={10} align="center" sx={{ py: 3 }}>
                     <Stack direction="column" alignItems="center" spacing={0.5} sx={{ color: 'text.secondary' }}>
                       <InboxIcon fontSize="small" />
                       <Typography sx={{ fontSize: '0.85rem' }}>

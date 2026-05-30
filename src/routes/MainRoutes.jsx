@@ -1,5 +1,5 @@
 import { lazy, useEffect, useState } from 'react';
-import { useNavigate, Outlet } from 'react-router-dom';
+import { Navigate, useNavigate, Outlet } from 'react-router-dom';
 import Loadable from 'components/Loadable';
 import DashboardLayout from 'layout/Dashboard';
 import { Typography, Box, Button } from '@mui/material';
@@ -7,37 +7,23 @@ import LoginPage from './LoginPage';
 import { toast } from 'react-toastify';
 import PageHome from '../pages/index/PageHome';
 
-
-// ==============================|| LAZY LOADED PAGES ||============================== //
-
-// const DashboardDefault = Loadable(lazy(() => import('pages/dashboard/default')));
-
-// Department
 const DepartmentPage = Loadable(lazy(() => import('pages/department/DepartmentManagement')));
-
-// User
 const UserManagementPage = Loadable(lazy(() => import('pages/dashboard/UserManagementPage')));
-
-// App Links
 const AppLinksPage = Loadable(lazy(() => import('pages/appLinks/AppLinksPage')));
-
-// Document Types
 const DocumentTypesPage = Loadable(lazy(() => import('pages/documenttype/DocumentTypesPage')));
-
-// Notices
 const NoticesPage = Loadable(lazy(() => import('pages/notices/NoticesPage')));
 
-// ✅ GIỮ NGUYÊN (fix lỗi của bạn)
+const NoticeApprovalPage = Loadable(lazy(() => import('pages/notices/NoticeApprovalPage')));
+const DocumentApprovalPage = Loadable(
+  lazy(() => import('pages/formlist/DocumentApprovalPage'))
+);
 const Color = Loadable(lazy(() => import('pages/component-overview/color')));
 const TypographyPage = Loadable(lazy(() => import('pages/component-overview/typography')));
 const Shadow = Loadable(lazy(() => import('pages/component-overview/shadows')));
 
-// ✅ NEW - Form Dialogs
 const FormListDialog = Loadable(lazy(() => import('pages/formlist/FormListDialog')));
 const AddFormDialog = Loadable(lazy(() => import('pages/formlist/AddFormDialog')));
 const EditFormDialog = Loadable(lazy(() => import('pages/formlist/EditFormDialog')));
-
-// ==============================|| DEPARTMENT FORMS PAGE ||============================== //
 
 function DepartmentFormsPage() {
   const [addOpen, setAddOpen] = useState(false);
@@ -70,8 +56,6 @@ function DepartmentFormsPage() {
   );
 }
 
-// ==============================|| NOT FOUND PAGE ||============================== //
-
 function NotFound() {
   const navigate = useNavigate();
 
@@ -88,8 +72,6 @@ function NotFound() {
   );
 }
 
-// ==============================|| PROTECTED ROUTE ||============================== //
-
 function ProtectedRoute() {
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
@@ -103,45 +85,42 @@ function ProtectedRoute() {
   return token ? <Outlet /> : null;
 }
 
-// ==============================|| ADMIN ROUTE ||============================== //
-
 function AdminRoute({ children }) {
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
 
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const role = user.role;
+  let role = '';
+
+  try {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    role = String(user?.role || localStorage.getItem('role') || '').trim().toUpperCase();
+  } catch {
+    role = String(localStorage.getItem('role') || '').trim().toUpperCase();
+  }
+
+  const isAdmin = role === 'ADMIN' || role === 'ROLE_ADMIN';
 
   useEffect(() => {
     if (!token) {
       navigate('/', { replace: true });
-    } else if (role !== 'Admin') {
+    } else if (!isAdmin) {
       toast.error('Access denied. Admin only.');
       navigate('/dashboard', { replace: true });
     }
-  }, [navigate, token, role]);
+  }, [navigate, token, isAdmin]);
 
-  if (!token || role !== 'Admin') {
+  if (!token || !isAdmin) {
     return null;
   }
 
   return children;
 }
 
-// ==============================|| ROUTES ||============================== //
-
 const MainRoutes = {
   path: '/',
   children: [
-    {
-      path: '/',
-      element: <PageHome />
-    },
-    {
-      path: '/login',
-      element: <LoginPage />
-    },
-
+    { path: '/', element: <PageHome /> },
+    { path: '/login', element: <LoginPage /> },
     {
       path: '/',
       element: <ProtectedRoute />,
@@ -150,33 +129,19 @@ const MainRoutes = {
           path: '/',
           element: <DashboardLayout />,
           children: [
-            // {
-            //   path: 'dashboard',
-            //   element: <DashboardDefault />
-            // },
+            { path: 'app-links', element: <AppLinksPage /> },
+            { path: 'document-types', element: <DocumentTypesPage /> },
+            { path: 'notices', element: <NoticesPage /> },
 
-            {
-              path: 'app-links',
-              element: <AppLinksPage />
-            },
-            {
-              path: 'document-types',
-              element: <DocumentTypesPage />
-            },
-            {
-              path: 'notices',
-              element: <NoticesPage />
-            },
-            {
-              path: 'department-management',
-              element: <DepartmentPage />
-            },
+            { path: 'approve', element: <Navigate to="/approve/notices" replace /> },
+            { path: 'approve/notices', element: <NoticeApprovalPage /> },
+            { path: 'approve/documents', element: <DocumentApprovalPage /> },
 
-            // ✅ THÊM MỚI (CHỈ DÒNG NÀY)
-            {
-              path: 'department-forms',
-              element: <DepartmentFormsPage />
-            },
+            { path: 'notices/approval', element: <Navigate to="/approve/notices" replace /> },
+            { path: 'documents/approval', element: <Navigate to="/approve/documents" replace /> },
+
+            { path: 'department-management', element: <DepartmentPage /> },
+            { path: 'department-forms', element: <DepartmentFormsPage /> },
             {
               path: 'user-management',
               element: (
@@ -185,23 +150,10 @@ const MainRoutes = {
                 </AdminRoute>
               )
             },
-            {
-              path: 'typography',
-              element: <TypographyPage />
-            },
-            {
-              path: 'color',
-              element: <Color />
-            },
-            {
-              path: 'shadows',
-              element: <Shadow />
-            },
-
-            {
-              path: '*',
-              element: <NotFound />
-            }
+            { path: 'typography', element: <TypographyPage /> },
+            { path: 'color', element: <Color /> },
+            { path: 'shadows', element: <Shadow /> },
+            { path: '*', element: <NotFound /> }
           ]
         }
       ]

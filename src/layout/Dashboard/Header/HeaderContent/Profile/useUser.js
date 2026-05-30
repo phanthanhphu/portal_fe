@@ -79,7 +79,6 @@ export const useUser = () => {
       setCreatedAt(user.createdAt || null);
       setEditedUsername(user.username || '');
       setFirstLetter(user.username ? user.username.charAt(0).toUpperCase() : '');
-      setSuccess('User data loaded successfully');
       setError('');
 
       if (user.role) {

@@ -56,7 +56,7 @@ function normalizeExternalUrl(value) {
   if (rawUrl.startsWith("//")) return `${window.location.protocol}${rawUrl}`;
   if (rawUrl.startsWith("/") || rawUrl.startsWith("#")) return rawUrl;
 
-  // Browser address bar auto-fixes values like "10.232.100.68:8081" or "intranet.local".
+  // Browser address bar auto-fixes values like "10.232.132.40:8081" or "intranet.local".
   // React <a href> does not, so the portal accidentally routes them through the current app.
   const looksLikeHost =
     /^(\d{1,3}\.){3}\d{1,3}(:\d+)?([/?#].*)?$/i.test(rawUrl) ||

@@ -139,7 +139,6 @@ export default function ViewUserDialog({ open, onClose, user }) {
               Overview details and status
             </Typography>
           </Box>
-
           <Stack direction="row" spacing={1} alignItems="center">
             <Chip
               size="small"
@@ -187,7 +186,7 @@ export default function ViewUserDialog({ open, onClose, user }) {
           </Stack>
         </Stack>
       </DialogTitle>
-
+      <br></br>
       <DialogContent sx={{ p: { xs: 2, sm: 2.5 } }}>
         <Box
           sx={{
@@ -255,7 +254,6 @@ export default function ViewUserDialog({ open, onClose, user }) {
               </Box>
 
               <Divider flexItem />
-
               <Stack direction="row" spacing={1} flexWrap="wrap" justifyContent="center">
                 <Chip
                   size="small"

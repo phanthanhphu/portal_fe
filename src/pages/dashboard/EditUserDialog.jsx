@@ -51,6 +51,24 @@ const stripToServerPath = (absoluteUrl) => {
   return clean.replace(`${API_BASE_URL}/`, '/').replace(API_BASE_URL, '');
 };
 
+const APPROVE_PERMISSION_OPTIONS = [
+  { value: 'NONE', label: 'No approve permission' },
+  { value: 'NOTICE', label: 'Approve Notice' },
+  { value: 'DOCUMENT', label: 'Approve Document' },
+  { value: 'BOTH', label: 'Approve Notice & Document' },
+];
+
+const normalizeApprovePermission = (value) => {
+  const normalized = String(value || 'NONE').trim().toUpperCase();
+  return APPROVE_PERMISSION_OPTIONS.some((item) => item.value === normalized) ? normalized : 'NONE';
+};
+
+const getApprovePermissionLabel = (value) => {
+  const normalized = normalizeApprovePermission(value);
+  return APPROVE_PERMISSION_OPTIONS.find((item) => item.value === normalized)?.label || 'No approve permission';
+};
+
+
 export default function EditUserDialog({ open, onClose, onUpdate, user, disabled = false }) {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
@@ -61,6 +79,7 @@ export default function EditUserDialog({ open, onClose, onUpdate, user, disabled
     address: '',
     phone: '',
     role: 'User',
+    approvePermission: 'NONE',
     isEnabled: true,
     departmentId: '',
   });
@@ -195,6 +214,7 @@ export default function EditUserDialog({ open, onClose, onUpdate, user, disabled
       address: user.address || '',
       phone: user.phone || '',
       role: user.role || 'User',
+      approvePermission: normalizeApprovePermission(user.approvePermission),
       isEnabled: user.isEnabled !== undefined ? user.isEnabled : true,
       departmentId: user.department?.id || user.departmentId || '',
     });
@@ -319,7 +339,12 @@ export default function EditUserDialog({ open, onClose, onUpdate, user, disabled
     setSaving(true);
 
     const formDataToSend = new FormData();
-    Object.entries(formData).forEach(([k, v]) => {
+    const payload = {
+      ...formData,
+      approvePermission: normalizeApprovePermission(formData.approvePermission),
+    };
+
+    Object.entries(payload).forEach(([k, v]) => {
       if (v !== undefined && v !== '') formDataToSend.append(k, v);
     });
 
@@ -492,7 +517,8 @@ export default function EditUserDialog({ open, onClose, onUpdate, user, disabled
                       {formData.role} • {formData.isEnabled ? 'Enabled' : 'Disabled'}
                     </Typography>
                     <Typography sx={{ fontSize: 12.5, color: 'text.secondary', mt: 0.4 }}>
-                      Department: <b>{selectedDepartmentLabel}</b>
+                      Department: <b>{selectedDepartmentLabel}</b><br />
+                      Approve: <b>{getApprovePermissionLabel(formData.approvePermission)}</b>
                     </Typography>
                     <Typography sx={{ fontSize: 12.5, color: 'text.secondary', mt: 0.4 }}>
                       Image: <b>{imageStatusLabel}</b>
@@ -643,6 +669,26 @@ export default function EditUserDialog({ open, onClose, onUpdate, user, disabled
                   </TextField>
                 </Grid>
 
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    select
+                    label="Approve Permission"
+                    value={normalizeApprovePermission(formData.approvePermission)}
+                    onChange={handleChange('approvePermission')}
+                    fullWidth
+                    disabled={locked}
+                    size="small"
+                    sx={fieldSx}
+                    helperText="Allow user to approve Notice, Document, both, or none."
+                  >
+                    {APPROVE_PERMISSION_OPTIONS.map((option) => (
+                      <MenuItem key={option.value} value={option.value}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
+
                 <Grid item xs={12}>
                   <TextField
                     select
@@ -748,7 +794,8 @@ export default function EditUserDialog({ open, onClose, onUpdate, user, disabled
                 • Role: <b>{formData.role || '—'}</b>
               </Typography>
               <Typography sx={{ fontSize: 12.5, color: 'text.secondary' }}>
-                • Department: <b>{selectedDepartmentLabel}</b>
+                • Department: <b>{selectedDepartmentLabel}</b><br />
+                      Approve: <b>{getApprovePermissionLabel(formData.approvePermission)}</b>
               </Typography>
               <Typography sx={{ fontSize: 12.5, color: 'text.secondary' }}>
                 • Status: <b>{formData.isEnabled ? 'Enabled' : 'Disabled'}</b>

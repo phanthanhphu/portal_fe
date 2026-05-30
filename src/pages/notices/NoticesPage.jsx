@@ -225,6 +225,19 @@ const doesNoticeMatchCurrentFilters = (item, filters = {}) => {
   return true;
 };
 
+const normalizeApprovalStatus = (value) => {
+  const status = String(value || '').trim().toUpperCase();
+
+  if (status === 'PENDING' || status === 'APPROVED' || status === 'REJECTED') {
+    return status;
+  }
+
+  // Legacy notices that were created before approval workflow are treated as approved.
+  return 'APPROVED';
+};
+
+const isApprovedNotice = (item) => normalizeApprovalStatus(item?.status) === 'APPROVED';
+
 const getCurrentUserId = () => {
   const directUserId = localStorage.getItem('userId');
   if (directUserId) return directUserId;
@@ -873,6 +886,7 @@ export default function NoticesPage() {
           departmentName: effSearchDepartment,
           title: effSearchTitle,
           content: effSearchContent,
+          status: 'APPROVED',
           page: effPage,
           size: effSize,
         },
@@ -880,7 +894,9 @@ export default function NoticesPage() {
       });
 
       const result = response?.data || {};
-      const normalizedContent = (result.content || []).map((item) => normalizeNoticeRowForTable(item));
+      const normalizedContent = (result.content || [])
+        .map((item) => normalizeNoticeRowForTable(item))
+        .filter(isApprovedNotice);
       const finalData = sortRowsClient(normalizedContent, sortConfig);
 
       setData(finalData);
@@ -962,6 +978,7 @@ export default function NoticesPage() {
         const existingIndex = prev.findIndex((item) => String(item?.id) === noticeId);
         const existingItem = existingIndex >= 0 ? prev[existingIndex] : null;
         const normalizedNotice = normalizeNoticeRowForTable(latestNotice, existingItem || {});
+        const approvedForIndex = isApprovedNotice(normalizedNotice);
 
         const filters = {
           searchDivision: searchDivisionFilter,
@@ -973,7 +990,7 @@ export default function NoticesPage() {
         const matchesCurrentFilters = doesNoticeMatchCurrentFilters(normalizedNotice, filters);
 
         if (existingIndex >= 0) {
-          if (!matchesCurrentFilters) {
+          if (!approvedForIndex || !matchesCurrentFilters) {
             return prev.filter((item) => String(item?.id) !== noticeId);
           }
 
@@ -981,7 +998,7 @@ export default function NoticesPage() {
           return sortRowsClient(next, sortConfig);
         }
 
-        if (action === 'CREATED' && page === 0 && matchesCurrentFilters) {
+        if (action === 'CREATED' && page === 0 && approvedForIndex && matchesCurrentFilters) {
           const next = [normalizedNotice, ...prev].slice(0, rowsPerPage);
           return sortRowsClient(next, sortConfig);
         }
@@ -989,7 +1006,7 @@ export default function NoticesPage() {
         return prev;
       });
 
-      if (action === 'CREATED') {
+      if (action === 'CREATED' && isApprovedNotice(latestNotice)) {
         setTotalElements((prev) => Number(prev || 0) + 1);
         setTotalPages((prev) => Math.max(prev, Math.ceil((Number(totalElements || 0) + 1) / rowsPerPage)));
       }
@@ -1814,10 +1831,13 @@ export default function NoticesPage() {
         currentDepartmentId={currentDepartmentId}
         disableDepartmentSearch={disableDepartmentSearch}
         onCancel={() => setOpenAddDialog(false)}
-        onOk={() => {
+        onOk={(createdNotice) => {
           setOpenAddDialog(false);
-          fetchData({ page: 0 });
-          setPage(0);
+
+          if (isApprovedNotice(createdNotice)) {
+            fetchData({ page: 0 });
+            setPage(0);
+          }
         }}
       />
 

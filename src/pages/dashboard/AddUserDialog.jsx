@@ -34,6 +34,23 @@ import InfoRoundedIcon from '@mui/icons-material/InfoRounded';
 
 import { API_BASE_URL } from '../../config';
 
+const APPROVE_PERMISSION_OPTIONS = [
+  { value: 'NONE', label: 'No approve permission' },
+  { value: 'NOTICE', label: 'Approve Notice' },
+  { value: 'DOCUMENT', label: 'Approve Document' },
+  { value: 'BOTH', label: 'Approve Notice & Document' },
+];
+
+const normalizeApprovePermission = (value) => {
+  const normalized = String(value || 'NONE').trim().toUpperCase();
+  return APPROVE_PERMISSION_OPTIONS.some((item) => item.value === normalized) ? normalized : 'NONE';
+};
+
+const getApprovePermissionLabel = (value) => {
+  const normalized = normalizeApprovePermission(value);
+  return APPROVE_PERMISSION_OPTIONS.find((item) => item.value === normalized)?.label || 'No approve permission';
+};
+
 const initialForm = {
   username: '',
   email: '',
@@ -41,6 +58,7 @@ const initialForm = {
   address: '',
   phone: '',
   role: 'User',
+  approvePermission: 'NONE',
   isEnabled: true,
   departmentId: '',
 };
@@ -288,7 +306,12 @@ const AddUserDialog = ({ open, onClose, onAdd }) => {
     setConfirmOpen(false);
 
     const formDataToSend = new FormData();
-    Object.entries(formData).forEach(([key, value]) => {
+    const payload = {
+      ...formData,
+      approvePermission: normalizeApprovePermission(formData.approvePermission),
+    };
+
+    Object.entries(payload).forEach(([key, value]) => {
       if (value !== undefined && value !== '') formDataToSend.append(key, value);
     });
 
@@ -484,6 +507,24 @@ const AddUserDialog = ({ open, onClose, onAdd }) => {
                     <MenuItem value="Leader">Leader</MenuItem>
                     <MenuItem value="Admin">Admin</MenuItem>
                   </Select>
+                </FormControl>
+
+                <FormControl fullWidth size="small" disabled={locked} sx={fieldSx}>
+                  <InputLabel sx={{ fontWeight: 700 }}>Approve Permission</InputLabel>
+                  <Select
+                    value={normalizeApprovePermission(formData.approvePermission)}
+                    label="Approve Permission"
+                    onChange={handleChange('approvePermission')}
+                  >
+                    {APPROVE_PERMISSION_OPTIONS.map((option) => (
+                      <MenuItem key={option.value} value={option.value}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  <FormHelperText>
+                    Controls whether this user can approve notices, documents, both, or none.
+                  </FormHelperText>
                 </FormControl>
 
                 <FormControl
@@ -715,7 +756,8 @@ const AddUserDialog = ({ open, onClose, onAdd }) => {
                 • Role: <b>{formData.role || '—'}</b>
               </Typography>
               <Typography sx={{ fontSize: 12.5, color: 'text.secondary' }}>
-                • Department: <b>{selectedDepartmentLabel}</b>
+                • Department: <b>{selectedDepartmentLabel}</b><br />
+                      Approve: <b>{getApprovePermissionLabel(formData.approvePermission)}</b>
               </Typography>
               <Typography sx={{ fontSize: 12.5, color: 'text.secondary' }}>
                 • Status: <b>{formData.isEnabled ? 'Enabled' : 'Disabled'}</b>

@@ -6,7 +6,8 @@ import {
   Profile2User,
   DocumentText1,
   Link21,
-  NotificationBing
+  NotificationBing,
+  TickCircle
 } from 'iconsax-reactjs';
 
 const icons = {
@@ -15,6 +16,9 @@ const icons = {
   appLinks: Link21,
   documentTypes: Category2,
   notices: NotificationBing,
+  approve: TickCircle,
+  noticeApproval: NotificationBing,
+  documentApproval: DocumentText1,
   departmentForms: DocumentText1,
   departments: Building,
   users: Profile2User
@@ -73,50 +77,53 @@ const getCurrentRole = () => {
 
 const getDashboardMenu = () => {
   const role = getCurrentRole();
-  const isAdmin = role === 'ADMIN';
+  const isAdmin = role === 'ADMIN' || role === 'ROLE_ADMIN';
 
-  const baseChildren = [
-    {
-      id: 'app-links',
-      title: 'App Links',
-      type: 'item',
-      url: '/app-links',
-      icon: icons.appLinks,
-      breadcrumbs: false
-    },
-    {
-      id: 'departments',
-      title: 'Departments',
-      type: 'item',
-      url: '/department-management',
-      icon: icons.departments,
-      breadcrumbs: false
-    },
-    {
-      id: 'notices',
-      title: 'Notices',
-      type: 'item',
-      url: '/notices',
-      icon: icons.notices,
-      breadcrumbs: false
-    },
-    {
-      id: 'document-types',
-      title: 'Document Types',
-      type: 'item',
-      url: '/document-types',
-      icon: icons.documentTypes,
-      breadcrumbs: false
-    },
-    {
-      id: 'department-forms',
-      title: 'Documents',
-      type: 'item',
-      url: '/department-forms',
-      icon: icons.departmentForms,
-      breadcrumbs: false
-    }
-  ];
+  const appLinksItem = {
+    id: 'app-links',
+    title: 'App Links',
+    type: 'item',
+    url: '/app-links',
+    icon: icons.appLinks,
+    breadcrumbs: false
+  };
+
+  const departmentsItem = {
+    id: 'departments',
+    title: 'Departments',
+    type: 'item',
+    url: '/department-management',
+    icon: icons.departments,
+    breadcrumbs: false
+  };
+
+  const noticesItem = {
+    id: 'notices',
+    title: 'Notices',
+    type: 'item',
+    url: '/notices',
+    icon: icons.notices,
+    breadcrumbs: false,
+    exact: true
+  };
+
+  const documentTypesItem = {
+    id: 'document-types',
+    title: 'Document Types',
+    type: 'item',
+    url: '/document-types',
+    icon: icons.documentTypes,
+    breadcrumbs: false
+  };
+
+  const documentsItem = {
+    id: 'department-forms',
+    title: 'Documents',
+    type: 'item',
+    url: '/department-forms',
+    icon: icons.departmentForms,
+    breadcrumbs: false
+  };
 
   const userManagementItem = {
     id: 'users',
@@ -127,12 +134,50 @@ const getDashboardMenu = () => {
     breadcrumbs: false
   };
 
+  const approveItem = {
+    id: 'approve',
+    title: 'Approve',
+    type: 'collapse',
+    icon: icons.approve,
+    breadcrumbs: false,
+    children: [
+      {
+        id: 'notice-approval',
+        title: 'Notice',
+        type: 'item',
+        url: '/approve/notices',
+        icon: icons.noticeApproval,
+        breadcrumbs: false,
+        exact: true
+      },
+      {
+        id: 'document-approval',
+        title: 'Document',
+        type: 'item',
+        url: '/approve/documents',
+        icon: icons.documentApproval,
+        breadcrumbs: false,
+        exact: true
+      }
+    ]
+  };
+
+  const baseChildren = [
+    appLinksItem,
+    departmentsItem,
+    noticesItem,
+    documentTypesItem,
+    documentsItem
+  ];
+
   return {
     id: 'group-dashboard',
     title: 'Portal Management',
     icon: icons.navigation,
     type: 'group',
-    children: isAdmin ? [...baseChildren, userManagementItem] : baseChildren
+    children: isAdmin
+      ? [...baseChildren, userManagementItem, approveItem]
+      : [...baseChildren, approveItem]
   };
 };
 

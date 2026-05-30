@@ -20,13 +20,11 @@ export default function NavItem({ item, level, isParents = false, setSelectedID,
   const { menuMaster } = useGetMenuMaster();
   const drawerOpen = menuMaster.isDashboardDrawerOpened;
 
-  // ✅ local sizing
   const ITEM_HEIGHT = 44;
   const ICON_BOX = 40;
   const OPEN_ICON_SIZE = 18;
   const CLOSED_ICON_SIZE = 20;
 
-  // ✅ accent theo theme (xanh/primary) — không vàng
   const ACCENT = theme.palette.primary.main;
   const TEXT = alpha('#fff', 0.90);
   const TEXT_MUTED = alpha('#fff', 0.68);
@@ -37,12 +35,15 @@ export default function NavItem({ item, level, isParents = false, setSelectedID,
   const Icon = item.icon;
   const itemIcon = item.icon ? <Icon variant="Bulk" size={drawerOpen ? OPEN_ICON_SIZE : CLOSED_ICON_SIZE} /> : false;
 
+  const itemPath = item?.link ? item.link : item.url;
+  const isExactItem = Boolean(item?.exact);
+
   const isSelected =
     item.id === 'grouprequest'
       ? ['/group-requests', '/summary/', '/requisition-monthly/', '/comparison/', '/request-monthly-comparison/'].some((r) =>
           pathname.startsWith(r)
         )
-      : !!matchPath({ path: item?.link ? item.link : item.url, end: false }, pathname);
+      : !!matchPath({ path: itemPath, end: isExactItem }, pathname);
 
   const itemHandler = () => {
     if (downLG) handlerDrawerOpen(false);
@@ -74,6 +75,7 @@ export default function NavItem({ item, level, isParents = false, setSelectedID,
           py: 0.6,
 
           ...(drawerOpen && level === 1 && { mx: 1, my: 0.45, borderRadius: 2 }),
+          ...(drawerOpen && level > 1 && { mx: 1, my: 0.25, borderRadius: 2 }),
           ...(!drawerOpen && { mx: 0.75, my: 0.55, borderRadius: 2, justifyContent: 'center' }),
 
           transition: 'background-color .18s ease, box-shadow .18s ease',
@@ -83,7 +85,6 @@ export default function NavItem({ item, level, isParents = false, setSelectedID,
             boxShadow: `0 10px 24px ${alpha('#000', 0.22)}`
           },
 
-          // ✅ selected: viền trái + glow nhẹ, nền mờ xanh
           '&.Mui-selected': {
             bgcolor: alpha(ACCENT, 0.14),
             boxShadow: `inset 3px 0 0 ${ACCENT}, 0 10px 24px ${alpha('#000', 0.18)}`,
@@ -97,7 +98,6 @@ export default function NavItem({ item, level, isParents = false, setSelectedID,
               minWidth: drawerOpen ? 34 : 0,
               color: isSelected ? ACCENT : TEXT_MUTED,
 
-              // drawer đóng: icon pill
               ...(!drawerOpen &&
                 level === 1 && {
                   borderRadius: 2,
@@ -109,7 +109,6 @@ export default function NavItem({ item, level, isParents = false, setSelectedID,
                   boxShadow: `inset 0 1px 0 ${alpha('#fff', 0.06)}`
                 }),
 
-              // drawer đóng + selected: pill xanh mờ
               ...(!drawerOpen &&
                 isSelected && {
                   bgcolor: alpha(ACCENT, 0.18)

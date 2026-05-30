@@ -395,7 +395,7 @@ export default function TabContent({ onRequestClose }) {
               boxShadow: `0 18px 50px ${alpha('#000', 0.25)}`
             }}
           >
-            {error || success || 'Done'}
+            {error || success || 'Logged out successfully'}
           </Alert>
         </Snackbar>
       </Portal>

@@ -285,8 +285,10 @@ export default function ChangePasswordDialog({ open, onClose, onUpdate, user }) 
             </Stack>
           </Stack>
         </DialogTitle>
+             <br></br>
 
         <DialogContent sx={{ p: { xs: 2, sm: 2.5 } }}>
+
           <Box sx={{ ...subtleCardSx, p: 2 }}>
             <Stack spacing={2}>
               <Box>
@@ -299,7 +301,6 @@ export default function ChangePasswordDialog({ open, onClose, onUpdate, user }) 
               </Box>
 
               <Divider />
-
               <Box
                 sx={{
                   display: 'grid',

@@ -368,9 +368,20 @@ export default function EditFormDialog({
        * QUAN TRỌNG:
        * Chỉ gửi fileUrls còn giữ lại.
        * Ví dụ cũ có [1,2], xóa 1 thì payload chỉ có fileUrls=2.
+       * Nếu user xóa hết file cũ thì vẫn phải gửi fileUrls = "".
+       * Nếu không gửi field này, backend sẽ hiểu là FE cũ và giữ nguyên file cũ.
        */
-      keepUrlsPayload.forEach((fileUrl) => {
-        formData.append("fileUrls", fileUrl);
+      if (keepUrlsPayload.length > 0) {
+        keepUrlsPayload.forEach((fileUrl) => {
+          formData.append("fileUrls", fileUrl);
+        });
+      } else {
+        formData.append("fileUrls", "");
+      }
+
+      // Gửi thêm removeFileUrls để tương thích backend cũ/mới.
+      uniqueUrls(removedFileUrlsRef.current).forEach((fileUrl) => {
+        formData.append("removeFileUrls", fileUrl);
       });
 
       // Chỉ gửi file mới chọn từ máy
@@ -380,7 +391,7 @@ export default function EditFormDialog({
 
       console.log("========= EDIT FORM FILE PAYLOAD =========");
       console.log("fileUrls sent to BE:", keepUrlsPayload);
-      console.log("removed on UI only:", removedFileUrlsRef.current);
+      console.log("removeFileUrls sent to BE:", uniqueUrls(removedFileUrlsRef.current));
       console.log("new files:", newFiles.map((f) => f.name));
 
       // Debug chính xác FormData thực sự gửi đi

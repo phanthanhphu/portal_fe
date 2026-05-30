@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -13,24 +13,17 @@ import {
   Snackbar,
   Alert,
   CircularProgress,
-  FormControlLabel,
-  Switch,
   Avatar,
   Chip,
   Divider,
   Tooltip,
-  MenuItem,
   useMediaQuery,
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import PhotoCamera from '@mui/icons-material/PhotoCamera';
 import CloseIcon from '@mui/icons-material/Close';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
-import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
-import BlockRoundedIcon from '@mui/icons-material/BlockRounded';
 import { API_BASE_URL } from '../../config';
-
-const ROLE_PRESET = ['ADMIN', 'MANAGER', 'STAFF', 'SUPPLIER', 'USER'];
 
 const ProfileEditDialog = ({ open, onClose, onUpdate, user }) => {
   const theme = useTheme();
@@ -41,8 +34,6 @@ const ProfileEditDialog = ({ open, onClose, onUpdate, user }) => {
     email: '',
     address: '',
     phone: '',
-    role: '',
-    isEnabled: true,
   });
 
   const [newImage, setNewImage] = useState(null);
@@ -58,12 +49,6 @@ const ProfileEditDialog = ({ open, onClose, onUpdate, user }) => {
 
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const roleOptions = useMemo(() => {
-    const set = new Set(ROLE_PRESET);
-    if (formData.role) set.add(formData.role);
-    return Array.from(set);
-  }, [formData.role]);
-
   const toast = (message, severity = 'success') => {
     setSnackbarMessage(message);
     setSnackbarSeverity(severity);
@@ -75,7 +60,9 @@ const ProfileEditDialog = ({ open, onClose, onUpdate, user }) => {
     const ts = `t=${Date.now()}`;
 
     // Full URL
-    if (raw.startsWith('http')) return `${raw}${raw.includes('?') ? '&' : '?'}${ts}`;
+    if (raw.startsWith('http')) {
+      return `${raw}${raw.includes('?') ? '&' : '?'}${ts}`;
+    }
 
     // Path URL
     const cleaned = raw.startsWith('/') ? raw : `/${raw}`;
@@ -85,7 +72,7 @@ const ProfileEditDialog = ({ open, onClose, onUpdate, user }) => {
   const toServerPath = (urlWithQuery) => {
     if (!urlWithQuery) return '';
     const noQuery = urlWithQuery.split('?')[0];
-    // Strip API_BASE_URL -> keep server path
+
     return noQuery
       .replace(`${API_BASE_URL}/`, '/')
       .replace(API_BASE_URL, '');
@@ -93,14 +80,16 @@ const ProfileEditDialog = ({ open, onClose, onUpdate, user }) => {
 
   const getInitials = (nameOrEmail) => {
     const s = (nameOrEmail || '').trim();
+
     if (!s) return '?';
+
     const parts = s.split(/\s+/);
     const a = parts[0]?.[0] || '';
     const b = parts[1]?.[0] || '';
+
     return (a + b).toUpperCase() || s[0].toUpperCase();
   };
 
-  // Initialize form when dialog opens
   useEffect(() => {
     if (user && open) {
       setFormData({
@@ -108,8 +97,6 @@ const ProfileEditDialog = ({ open, onClose, onUpdate, user }) => {
         email: user.email || '',
         address: user.address || '',
         phone: user.phone || '',
-        role: user.role || '',
-        isEnabled: user.isEnabled !== undefined ? user.isEnabled : true,
       });
 
       setNewImage(null);
@@ -125,23 +112,32 @@ const ProfileEditDialog = ({ open, onClose, onUpdate, user }) => {
         setNewImagePreview(null);
       }
     }
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, open]);
 
-  // Cleanup blob URL
   useEffect(() => {
     return () => {
-      if (newImagePreview && newImage) URL.revokeObjectURL(newImagePreview);
+      if (newImagePreview && newImage) {
+        URL.revokeObjectURL(newImagePreview);
+      }
     };
   }, [newImagePreview, newImage]);
 
   const handleChange = (field) => (e) => {
-    setFormData((prev) => ({ ...prev, [field]: e.target.value }));
+    setFormData((prev) => ({
+      ...prev,
+      [field]: e.target.value,
+    }));
   };
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
-    if (!file) return toast('No file selected.', 'warning');
+
+    if (!file) {
+      toast('No file selected.', 'warning');
+      return;
+    }
 
     if (!file.type.startsWith('image/')) {
       toast('Please select an image file (e.g., .jpg, .png).', 'error');
@@ -155,10 +151,10 @@ const ProfileEditDialog = ({ open, onClose, onUpdate, user }) => {
       return;
     }
 
-    // Cleanup old preview (blob)
-    if (newImagePreview && newImage) URL.revokeObjectURL(newImagePreview);
+    if (newImagePreview && newImage) {
+      URL.revokeObjectURL(newImagePreview);
+    }
 
-    // If an existing server image is being kept, mark it for removal
     if (keptImageUrl) {
       setRemovedImageUrl(toServerPath(keptImageUrl));
       setKeptImageUrl('');
@@ -172,7 +168,6 @@ const ProfileEditDialog = ({ open, onClose, onUpdate, user }) => {
   const handleRemoveImage = () => {
     if (saving) return;
 
-    // Remove newly picked image
     if (newImagePreview && newImage) {
       URL.revokeObjectURL(newImagePreview);
       setNewImage(null);
@@ -180,7 +175,6 @@ const ProfileEditDialog = ({ open, onClose, onUpdate, user }) => {
       return;
     }
 
-    // Remove current server image
     if (keptImageUrl) {
       setRemovedImageUrl(toServerPath(keptImageUrl));
       setKeptImageUrl('');
@@ -189,8 +183,11 @@ const ProfileEditDialog = ({ open, onClose, onUpdate, user }) => {
   };
 
   const handleSubmit = () => {
-    if (!formData.username?.trim()) return toast('Username is required.', 'error');
-    if (!formData.email?.trim()) return toast('Email is required.', 'error');
+    if (!formData.username?.trim()) {
+      toast('Username is required.', 'error');
+      return;
+    }
+
     setConfirmOpen(true);
   };
 
@@ -199,16 +196,26 @@ const ProfileEditDialog = ({ open, onClose, onUpdate, user }) => {
     setSaving(true);
 
     const formDataToSend = new FormData();
-    Object.entries(formData).forEach(([key, value]) => {
-      // Keep boolean, skip empty strings
-      if (value !== undefined && value !== '') formDataToSend.append(key, value);
+
+    // Email bị khóa edit nên KHÔNG append email để tránh cập nhật email ngoài ý muốn.
+    ['username', 'address', 'phone'].forEach((key) => {
+      const value = formData[key];
+
+      if (value !== undefined && value !== '') {
+        formDataToSend.append(key, value);
+      }
     });
 
-    if (newImage) formDataToSend.append('profileImage', newImage);
-    if (removedImageUrl) formDataToSend.append('imageToDelete', removedImageUrl);
+    if (newImage) {
+      formDataToSend.append('profileImage', newImage);
+    }
+
+    if (removedImageUrl) {
+      formDataToSend.append('imageToDelete', removedImageUrl);
+    }
 
     try {
-      const res = await fetch(`${API_BASE_URL}/users/${user.id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/users/${user.id}`, {
         method: 'PUT',
         headers: { accept: '*/*' },
         body: formDataToSend,
@@ -217,12 +224,14 @@ const ProfileEditDialog = ({ open, onClose, onUpdate, user }) => {
       if (!res.ok) {
         const errorText = await res.text();
         let message = `Update failed with status ${res.status}`;
+
         try {
           const errorData = JSON.parse(errorText);
           message = errorData.message || message;
         } catch {
           message = errorText || message;
         }
+
         throw new Error(message);
       }
 
@@ -242,7 +251,10 @@ const ProfileEditDialog = ({ open, onClose, onUpdate, user }) => {
       setNewImage(null);
       setNewImagePreview(null);
 
-      const nextKept = data?.profileImageUrl ? resolveImageUrl(data.profileImageUrl) : '';
+      const nextKept = data?.profileImageUrl
+        ? resolveImageUrl(data.profileImageUrl)
+        : '';
+
       setKeptImageUrl(nextKept);
       setRemovedImageUrl('');
 
@@ -256,9 +268,10 @@ const ProfileEditDialog = ({ open, onClose, onUpdate, user }) => {
     }
   };
 
-  const handleCloseSnackbar = () => setSnackbarOpen(false);
+  const handleCloseSnackbar = () => {
+    setSnackbarOpen(false);
+  };
 
-  // Styling tokens
   const paperSx = {
     borderRadius: fullScreen ? 0 : 4,
     overflow: 'hidden',
@@ -275,9 +288,35 @@ const ProfileEditDialog = ({ open, onClose, onUpdate, user }) => {
     '& .MuiOutlinedInput-root': {
       borderRadius: 3,
       backgroundColor: alpha(theme.palette.common.white, 0.65),
-      '& fieldset': { borderColor: alpha(theme.palette.divider, 0.7) },
-      '&:hover fieldset': { borderColor: alpha(theme.palette.primary.main, 0.5) },
-      '&.Mui-focused fieldset': { borderColor: theme.palette.primary.main, borderWidth: 2 },
+      '& fieldset': {
+        borderColor: alpha(theme.palette.divider, 0.7),
+      },
+      '&:hover fieldset': {
+        borderColor: alpha(theme.palette.primary.main, 0.5),
+      },
+      '&.Mui-focused fieldset': {
+        borderColor: theme.palette.primary.main,
+        borderWidth: 2,
+      },
+    },
+  };
+
+  const disabledEmailFieldSx = {
+    ...fieldSx,
+    '& .MuiInputBase-input.Mui-disabled': {
+      WebkitTextFillColor: theme.palette.text.primary,
+      opacity: 0.75,
+      cursor: 'not-allowed',
+    },
+    '& .MuiInputLabel-root.Mui-disabled': {
+      color: theme.palette.text.secondary,
+    },
+    '& .MuiOutlinedInput-root.Mui-disabled': {
+      backgroundColor: alpha(theme.palette.action.disabledBackground, 0.45),
+      cursor: 'not-allowed',
+      '& fieldset': {
+        borderColor: alpha(theme.palette.divider, 0.7),
+      },
     },
   };
 
@@ -325,7 +364,6 @@ const ProfileEditDialog = ({ open, onClose, onUpdate, user }) => {
         fullWidth
         PaperProps={{ sx: paperSx }}
       >
-        {/* Header */}
         <DialogTitle
           sx={{
             position: 'relative',
@@ -348,23 +386,13 @@ const ProfileEditDialog = ({ open, onClose, onUpdate, user }) => {
               >
                 Edit User
               </Typography>
+
               <Typography sx={{ opacity: 0.9, mt: 0.4, fontSize: 13 }}>
-                Update profile details, status, and avatar
+                Update profile details and avatar
               </Typography>
             </Box>
 
             <Stack direction="row" spacing={1} alignItems="center">
-              <Chip
-                size="small"
-                icon={formData.isEnabled ? <CheckCircleRoundedIcon /> : <BlockRoundedIcon />}
-                label={formData.isEnabled ? 'Enabled' : 'Disabled'}
-                sx={{
-                  color: 'common.white',
-                  bgcolor: alpha('#000', 0.18),
-                  border: `1px solid ${alpha('#fff', 0.22)}`,
-                  fontWeight: 700,
-                }}
-              />
               <Tooltip title="Close">
                 <span>
                   <IconButton
@@ -374,7 +402,9 @@ const ProfileEditDialog = ({ open, onClose, onUpdate, user }) => {
                       color: 'common.white',
                       bgcolor: alpha('#000', 0.18),
                       border: `1px solid ${alpha('#fff', 0.22)}`,
-                      '&:hover': { bgcolor: alpha('#000', 0.28) },
+                      '&:hover': {
+                        bgcolor: alpha('#000', 0.28),
+                      },
                     }}
                   >
                     <CloseIcon />
@@ -384,6 +414,8 @@ const ProfileEditDialog = ({ open, onClose, onUpdate, user }) => {
             </Stack>
           </Stack>
         </DialogTitle>
+
+        <br />
 
         <DialogContent sx={{ p: { xs: 2, sm: 2.5 } }}>
           <Stack spacing={2.2}>
@@ -395,7 +427,6 @@ const ProfileEditDialog = ({ open, onClose, onUpdate, user }) => {
                 alignItems: 'start',
               }}
             >
-              {/* Left: Avatar / Upload */}
               <Box sx={{ ...subtleCardSx, p: 2 }}>
                 <Stack spacing={1.6} alignItems="center">
                   <Box sx={{ position: 'relative' }}>
@@ -431,12 +462,19 @@ const ProfileEditDialog = ({ open, onClose, onUpdate, user }) => {
                             bgcolor: 'common.white',
                             border: `1px solid ${alpha(theme.palette.divider, 0.8)}`,
                             boxShadow: `0 10px 24px ${alpha('#000', 0.12)}`,
-                            '&:hover': { transform: 'translateY(-1px)' },
+                            '&:hover': {
+                              transform: 'translateY(-1px)',
+                            },
                             transition: 'transform .15s ease',
                           }}
                         >
                           <PhotoCamera sx={{ color: theme.palette.primary.main }} />
-                          <input hidden type="file" accept="image/*" onChange={handleFileChange} />
+                          <input
+                            hidden
+                            type="file"
+                            accept="image/*"
+                            onChange={handleFileChange}
+                          />
                         </IconButton>
                       </span>
                     </Tooltip>
@@ -446,6 +484,7 @@ const ProfileEditDialog = ({ open, onClose, onUpdate, user }) => {
                     <Typography sx={{ fontWeight: 800 }}>
                       {formData.username || 'Unknown User'}
                     </Typography>
+
                     <Typography sx={{ color: 'text.secondary', fontSize: 13 }}>
                       {formData.email || '—'}
                     </Typography>
@@ -469,7 +508,12 @@ const ProfileEditDialog = ({ open, onClose, onUpdate, user }) => {
                       startIcon={<PhotoCamera />}
                     >
                       Upload
-                      <input hidden type="file" accept="image/*" onChange={handleFileChange} />
+                      <input
+                        hidden
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                      />
                     </Button>
 
                     <Button
@@ -496,7 +540,13 @@ const ProfileEditDialog = ({ open, onClose, onUpdate, user }) => {
                   </Typography>
 
                   {!newImagePreview && !keptImageUrl && (
-                    <Typography sx={{ color: 'text.secondary', fontStyle: 'italic', fontSize: 12 }}>
+                    <Typography
+                      sx={{
+                        color: 'text.secondary',
+                        fontStyle: 'italic',
+                        fontSize: 12,
+                      }}
+                    >
                       No avatar uploaded
                     </Typography>
                   )}
@@ -516,15 +566,15 @@ const ProfileEditDialog = ({ open, onClose, onUpdate, user }) => {
                 </Stack>
               </Box>
 
-              {/* Right: Form */}
               <Box sx={{ ...subtleCardSx, p: 2 }}>
                 <Stack spacing={2}>
                   <Box>
                     <Typography sx={{ fontWeight: 900, letterSpacing: 0.3 }}>
                       Account
                     </Typography>
+
                     <Typography sx={{ color: 'text.secondary', fontSize: 13, mt: 0.3 }}>
-                      Login essentials and permissions
+                      Basic profile information
                     </Typography>
                   </Box>
 
@@ -545,40 +595,17 @@ const ProfileEditDialog = ({ open, onClose, onUpdate, user }) => {
                       fullWidth
                       sx={fieldSx}
                     />
+
                     <TextField
                       label="Email"
                       value={formData.email}
-                      onChange={handleChange('email')}
                       required
-                      disabled={saving}
+                      disabled
                       size="small"
                       fullWidth
-                      sx={fieldSx}
+                      sx={disabledEmailFieldSx}
+                      helperText="Email cannot be edited"
                     />
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <FormControlLabel
-                        sx={{ m: 0 }}
-                        control={
-                          <Switch
-                            checked={formData.isEnabled}
-                            onChange={(e) =>
-                              setFormData((prev) => ({ ...prev, isEnabled: e.target.checked }))
-                            }
-                            disabled={saving}
-                          />
-                        }
-                        label={
-                          <Stack spacing={0.2}>
-                            <Typography sx={{ fontWeight: 800, fontSize: 14 }}>
-                              {formData.isEnabled ? 'Enabled' : 'Disabled'}
-                            </Typography>
-                            <Typography sx={{ color: 'text.secondary', fontSize: 12 }}>
-                              Disabling a user blocks login
-                            </Typography>
-                          </Stack>
-                        }
-                      />
-                    </Box>
                   </Box>
 
                   <Divider />
@@ -587,6 +614,7 @@ const ProfileEditDialog = ({ open, onClose, onUpdate, user }) => {
                     <Typography sx={{ fontWeight: 900, letterSpacing: 0.3 }}>
                       Contact
                     </Typography>
+
                     <Typography sx={{ color: 'text.secondary', fontSize: 13, mt: 0.3 }}>
                       Public profile and contact info
                     </Typography>
@@ -608,6 +636,7 @@ const ProfileEditDialog = ({ open, onClose, onUpdate, user }) => {
                       fullWidth
                       sx={fieldSx}
                     />
+
                     <TextField
                       label="Address"
                       value={formData.address}
@@ -629,8 +658,9 @@ const ProfileEditDialog = ({ open, onClose, onUpdate, user }) => {
                     }}
                   >
                     <Typography sx={{ fontSize: 12.5, color: 'text.secondary' }}>
-                      <b>Note:</b> Uploading a new image automatically marks the old image for deletion
-                      via <code style={{ marginLeft: 6 }}>imageToDelete</code>, matching your existing logic.
+                      <b>Note:</b> Email is locked and cannot be changed from this form.
+                      Uploading a new image automatically marks the old image for deletion via{' '}
+                      <code>imageToDelete</code>, matching your existing logic.
                     </Typography>
                   </Box>
                 </Stack>
@@ -672,15 +702,24 @@ const ProfileEditDialog = ({ open, onClose, onUpdate, user }) => {
           onClose={handleCloseSnackbar}
           anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
         >
-          <Alert onClose={handleCloseSnackbar} severity={snackbarSeverity} sx={{ width: '100%' }}>
+          <Alert
+            onClose={handleCloseSnackbar}
+            severity={snackbarSeverity}
+            sx={{ width: '100%' }}
+          >
             {snackbarMessage}
           </Alert>
         </Snackbar>
       </Dialog>
 
-      {/* Confirm dialog */}
-      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} maxWidth="xs" fullWidth>
+      <Dialog
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
         <DialogTitle sx={{ fontWeight: 900 }}>Confirm Update</DialogTitle>
+
         <DialogContent sx={{ pt: 1 }}>
           <Typography sx={{ color: 'text.secondary', fontSize: 13.5 }}>
             Are you sure you want to update <b>{formData.username || 'Unknown'}</b>?
@@ -697,8 +736,9 @@ const ProfileEditDialog = ({ open, onClose, onUpdate, user }) => {
           >
             <Stack spacing={0.6}>
               <Typography sx={{ fontSize: 12.5, color: 'text.secondary' }}>
-                • Status: <b>{formData.isEnabled ? 'Enabled' : 'Disabled'}</b>
+                • Email: <b>{formData.email || '—'}</b> cannot be edited
               </Typography>
+
               <Typography sx={{ fontSize: 12.5, color: 'text.secondary' }}>
                 • Image: <b>{imageActionLabel}</b>
               </Typography>
@@ -722,6 +762,7 @@ const ProfileEditDialog = ({ open, onClose, onUpdate, user }) => {
           >
             No
           </Button>
+
           <Button
             onClick={handleConfirmSubmit}
             disabled={saving}
