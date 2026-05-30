@@ -56,7 +56,7 @@ function normalizeExternalUrl(value) {
   if (rawUrl.startsWith("//")) return `${window.location.protocol}${rawUrl}`;
   if (rawUrl.startsWith("/") || rawUrl.startsWith("#")) return rawUrl;
 
-  // Browser address bar auto-fixes values like "10.232.132.40:8081" or "intranet.local".
+  // Browser address bar auto-fixes values like "10.218.20.165:8081" or "intranet.local".
   // React <a href> does not, so the portal accidentally routes them through the current app.
   const looksLikeHost =
     /^(\d{1,3}\.){3}\d{1,3}(:\d+)?([/?#].*)?$/i.test(rawUrl) ||
@@ -2559,11 +2559,19 @@ export default function PageHome() {
     const previewUrl = previewUrls[0]
       || (fileUrl && isEmbeddableFile(fileType, fileUrl) ? fileUrl : (item.previewUrl ? toAbsoluteUrl(item.previewUrl) : null));
 
+    const priorityPinned = Boolean(
+      item.priorityPinned
+      || item.isPriorityPinned
+      || item.priorityPin
+      || item.priority
+    );
+
     return {
       id: item.id,
       title: item.title || "Notice",
       content: item.content || "",
-      pinned: !!item.pinned,
+      pinned: Boolean(item.pinned || priorityPinned),
+      priorityPinned,
       fileUrl,
       previewUrl,
       fileUrls,
@@ -2574,6 +2582,48 @@ export default function PageHome() {
       createdAt: item.createdAt || null,
       updatedAt: item.updatedAt || null,
     };
+  };
+
+  const normalizeNoticeList = (value) => {
+    if (!value) return [];
+
+    return (Array.isArray(value) ? value : [value])
+      .map(normalizeNoticeItem)
+      .filter(Boolean);
+  };
+
+  const getNoticeIdentity = (notice) => {
+    if (!notice) return "";
+
+    const id = String(notice.id || "").trim();
+    if (id) return `id:${id}`;
+
+    return `title:${String(notice.title || "").trim().toLowerCase()}`;
+  };
+
+  const isSameNotice = (a, b) => {
+    if (!a || !b) return false;
+
+    const aId = String(a.id || "").trim();
+    const bId = String(b.id || "").trim();
+
+    if (aId && bId) return aId === bId;
+
+    return String(a.title || "").trim().toLowerCase()
+      === String(b.title || "").trim().toLowerCase();
+  };
+
+  const dedupeNoticeList = (items) => {
+    const seen = new Set();
+
+    return items.filter((item) => {
+      const key = getNoticeIdentity(item);
+
+      if (!key || seen.has(key)) return false;
+
+      seen.add(key);
+      return true;
+    });
   };
 
 
@@ -2599,31 +2649,47 @@ export default function PageHome() {
       if (!response.ok) throw new Error("Failed to fetch notices");
       const data = await response.json();
 
-      const featuredPinnedList = Array.isArray(data.featuredPinnedNotice)
-        ? data.featuredPinnedNotice
-        : Array.isArray(data.pinnedNotices)
-          ? data.pinnedNotices
-          : data.featuredPinnedNotice
-            ? [data.featuredPinnedNotice, data.priorityPinnedNotice].filter(Boolean)
-            : [];
+      const normalizedContentNotices = normalizeNoticeList(data.content);
 
-      const normalizedFeaturedPinnedNotices = featuredPinnedList
-        .map(normalizeNoticeItem)
-        .filter(Boolean);
+      const explicitFeaturedPinnedNotices = dedupeNoticeList([
+        ...normalizeNoticeList(data.featuredPinnedNotice),
+        ...normalizeNoticeList(data.featuredPinnedNotices),
+        ...normalizeNoticeList(data.heroPinnedNotice),
+        ...normalizeNoticeList(data.pinnedNotice),
+      ]);
 
-      const normalizedFeaturedPinnedNotice = normalizedFeaturedPinnedNotices[0] || null;
-      const normalizedPriorityPinnedNotice = normalizedFeaturedPinnedNotices[1] || null;
+      const explicitPriorityPinnedNotices = dedupeNoticeList([
+        ...normalizeNoticeList(data.priorityPinnedNotice),
+        ...normalizeNoticeList(data.priorityPinnedNotices),
+        ...normalizeNoticeList(data.priorityNotice),
+      ]);
 
-      const pinnedIds = new Set(
-        normalizedFeaturedPinnedNotices
-          .map((item) => item.id)
-          .filter(Boolean),
+      const apiPinnedNotices = dedupeNoticeList([
+        ...normalizeNoticeList(data.pinnedNotices),
+        ...normalizeNoticeList(data.pinnedNoticeList),
+      ]);
+
+      const contentPinnedNotices = normalizedContentNotices.filter((item) => item.pinned);
+
+      const normalizedFeaturedPinnedNotice =
+        explicitFeaturedPinnedNotices[0]
+        || apiPinnedNotices[0]
+        || contentPinnedNotices[0]
+        || null;
+
+      const normalizedPriorityPinnedNotice =
+        explicitPriorityPinnedNotices.find((item) => !isSameNotice(item, normalizedFeaturedPinnedNotice))
+        || apiPinnedNotices.find((item) => !isSameNotice(item, normalizedFeaturedPinnedNotice))
+        || contentPinnedNotices.find((item) => !isSameNotice(item, normalizedFeaturedPinnedNotice))
+        || null;
+
+      const pinnedKeys = new Set(
+        [normalizedFeaturedPinnedNotice, normalizedPriorityPinnedNotice]
+          .filter(Boolean)
+          .map(getNoticeIdentity),
       );
 
-      const normalizedNotices = (data.content || [])
-        .map(normalizeNoticeItem)
-        .filter(Boolean)
-        .filter((item) => !pinnedIds.has(item.id));
+      const normalizedNotices = normalizedContentNotices.filter((item) => !pinnedKeys.has(getNoticeIdentity(item)));
 
       setFeaturedPinnedNotice(normalizedFeaturedPinnedNotice);
       setPriorityPinnedNotice(normalizedPriorityPinnedNotice);
@@ -3267,11 +3333,13 @@ export default function PageHome() {
 
   const priorityPinnedDisplayNotice = useMemo(
     () => {
-      if (priorityPinnedNotice && priorityPinnedNotice.id !== heroPinnedNotice?.id) {
+      const isDifferentFromHero = (notice) => notice && !isSameNotice(notice, heroPinnedNotice);
+
+      if (isDifferentFromHero(priorityPinnedNotice)) {
         return priorityPinnedNotice;
       }
 
-      return notices.find((item) => item.pinned && item.id !== heroPinnedNotice?.id) || null;
+      return notices.find((item) => item.pinned && isDifferentFromHero(item)) || null;
     },
     [priorityPinnedNotice, notices, heroPinnedNotice],
   );
