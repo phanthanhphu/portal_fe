@@ -736,11 +736,11 @@ function RejectDialog({ open, item, reason, loading, onChangeReason, onClose, on
       <DialogTitle>Reject Notice</DialogTitle>
       <DialogContent dividers>
         <Stack spacing={1.5}>
-          <Typography fontSize={14}>Bạn muốn từ chối bài đăng:</Typography>
+          <Typography fontSize={14}>Do you want to reject this notice?</Typography>
           <Typography fontWeight={800}>{item?.title || '-'}</Typography>
           <TextField
             label="Reason"
-            placeholder="Nhập lý do từ chối để user biết cần chỉnh gì..."
+            placeholder="Enter the rejection reason so the user knows what to update..."
             value={reason}
             onChange={(e) => onChangeReason(e.target.value)}
             multiline
@@ -825,7 +825,7 @@ function StatusChangeDialog({
           {isRejected && (
             <TextField
               label="Reject Reason"
-              placeholder="Nhập lý do từ chối..."
+              placeholder="Enter the rejection reason..."
               value={reason}
               onChange={(e) => onReasonChange(e.target.value)}
               multiline
@@ -837,19 +837,19 @@ function StatusChangeDialog({
 
           {nextStatus === APPROVAL_STATUS.PENDING && (
             <Alert severity="info">
-              Chuyển về Pending sẽ đưa bài về danh sách chờ duyệt và xóa thông tin approve/reject cũ.
+              Changing to Pending will move this notice back to the approval queue and clear the previous approve/reject information.
             </Alert>
           )}
 
           {nextStatus === APPROVAL_STATUS.APPROVED && (
             <Alert severity="success">
-              Chuyển sang Approved sẽ cho phép bài hiển thị ở trang Notices/index.
+              Changing to Approved will allow this notice to appear on the Notices/index page.
             </Alert>
           )}
 
           {isSameStatus && (
             <Alert severity="warning">
-              Trạng thái mới đang trùng với trạng thái hiện tại.
+              The new status is the same as the current status.
             </Alert>
           )}
         </Stack>
