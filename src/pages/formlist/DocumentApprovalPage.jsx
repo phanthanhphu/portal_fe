@@ -402,22 +402,13 @@ const shouldConvertDocumentFileToPdf = (item) => OFFICE_PREVIEW_TYPES.has(getDoc
 
 const getBlobErrorMessage = async (error, fallbackMessage) => {
   try {
-    const data = error?.response?.data;
+    const statusCode = Number(error?.response?.status || 0);
 
-    if (data instanceof Blob) {
-      const text = await data.text();
+    if (statusCode === 401) return 'Your session has expired. Please log in again.';
+    if (statusCode === 403) return 'You do not have permission to access this file.';
+    if (statusCode === 404) return 'File not found.';
 
-      if (!text) return fallbackMessage;
-
-      try {
-        const json = JSON.parse(text);
-        return json?.message || fallbackMessage;
-      } catch {
-        return text || fallbackMessage;
-      }
-    }
-
-    return error?.response?.data?.message || error?.message || fallbackMessage;
+    return fallbackMessage;
   } catch {
     return fallbackMessage;
   }
@@ -558,6 +549,7 @@ function DocumentDetailDialog({
   loadingAction,
   canEdit,
   canApproveDocument,
+  getTypeName,
   onClose,
   onApprove,
   onReject,
@@ -606,7 +598,7 @@ function DocumentDetailDialog({
 
             <Box flex={1}>
               <Typography fontSize={12} fontWeight={700} color="text.secondary">Type</Typography>
-              <Typography fontSize={14}>{item.typeName || item.documentTypeName || item.typeId || '-'}</Typography>
+              <Typography fontSize={14}>{getTypeName ? getTypeName(item) : (item.typeName || item.documentTypeName || '-')}</Typography>
             </Box>
 
             <Box flex={1}>
@@ -733,29 +725,33 @@ function DocumentDetailDialog({
       </DialogContent>
 
       <DialogActions sx={{ px: 3, py: 2 }}>
-        {canEdit && (
-          <Button
-            variant="outlined"
-            startIcon={<Edit />}
-            disabled={loadingAction}
-            onClick={() => onEdit(item)}
-            sx={{ textTransform: 'none' }}
-          >
-            Edit
-          </Button>
-        )}
+        <Tooltip title={canEdit ? 'Edit document' : 'No Document approval permission'} arrow>
+          <span>
+            <Button
+              variant="outlined"
+              startIcon={<Edit />}
+              disabled={loadingAction || !canEdit}
+              onClick={() => onEdit(item)}
+              sx={{ textTransform: 'none' }}
+            >
+              Edit
+            </Button>
+          </span>
+        </Tooltip>
 
-        {canEdit && (
-          <Button
-            variant="outlined"
-            startIcon={<SwapHoriz />}
-            disabled={loadingAction}
-            onClick={() => onChangeStatus(item)}
-            sx={{ textTransform: 'none' }}
-          >
-            Change Status
-          </Button>
-        )}
+        <Tooltip title={canEdit ? 'Change status' : 'No Document approval permission'} arrow>
+          <span>
+            <Button
+              variant="outlined"
+              startIcon={<SwapHoriz />}
+              disabled={loadingAction || !canEdit}
+              onClick={() => onChangeStatus(item)}
+              sx={{ textTransform: 'none' }}
+            >
+              Change Status
+            </Button>
+          </span>
+        </Tooltip>
 
         <Button disabled={loadingAction} onClick={onClose} sx={{ textTransform: 'none' }}>
           Close
@@ -763,26 +759,34 @@ function DocumentDetailDialog({
 
         {isPending && (
           <>
-            <Button
-              variant="outlined"
-              color="error"
-              startIcon={<Cancel />}
-              disabled={loadingAction || !canApproveDocument}
-              onClick={() => onReject(item)}
-              sx={{ textTransform: 'none' }}
-            >
-              Reject
-            </Button>
-            <Button
-              variant="contained"
-              color="success"
-              startIcon={loadingAction ? <CircularProgress size={16} color="inherit" /> : <CheckCircle />}
-              disabled={loadingAction || !canApproveDocument}
-              onClick={() => onApprove(item)}
-              sx={{ textTransform: 'none' }}
-            >
-              Approve
-            </Button>
+            <Tooltip title={canApproveDocument ? 'Reject document' : 'No Document approval permission'} arrow>
+              <span>
+                <Button
+                  variant="outlined"
+                  color="error"
+                  startIcon={<Cancel />}
+                  disabled={loadingAction || !canApproveDocument}
+                  onClick={() => onReject(item)}
+                  sx={{ textTransform: 'none' }}
+                >
+                  Reject
+                </Button>
+              </span>
+            </Tooltip>
+            <Tooltip title={canApproveDocument ? 'Approve document' : 'No Document approval permission'} arrow>
+              <span>
+                <Button
+                  variant="contained"
+                  color="success"
+                  startIcon={loadingAction ? <CircularProgress size={16} color="inherit" /> : <CheckCircle />}
+                  disabled={loadingAction || !canApproveDocument}
+                  onClick={() => onApprove(item)}
+                  sx={{ textTransform: 'none' }}
+                >
+                  Approve
+                </Button>
+              </span>
+            </Tooltip>
           </>
         )}
       </DialogActions>
@@ -791,21 +795,26 @@ function DocumentDetailDialog({
 }
 
 function RejectDialog({ open, item, reason, loading, onChangeReason, onClose, onConfirm }) {
+  const isReasonEmpty = !String(reason || '').trim();
+
   return (
     <Dialog open={open} onClose={loading ? undefined : onClose} maxWidth="sm" fullWidth>
       <DialogTitle>Reject Document</DialogTitle>
       <DialogContent dividers>
         <Stack spacing={1.5}>
-          <Typography fontSize={14}>Bạn muốn từ chối tài liệu:</Typography>
+          <Typography fontSize={14}>Are you sure you want to reject this document?</Typography>
           <Typography fontWeight={800}>{item?.title || '-'}</Typography>
           <TextField
             label="Reason"
-            placeholder="Nhập lý do từ chối để user biết cần chỉnh gì..."
+            placeholder="Enter the rejection reason so the user knows what needs to be updated..."
             value={reason}
             onChange={(e) => onChangeReason(e.target.value)}
             multiline
             minRows={3}
             fullWidth
+            required
+            error={isReasonEmpty}
+            helperText={isReasonEmpty ? 'Rejection reason is required.' : ' '}
             disabled={loading}
           />
         </Stack>
@@ -817,7 +826,7 @@ function RejectDialog({ open, item, reason, loading, onChangeReason, onClose, on
         <Button
           variant="contained"
           color="error"
-          disabled={loading}
+          disabled={loading || isReasonEmpty}
           startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <Cancel />}
           onClick={onConfirm}
           sx={{ textTransform: 'none' }}
@@ -884,7 +893,7 @@ function StatusChangeDialog({
           {isRejected && (
             <TextField
               label="Reject Reason"
-              placeholder="Nhập lý do từ chối..."
+              placeholder="Enter the rejection reason..."
               value={reason}
               onChange={(e) => onReasonChange(e.target.value)}
               multiline
@@ -896,19 +905,19 @@ function StatusChangeDialog({
 
           {nextStatus === APPROVAL_STATUS.PENDING && (
             <Alert severity="info">
-              Chuyển về Pending sẽ đưa tài liệu về danh sách chờ duyệt và xóa thông tin approve/reject cũ.
+              Changing back to Pending will move this document to the approval queue and clear previous approve/reject information.
             </Alert>
           )}
 
           {nextStatus === APPROVAL_STATUS.APPROVED && (
             <Alert severity="success">
-              Chuyển sang Approved sẽ cho phép tài liệu hiển thị ở trang Documents.
+              Changing to Approved will allow this document to appear on the Documents page.
             </Alert>
           )}
 
           {isSameStatus && (
             <Alert severity="warning">
-              Trạng thái mới đang trùng với trạng thái hiện tại.
+              The new status is the same as the current status.
             </Alert>
           )}
         </Stack>
@@ -987,7 +996,7 @@ export default function DocumentApprovalPage() {
   };
 
   const resolveTypeName = useCallback((item) => {
-    return item?.typeName || item?.documentTypeName || typeNameMap[item?.typeId] || item?.typeId || '-';
+    return item?.typeName || item?.documentTypeName || typeNameMap[item?.typeId] || '-';
   }, [typeNameMap]);
 
   const applyCurrentUserPermission = useCallback((latestUser = {}) => {
@@ -1056,7 +1065,7 @@ export default function DocumentApprovalPage() {
     } catch (err) {
       console.error(err);
       setDepartments([]);
-      toast(err?.response?.data?.message || 'Failed to fetch departments.', 'error');
+      toast('Failed to fetch departments.', 'error');
     } finally {
       setLoadingDepartments(false);
     }
@@ -1170,7 +1179,7 @@ export default function DocumentApprovalPage() {
       setRows([]);
       setTotalElements(0);
       setTotalPages(1);
-      toast(err?.response?.data?.message || 'Failed to fetch documents.', 'error');
+      toast('Failed to fetch documents.', 'error');
     } finally {
       if (!silent) setLoading(false);
     }
@@ -1238,7 +1247,7 @@ export default function DocumentApprovalPage() {
       await fetchCounts();
     } catch (err) {
       console.error(err);
-      toast(err?.response?.data?.message || 'Approve document failed.', 'error');
+      toast('Approve document failed.', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -1259,6 +1268,11 @@ export default function DocumentApprovalPage() {
 
     if (!canApproveDocument) {
       toast('You do not have Document approval permission.', 'error');
+      return;
+    }
+
+    if (!rejectReason.trim()) {
+      toast('Rejection reason is required before confirming.', 'warning');
       return;
     }
 
@@ -1285,7 +1299,7 @@ export default function DocumentApprovalPage() {
       await fetchCounts();
     } catch (err) {
       console.error(err);
-      toast(err?.response?.data?.message || 'Reject document failed.', 'error');
+      toast('Reject document failed.', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -1414,7 +1428,7 @@ export default function DocumentApprovalPage() {
       await fetchCounts();
     } catch (err) {
       console.error(err);
-      toast(err?.response?.data?.message || 'Change document status failed.', 'error');
+      toast('Change document status failed.', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -2037,6 +2051,7 @@ export default function DocumentApprovalPage() {
         loadingAction={actionLoading}
         canEdit={canApproveDocument}
         canApproveDocument={canApproveDocument}
+        getTypeName={resolveTypeName}
         onClose={() => setSelectedItem(null)}
         onApprove={handleApprove}
         onReject={handleOpenReject}

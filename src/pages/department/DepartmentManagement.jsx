@@ -12,7 +12,8 @@ import {
   DialogActions,
   Snackbar,
   Alert,
-  CircularProgress
+  CircularProgress,
+  Tooltip
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -28,10 +29,139 @@ import DepartmentSearch from "./DepartmentSearch";
 
 const API_URL = `${API_BASE_URL}/api/departments`;
 
+
+const normalizeText = (value) =>
+  String(value || "")
+    .trim()
+    .toUpperCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ");
+
+const isAdminRole = (role) => {
+  if (Array.isArray(role)) {
+    return role.some((item) => isAdminRole(item));
+  }
+
+  const normalizedRole = normalizeText(role);
+  return normalizedRole === "ADMIN" || normalizedRole === "ROLE ADMIN" || normalizedRole === "ROLE_ADMIN";
+};
+
+const isItDepartmentName = (value) => {
+  const normalizedValue = normalizeText(value);
+
+  if (!normalizedValue) return false;
+
+  return (
+    normalizedValue === "IT" ||
+    normalizedValue === "IT DEPARTMENT" ||
+    normalizedValue === "INFORMATION TECHNOLOGY" ||
+    normalizedValue === "INFORMATION TECHNOLOGY DEPARTMENT" ||
+    /(^|\s)IT(\s|$)/.test(normalizedValue)
+  );
+};
+
+const parseJsonSafely = (value) => {
+  try {
+    return value ? JSON.parse(value) : null;
+  } catch {
+    return null;
+  }
+};
+
+const decodeJwtPayload = (token) => {
+  try {
+    if (!token) return null;
+
+    const base64Url = token.split(".")[1];
+    if (!base64Url) return null;
+
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((char) => `%${`00${char.charCodeAt(0).toString(16)}`.slice(-2)}`)
+        .join("")
+    );
+
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
+};
+
+const getCurrentUserForAccess = () => {
+  const userKeys = ["user", "currentUser", "authUser", "userInfo"];
+
+  for (const key of userKeys) {
+    const user = parseJsonSafely(localStorage.getItem(key));
+    if (user) return user;
+  }
+
+  return decodeJwtPayload(localStorage.getItem("token")) || {};
+};
+
+const userBelongsToItDepartment = (user = {}) => {
+  const candidates = [
+    user.departmentName,
+    user.department,
+    user.departmentCode,
+    user.department_name,
+    user.deptName,
+    user.dept,
+    user.division,
+    user.currentDepartmentName,
+    user.currentDepartment,
+    user.currentDepartmentCode,
+    user?.department?.name,
+    user?.department?.departmentName,
+    user?.department?.code,
+    user?.currentDepartment?.name,
+    user?.currentDepartment?.departmentName,
+    user?.currentDepartment?.code,
+  ];
+
+  if (Array.isArray(user.departments)) {
+    user.departments.forEach((department) => {
+      if (typeof department === "string") {
+        candidates.push(department);
+        return;
+      }
+
+      candidates.push(department?.name, department?.departmentName, department?.code);
+    });
+  }
+
+  return candidates.some((candidate) => isItDepartmentName(candidate));
+};
+
+const getDepartmentAccessFromApiResponse = (data = {}) => {
+  const currentUser = getCurrentUserForAccess();
+
+  const apiUser = data?.currentUser || data?.user || data?.profile || {};
+  const apiDepartment = data?.currentDepartment || {};
+
+  const apiDepartmentCandidates = {
+    departmentName: data?.currentDepartmentName,
+    department: data?.departmentName,
+    departmentCode: data?.currentDepartmentCode,
+    currentDepartmentName: apiDepartment?.departmentName || apiDepartment?.name,
+    currentDepartmentCode: apiDepartment?.code,
+  };
+
+  return {
+    isAdmin: Boolean(data?.isAdmin) || isAdminRole(currentUser.role) || isAdminRole(currentUser.roles) || isAdminRole(apiUser.role) || isAdminRole(apiUser.roles),
+    isItDepartment: userBelongsToItDepartment(currentUser) || userBelongsToItDepartment(apiUser) || userBelongsToItDepartment(apiDepartmentCandidates),
+  };
+};
+
+const NO_DEPARTMENT_MANAGE_PERMISSION_MESSAGE =
+  "Only Admin or IT department users can add, edit, or delete departments.";
+
 export default function DepartmentManagement() {
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isItDepartment, setIsItDepartment] = useState(false);
 
   // Search states
   const [searchDivision, setSearchDivision] = useState("");
@@ -54,6 +184,8 @@ export default function DepartmentManagement() {
 
   const closeNotification = () =>
     setNotification((prev) => ({ ...prev, open: false }));
+
+  const canManageDepartments = useMemo(() => isAdmin || isItDepartment, [isAdmin, isItDepartment]);
 
   const parseError = async (res, defaultMsg) => {
     try {
@@ -97,7 +229,7 @@ export default function DepartmentManagement() {
       const loggedInUserId = getLoggedInUserId();
 
       if (!loggedInUserId) {
-        throw new Error("Không tìm thấy userId của user đang đăng nhập");
+        throw new Error("Logged-in user ID was not found.");
       }
 
       const params = new URLSearchParams();
@@ -127,14 +259,15 @@ export default function DepartmentManagement() {
 
       const data = await res.json();
 
-      const admin = Boolean(data?.isAdmin);
+      const access = getDepartmentAccessFromApiResponse(data);
       const list = Array.isArray(data?.departments)
         ? data.departments
         : Array.isArray(data)
           ? data
           : [];
 
-      setIsAdmin(admin);
+      setIsAdmin(Boolean(access.isAdmin));
+      setIsItDepartment(Boolean(access.isItDepartment));
 
       const mapped = list.map((dep) => ({
         id: dep.id,
@@ -149,11 +282,12 @@ export default function DepartmentManagement() {
       console.error(error);
       setNotification({
         open: true,
-        message: error.message || "Không thể tải danh sách phòng ban",
+        message: error.message || "Failed to fetch departments.",
         severity: "error"
       });
       setDepartments([]);
       setIsAdmin(false);
+      setIsItDepartment(userBelongsToItDepartment(getCurrentUserForAccess()));
     } finally {
       if (!silent) {
         setLoading(false);
@@ -258,10 +392,10 @@ export default function DepartmentManagement() {
 
 
   const handleConfirmDelete = async () => {
-    if (!isAdmin) {
+    if (!canManageDepartments) {
       setNotification({
         open: true,
-        message: "Bạn không có quyền xóa phòng ban",
+        message: NO_DEPARTMENT_MANAGE_PERMISSION_MESSAGE,
         severity: "error"
       });
       return;
@@ -310,18 +444,42 @@ export default function DepartmentManagement() {
   };
 
   const handleAdd = () => {
-    if (!isAdmin) return;
+    if (!canManageDepartments) {
+      setNotification({
+        open: true,
+        message: NO_DEPARTMENT_MANAGE_PERMISSION_MESSAGE,
+        severity: "error"
+      });
+      return;
+    }
+
     setAddDialogOpen(true);
   };
 
   const handleEdit = (dep) => {
-    if (!isAdmin) return;
+    if (!canManageDepartments) {
+      setNotification({
+        open: true,
+        message: NO_DEPARTMENT_MANAGE_PERMISSION_MESSAGE,
+        severity: "error"
+      });
+      return;
+    }
+
     setSelectedDepartment(dep);
     setEditDialogOpen(true);
   };
 
   const handleDelete = (dep) => {
-    if (!isAdmin) return;
+    if (!canManageDepartments) {
+      setNotification({
+        open: true,
+        message: NO_DEPARTMENT_MANAGE_PERMISSION_MESSAGE,
+        severity: "error"
+      });
+      return;
+    }
+
     setSelectedDepartment(dep);
     setDeleteDialogOpen(true);
   };
@@ -354,28 +512,34 @@ export default function DepartmentManagement() {
       <Stack direction="row" justifyContent="space-between" sx={{ mb: 2 }}>
         <Typography fontWeight={700}>Department</Typography>
 
-        {isAdmin && (
-          <Button
-            startIcon={<AddIcon fontSize="small" />}
-            variant="contained"
-            onClick={handleAdd}
-            sx={{
-              height: 34,
-              px: 1.25,
-              borderRadius: 1.2,
-              textTransform: "none",
-              fontWeight: 400,
-              backgroundColor: "#111827",
-              boxShadow: "none",
-              "&:hover": {
-                backgroundColor: "#0b1220",
+        <Tooltip
+          title={canManageDepartments ? "Add Department" : NO_DEPARTMENT_MANAGE_PERMISSION_MESSAGE}
+          arrow
+        >
+          <span>
+            <Button
+              startIcon={<AddIcon fontSize="small" />}
+              variant="contained"
+              onClick={handleAdd}
+              disabled={loading || !canManageDepartments}
+              sx={{
+                height: 34,
+                px: 1.25,
+                borderRadius: 1.2,
+                textTransform: "none",
+                fontWeight: 400,
+                backgroundColor: "#111827",
                 boxShadow: "none",
-              },
-            }}
-          >
-            Add Department
-          </Button>
-        )}
+                "&:hover": {
+                  backgroundColor: "#0b1220",
+                  boxShadow: "none",
+                },
+              }}
+            >
+              Add Department
+            </Button>
+          </span>
+        </Tooltip>
       </Stack>
 
       <DepartmentSearch
@@ -442,16 +606,35 @@ export default function DepartmentManagement() {
                       </Box>
                     </Stack>
 
-                    {isAdmin && (
-                      <Stack direction="row">
-                        <IconButton onClick={() => handleEdit(dep)}>
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton onClick={() => handleDelete(dep)}>
-                          <DeleteIcon />
-                        </IconButton>
-                      </Stack>
-                    )}
+                    <Stack direction="row">
+                      <Tooltip
+                        title={canManageDepartments ? "Edit Department" : NO_DEPARTMENT_MANAGE_PERMISSION_MESSAGE}
+                        arrow
+                      >
+                        <span>
+                          <IconButton
+                            onClick={() => handleEdit(dep)}
+                            disabled={loading || !canManageDepartments}
+                          >
+                            <EditIcon />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+
+                      <Tooltip
+                        title={canManageDepartments ? "Delete Department" : NO_DEPARTMENT_MANAGE_PERMISSION_MESSAGE}
+                        arrow
+                      >
+                        <span>
+                          <IconButton
+                            onClick={() => handleDelete(dep)}
+                            disabled={loading || !canManageDepartments}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </Stack>
                   </Stack>
                 ))}
               </Paper>
@@ -460,49 +643,43 @@ export default function DepartmentManagement() {
         )}
       </Paper>
 
-      {isAdmin && (
-        <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
-          <DialogTitle>Delete Department</DialogTitle>
-          <DialogContent>
-            Are you sure you want to delete <b>{selectedDepartment?.departmentName}</b>?
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-            <Button color="error" onClick={handleConfirmDelete}>Delete</Button>
-          </DialogActions>
-        </Dialog>
-      )}
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+        <DialogTitle>Delete Department</DialogTitle>
+        <DialogContent>
+          Are you sure you want to delete <b>{selectedDepartment?.departmentName}</b>?
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+          <Button color="error" onClick={handleConfirmDelete} disabled={loading || !canManageDepartments}>Delete</Button>
+        </DialogActions>
+      </Dialog>
 
-      {isAdmin && (
-        <EditDepartmentDialog
-          open={editDialogOpen}
-          department={selectedDepartment}
-          onClose={(updated) => {
-            setEditDialogOpen(false);
-            if (updated) {
-              fetchDepartments({
-                division: searchDivision,
-                departmentName: searchDeptName
-              });
-            }
-          }}
-        />
-      )}
+      <EditDepartmentDialog
+        open={editDialogOpen}
+        department={selectedDepartment}
+        onClose={(updated) => {
+          setEditDialogOpen(false);
+          if (updated) {
+            fetchDepartments({
+              division: searchDivision,
+              departmentName: searchDeptName
+            });
+          }
+        }}
+      />
 
-      {isAdmin && (
-        <AddDepartmentDialog
-          open={addDialogOpen}
-          onClose={(created) => {
-            setAddDialogOpen(false);
-            if (created) {
-              fetchDepartments({
-                division: searchDivision,
-                departmentName: searchDeptName
-              });
-            }
-          }}
-        />
-      )}
+      <AddDepartmentDialog
+        open={addDialogOpen}
+        onClose={(created) => {
+          setAddDialogOpen(false);
+          if (created) {
+            fetchDepartments({
+              division: searchDivision,
+              departmentName: searchDeptName
+            });
+          }
+        }}
+      />
 
       <Snackbar
         open={notification.open}

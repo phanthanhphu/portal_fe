@@ -109,6 +109,90 @@ const getLoggedInUserId = () => {
   return localStorage.getItem('userId') || '';
 };
 
+const parseJsonSafely = (value) => {
+  try {
+    return value ? JSON.parse(value) : null;
+  } catch {
+    return null;
+  }
+};
+
+const getStoredCurrentUser = () => {
+  const userKeys = ['user', 'currentUser', 'authUser', 'userInfo'];
+
+  for (const key of userKeys) {
+    const user = parseJsonSafely(localStorage.getItem(key));
+    if (user) return user;
+  }
+
+  return {};
+};
+
+const normalizeAccessText = (value) => String(value || '').trim().toUpperCase();
+
+const isAdminRole = (roleValue) => {
+  if (Array.isArray(roleValue)) {
+    return roleValue.some((role) => isAdminRole(role));
+  }
+
+  if (roleValue && typeof roleValue === 'object') {
+    return isAdminRole(roleValue.name || roleValue.role || roleValue.authority);
+  }
+
+  const role = normalizeAccessText(roleValue);
+  return role === 'ADMIN' || role === 'ROLE_ADMIN';
+};
+
+const isUserAdmin = (user = {}) => {
+  return (
+    isAdminRole(user?.role) ||
+    isAdminRole(user?.roleName) ||
+    isAdminRole(user?.roles) ||
+    isAdminRole(user?.authorities)
+  );
+};
+
+const isITDepartmentName = (value) => {
+  const department = normalizeAccessText(value);
+  if (!department) return false;
+
+  return (
+    department === 'IT' ||
+    department === 'IT DEPARTMENT' ||
+    department === 'INFORMATION TECHNOLOGY' ||
+    department === 'INFORMATION TECHNOLOGY DEPARTMENT'
+  );
+};
+
+const isUserInITDepartment = (user = {}, accessInfo = {}) => {
+  const departmentObject = user?.department && typeof user.department === 'object' ? user.department : {};
+
+  const candidates = [
+    user?.departmentName,
+    user?.department,
+    user?.deptName,
+    user?.dept,
+    user?.departmentCode,
+    user?.departmentId,
+    user?.idDepartment,
+    departmentObject?.name,
+    departmentObject?.departmentName,
+    departmentObject?.code,
+    departmentObject?.id,
+    accessInfo?.currentDepartmentName,
+    accessInfo?.currentDepartmentCode,
+    accessInfo?.currentDepartmentId,
+  ];
+
+  return candidates.some((candidate) => isITDepartmentName(candidate));
+};
+
+const canUserManageAppLinks = (user = {}, accessInfo = {}) => {
+  return Boolean(accessInfo?.isAdmin) || isUserAdmin(user) || isUserInITDepartment(user, accessInfo);
+};
+
+const APP_LINK_MANAGE_DENIED_MESSAGE = 'Only Admin or IT department users can add, edit, or delete App Links.';
+
 /* =========================
    Headers
    ========================= */
@@ -130,7 +214,7 @@ const fetchAppLinks = async (page = 0, size = 12, name = '', desc = '') => {
     const loggedInUserId = getLoggedInUserId();
 
     if (!loggedInUserId) {
-      throw new Error('Không tìm thấy userId của user đang đăng nhập');
+      throw new Error('Logged-in user ID was not found.');
     }
 
     const params = new URLSearchParams();
@@ -155,6 +239,8 @@ const fetchAppLinks = async (page = 0, size = 12, name = '', desc = '') => {
       totalPages,
       isAdmin: Boolean(rawData?.isAdmin),
       currentDepartmentId: rawData?.currentDepartmentId || '',
+      currentDepartmentName: rawData?.currentDepartmentName || rawData?.departmentName || '',
+      currentDepartmentCode: rawData?.currentDepartmentCode || rawData?.departmentCode || '',
       disableDepartmentSelect: Boolean(rawData?.disableDepartmentSelect),
     };
   } catch (error) {
@@ -166,6 +252,8 @@ const fetchAppLinks = async (page = 0, size = 12, name = '', desc = '') => {
       totalPages: 1,
       isAdmin: false,
       currentDepartmentId: '',
+      currentDepartmentName: '',
+      currentDepartmentCode: '',
       disableDepartmentSelect: true,
     };
   }
@@ -176,7 +264,7 @@ const deleteAppLink = async (id) => {
     const loggedInUserId = getLoggedInUserId();
 
     if (!loggedInUserId) {
-      throw new Error('Không tìm thấy userId của user đang đăng nhập');
+      throw new Error('Logged-in user ID was not found.');
     }
 
     const response = await apiClient.delete(`/api/app-links/${id}`, {
@@ -191,6 +279,26 @@ const deleteAppLink = async (id) => {
       success: false,
       message: error.response?.data?.message || error.message || 'Failed to delete App Link',
     };
+  }
+};
+
+const fetchCurrentUserAccess = async () => {
+  const loggedInUserId = getLoggedInUserId();
+  const storedUser = getStoredCurrentUser();
+
+  if (!loggedInUserId) return storedUser;
+
+  try {
+    const response = await apiClient.get(`/api/users/${loggedInUserId}`);
+    const latestUser = response?.data?.data || response?.data?.user || response?.data || {};
+
+    return {
+      ...storedUser,
+      ...latestUser,
+    };
+  } catch (error) {
+    console.warn('Cannot load current user access info. Falling back to localStorage.', error);
+    return storedUser;
   }
 };
 
@@ -349,6 +457,8 @@ export default function AppLinksPage() {
   const [totalPages, setTotalPages] = useState(1);
 
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isITDepartmentUser, setIsITDepartmentUser] = useState(false);
+  const [canManageAppLinks, setCanManageAppLinks] = useState(() => canUserManageAppLinks(getStoredCurrentUser()));
   const [currentDepartmentId, setCurrentDepartmentId] = useState('');
   const [disableDepartmentSelect, setDisableDepartmentSelect] = useState(true);
 
@@ -394,13 +504,26 @@ export default function AppLinksPage() {
         const effName = overrides.name !== undefined ? overrides.name : filterName;
         const effDesc = overrides.desc !== undefined ? overrides.desc : filterDesc;
 
-        const result = await fetchAppLinks(effPage, effSize, effName, effDesc);
+        const [latestUser, result] = await Promise.all([
+          fetchCurrentUserAccess(),
+          fetchAppLinks(effPage, effSize, effName, effDesc),
+        ]);
         const finalData = sortRowsClient(result.content, effSort);
+        const accessInfo = {
+          isAdmin: Boolean(result.isAdmin),
+          currentDepartmentId: result.currentDepartmentId || '',
+          currentDepartmentName: result.currentDepartmentName || '',
+          currentDepartmentCode: result.currentDepartmentCode || '',
+        };
+        const roleIsAdmin = Boolean(result.isAdmin) || isUserAdmin(latestUser);
+        const userIsIT = isUserInITDepartment(latestUser, accessInfo);
 
         setData(finalData);
         setTotalElements(result.totalElements);
         setTotalPages(result.totalPages);
-        setIsAdmin(Boolean(result.isAdmin));
+        setIsAdmin(roleIsAdmin);
+        setIsITDepartmentUser(userIsIT);
+        setCanManageAppLinks(roleIsAdmin || userIsIT);
         setCurrentDepartmentId(result.currentDepartmentId || '');
         setDisableDepartmentSelect(Boolean(result.disableDepartmentSelect));
       } finally {
@@ -532,33 +655,34 @@ export default function AppLinksPage() {
   }, [page, rowsPerPage, fetchData]);
 
   /* ====================== HANDLERS ====================== */
+  const handleOpenAdd = useCallback(() => {
+    if (!canManageAppLinks) {
+      setNotification({
+        open: true,
+        message: APP_LINK_MANAGE_DENIED_MESSAGE,
+        severity: 'error',
+      });
+      return;
+    }
+
+    setOpenAddDialog(true);
+  }, [canManageAppLinks]);
+
   const goToView = useCallback((item) => {
     if (!item?.id) return;
     navigate(`/app-links/${item.id}`);
   }, [navigate]);
 
-  const canModifyItem = useCallback((item, action = 'edit') => {
+  const canModifyItem = useCallback((item) => {
     if (!item?.id) return false;
-    if (isAdmin) return true;
-
-    const key = action === 'delete' ? 'canDelete' : 'canEdit';
-
-    if (typeof item?.[key] === 'boolean') {
-      return item[key];
-    }
-
-    return Boolean(
-      currentDepartmentId &&
-      item?.departmentId &&
-      String(currentDepartmentId).trim() === String(item.departmentId).trim()
-    );
-  }, [isAdmin, currentDepartmentId]);
+    return canManageAppLinks;
+  }, [canManageAppLinks]);
 
   const handleOpenEdit = useCallback((item) => {
     if (!canModifyItem(item, 'edit')) {
       setNotification({
         open: true,
-        message: 'Bạn chỉ được edit App Link thuộc phòng ban chính của bạn.',
+        message: APP_LINK_MANAGE_DENIED_MESSAGE,
         severity: 'error',
       });
       return;
@@ -572,7 +696,7 @@ export default function AppLinksPage() {
     if (!canModifyItem(item, 'delete')) {
       setNotification({
         open: true,
-        message: 'Bạn chỉ được delete App Link thuộc phòng ban chính của bạn.',
+        message: APP_LINK_MANAGE_DENIED_MESSAGE,
         severity: 'error',
       });
       return;
@@ -588,7 +712,7 @@ export default function AppLinksPage() {
     if (!canModifyItem(selectedItem, 'delete')) {
       setNotification({
         open: true,
-        message: 'Bạn chỉ được delete App Link thuộc phòng ban chính của bạn.',
+        message: APP_LINK_MANAGE_DENIED_MESSAGE,
         severity: 'error',
       });
       setDeleteDialogOpen(false);
@@ -685,8 +809,8 @@ export default function AppLinksPage() {
           <Button
             variant="contained"
             startIcon={<Add fontSize="small" />}
-            onClick={() => setOpenAddDialog(true)}
-            disabled={loading}
+            onClick={handleOpenAdd}
+            disabled={loading || !canManageAppLinks}
             sx={{
               ...btnSx,
               borderRadius: 1.2,
@@ -955,7 +1079,7 @@ export default function AppLinksPage() {
                       <TableCell align="center" onClick={(e) => e.stopPropagation()} sx={{ py: 0.45, px: 0.7 }}>
                         <Stack direction="row" spacing={0.4} justifyContent="center">
                           <Tooltip
-                            title={editEnabled ? 'Edit App Link' : 'Bạn chỉ được edit link thuộc phòng ban chính của bạn'}
+                            title={editEnabled ? 'Edit App Link' : APP_LINK_MANAGE_DENIED_MESSAGE}
                             arrow
                           >
                             <span>
@@ -975,7 +1099,7 @@ export default function AppLinksPage() {
                           </Tooltip>
 
                           <Tooltip
-                            title={deleteEnabled ? 'Delete App Link' : 'Bạn chỉ được delete link thuộc phòng ban chính của bạn'}
+                            title={deleteEnabled ? 'Delete App Link' : APP_LINK_MANAGE_DENIED_MESSAGE}
                             arrow
                           >
                             <span>
@@ -1044,7 +1168,7 @@ export default function AppLinksPage() {
       {/* Dialogs */}
       <AddAppLinkDialog
         open={openAddDialog}
-        isAdmin={isAdmin}
+        isAdmin={isAdmin || isITDepartmentUser}
         currentDepartmentId={currentDepartmentId}
         disableDepartmentSelect={disableDepartmentSelect}
         onCancel={() => setOpenAddDialog(false)}
@@ -1058,7 +1182,7 @@ export default function AppLinksPage() {
       <EditAppLinkDialog
         open={openEditDialog}
         currentItem={currentItem}
-        isAdmin={isAdmin}
+        isAdmin={isAdmin || isITDepartmentUser}
         currentDepartmentId={currentDepartmentId}
         disableDepartmentSelect={disableDepartmentSelect}
         onCancel={() => {

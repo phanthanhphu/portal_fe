@@ -545,7 +545,7 @@ function NoticeDetailDialog({ open, item, loadingAction, canEdit, canApproveNoti
 
             <Box flex={1}>
               <Typography fontSize={12} fontWeight={700} color="text.secondary">Created By</Typography>
-              <Typography fontSize={14}>{item.userName || item.createdBy || item.userId || '-'}</Typography>
+              <Typography fontSize={14}>{item.createdByName || item.userName || item.createdBy || item.createdByUserId || item.userId || '-'}</Typography>
             </Box>
 
             <Box flex={1}>
@@ -673,29 +673,33 @@ function NoticeDetailDialog({ open, item, loadingAction, canEdit, canApproveNoti
       </DialogContent>
 
       <DialogActions sx={{ px: 3, py: 2 }}>
-        {canEdit && (
-          <Button
-            variant="outlined"
-            startIcon={<Edit />}
-            disabled={loadingAction}
-            onClick={() => onEdit(item)}
-            sx={{ textTransform: 'none' }}
-          >
-            Edit
-          </Button>
-        )}
+        <Tooltip title={canEdit ? 'Edit notice' : 'No Notice approval permission'} arrow>
+          <span>
+            <Button
+              variant="outlined"
+              startIcon={<Edit />}
+              disabled={loadingAction || !canEdit}
+              onClick={() => onEdit(item)}
+              sx={{ textTransform: 'none' }}
+            >
+              Edit
+            </Button>
+          </span>
+        </Tooltip>
 
-        {canEdit && (
-          <Button
-            variant="outlined"
-            startIcon={<SwapHoriz />}
-            disabled={loadingAction}
-            onClick={() => onChangeStatus(item)}
-            sx={{ textTransform: 'none' }}
-          >
-            Change Status
-          </Button>
-        )}
+        <Tooltip title={canEdit ? 'Change status' : 'No Notice approval permission'} arrow>
+          <span>
+            <Button
+              variant="outlined"
+              startIcon={<SwapHoriz />}
+              disabled={loadingAction || !canEdit}
+              onClick={() => onChangeStatus(item)}
+              sx={{ textTransform: 'none' }}
+            >
+              Change Status
+            </Button>
+          </span>
+        </Tooltip>
 
         <Button disabled={loadingAction} onClick={onClose} sx={{ textTransform: 'none' }}>
           Close
@@ -731,6 +735,8 @@ function NoticeDetailDialog({ open, item, loadingAction, canEdit, canApproveNoti
 }
 
 function RejectDialog({ open, item, reason, loading, onChangeReason, onClose, onConfirm }) {
+  const isReasonEmpty = !String(reason || '').trim();
+
   return (
     <Dialog open={open} onClose={loading ? undefined : onClose} maxWidth="sm" fullWidth>
       <DialogTitle>Reject Notice</DialogTitle>
@@ -746,7 +752,10 @@ function RejectDialog({ open, item, reason, loading, onChangeReason, onClose, on
             multiline
             minRows={3}
             fullWidth
+            required
             disabled={loading}
+            error={open && isReasonEmpty}
+            helperText={open && isReasonEmpty ? 'Rejection reason is required.' : ' '}
           />
         </Stack>
       </DialogContent>
@@ -757,7 +766,7 @@ function RejectDialog({ open, item, reason, loading, onChangeReason, onClose, on
         <Button
           variant="contained"
           color="error"
-          disabled={loading}
+          disabled={loading || isReasonEmpty}
           startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <Cancel />}
           onClick={onConfirm}
           sx={{ textTransform: 'none' }}
@@ -1186,6 +1195,16 @@ export default function NoticeApprovalPage() {
 
   const handleConfirmReject = async () => {
     if (!rejectItem?.id) return;
+
+    if (!canApproveReject) {
+      toast('You do not have Notice approval permission.', 'error');
+      return;
+    }
+
+    if (!rejectReason.trim()) {
+      toast('Rejection reason is required before confirming.', 'warning');
+      return;
+    }
 
     setActionLoading(true);
 
@@ -1730,7 +1749,7 @@ export default function NoticeApprovalPage() {
           <Table size="small">
             <TableHead>
               <TableRow>
-                {['No', 'Title', 'Content', 'Department', 'Author', 'Created At', 'Files', 'Status', 'Actions'].map((label) => (
+                {['No', 'Title', 'Content', 'Department', 'Created At', 'Files', 'Status', 'Actions'].map((label) => (
                   <TableCell
                     key={label}
                     align={['No', 'Files', 'Status', 'Actions'].includes(label) ? 'center' : 'left'}
@@ -1818,10 +1837,6 @@ export default function NoticeApprovalPage() {
                         <Typography fontSize={12} color="text.secondary">{item.division || ''}</Typography>
                       </TableCell>
 
-                      <TableCell sx={{ minWidth: 130 }}>
-                        <Typography fontSize={13}>{item.userName || item.createdBy || item.userId || '-'}</Typography>
-                      </TableCell>
-
                       <TableCell sx={{ minWidth: 145 }}>
                         <Typography fontSize={13}>{formatDateTime(item.createdAt)}</Typography>
                       </TableCell>
@@ -1902,7 +1917,7 @@ export default function NoticeApprovalPage() {
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={9} sx={{ py: 5 }}>
+                  <TableCell colSpan={8} sx={{ py: 5 }}>
                     <Stack alignItems="center" spacing={0.75} sx={{ color: 'text.secondary' }}>
                       <InboxIcon sx={{ fontSize: 36, opacity: 0.65 }} />
                       <Typography fontWeight={800}>No Notices Found</Typography>
