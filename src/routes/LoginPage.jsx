@@ -19,7 +19,7 @@ import { Visibility, VisibilityOff } from '@mui/icons-material';
 
 import logoYoungone from '../assets/svg/logos/logo-youngone.png';
 import backgroundBsl from '../assets/images/background/background_bsl.jpg';
-import { API_BASE_URL } from '../config';
+import { apiRawClient } from './globalApi';
 
 const portalFeatures = ['Pinned notice', 'Internal documents', 'Work links', 'Quick search'];
 
@@ -58,6 +58,78 @@ const clearLoginDraft = () => {
   }
 };
 
+const decodeJwtPayload = (token) => {
+  try {
+    if (!token) return null;
+
+    const base64Url = token.split('.')[1];
+    if (!base64Url) return null;
+
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      window
+        .atob(base64)
+        .split('')
+        .map((char) => `%${`00${char.charCodeAt(0).toString(16)}`.slice(-2)}`)
+        .join('')
+    );
+
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
+};
+
+const isTokenExpired = (token) => {
+  const payload = decodeJwtPayload(token);
+
+  if (!payload?.exp) {
+    return false;
+  }
+
+  return payload.exp * 1000 <= Date.now();
+};
+
+const getUserIdFromUser = (user = {}) => {
+  return user?.id || user?.userId || user?._id || user?.email || user?.sub || '';
+};
+
+const getUserRole = (user = {}, fallbackRole = '') => {
+  return user?.role || user?.roles?.[0] || fallbackRole || '';
+};
+
+const clearAuthSession = () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  localStorage.removeItem('userId');
+  localStorage.removeItem('isAuthenticated');
+  localStorage.removeItem('role');
+  localStorage.removeItem('loginAt');
+};
+
+const persistAuthSession = ({ token, user, role }) => {
+  const tokenPayload = decodeJwtPayload(token) || {};
+  const safeUser = user && typeof user === 'object' ? user : {};
+
+  const mergedUser = {
+    email: tokenPayload.sub || safeUser.email || '',
+    sub: tokenPayload.sub || safeUser.sub || '',
+    role: safeUser.role || tokenPayload.role || role || '',
+    ...safeUser,
+  };
+
+  const userId = getUserIdFromUser(mergedUser) || tokenPayload.sub || '';
+  const safeRole = getUserRole(mergedUser, role || tokenPayload.role || '');
+
+  localStorage.setItem('token', token);
+  localStorage.setItem('accessToken', token);
+  localStorage.setItem('user', JSON.stringify(mergedUser));
+  localStorage.setItem('userId', userId);
+  localStorage.setItem('isAuthenticated', 'true');
+  localStorage.setItem('role', safeRole);
+  localStorage.setItem('loginAt', new Date().toISOString());
+};
+
 export default function LoginPage() {
   const navigate = useNavigate();
 
@@ -71,7 +143,15 @@ export default function LoginPage() {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (token) navigate(APP_LINKS_PATH, { replace: true });
+
+    if (!token) return;
+
+    if (isTokenExpired(token)) {
+      clearAuthSession();
+      return;
+    }
+
+    navigate(APP_LINKS_PATH, { replace: true });
   }, [navigate, APP_LINKS_PATH]);
 
   const handleSubmit = async (e) => {
@@ -90,24 +170,27 @@ export default function LoginPage() {
     setLoginError('');
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/users/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail, password })
-      });
+      const res = await apiRawClient.post(
+        '/api/users/login',
+        { email: cleanEmail, password },
+        {
+          headers: { 'Content-Type': 'application/json' },
+          validateStatus: () => true,
+        }
+      );
 
-      const contentType = res.headers.get('content-type') || '';
-      const data = contentType.includes('application/json') ? await res.json() : null;
+      const data = res?.data || null;
+      const token = data?.token || data?.accessToken || data?.jwt || data?.data?.token || data?.data?.accessToken || '';
+      const tokenPayload = decodeJwtPayload(token) || {};
+      const loggedInUser = data?.user || data?.data?.user || data?.currentUser || {};
+      const loggedInRole = getUserRole(loggedInUser, data?.role || data?.data?.role || tokenPayload?.role || '');
 
-      const token = data?.token || data?.data?.token || '';
-      const loggedInUser = data?.user || data?.data?.user || data?.data || {};
-      const loggedInRole = loggedInUser?.role || data?.role || '';
-
-      if (res.ok && token) {
-        localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(loggedInUser || {}));
-        localStorage.setItem('isAuthenticated', 'true');
-        localStorage.setItem('role', loggedInRole || '');
+      if (res.status >= 200 && res.status < 300 && token) {
+        persistAuthSession({
+          token,
+          user: loggedInUser,
+          role: loggedInRole
+        });
         clearLoginDraft();
 
         toast.success('Login successful! Redirecting...');
@@ -128,6 +211,10 @@ export default function LoginPage() {
 
       let message = data?.message || 'The email or password you entered is incorrect. Please try again.';
 
+      if (res.status >= 200 && res.status < 300 && !token) {
+        message = 'Login response does not include an authentication token. Please contact the administrator.';
+      }
+
       if (res.status === 401 || res.status === 404) {
         message = 'The email or password you entered is incorrect. Please try again.';
       }
@@ -136,10 +223,7 @@ export default function LoginPage() {
         message = data?.message || 'Your account has been disabled. Please contact the administrator.';
       }
 
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      localStorage.removeItem('isAuthenticated');
-      localStorage.removeItem('role');
+      clearAuthSession();
 
       // Keep both email and password so the user can correct only the wrong field.
       setEmail(cleanEmail);

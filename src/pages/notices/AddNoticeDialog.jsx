@@ -27,7 +27,7 @@ import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import InsertDriveFileRoundedIcon from "@mui/icons-material/InsertDriveFileRounded";
 
-import axios from "axios";
+import { apiRawClient as axios } from '../../routes/globalApi';
 import { API_BASE_URL } from "../../config";
 import NoticeContentEditor from "./NoticeContentEditor";
 

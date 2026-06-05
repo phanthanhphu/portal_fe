@@ -3,6 +3,42 @@ import { API_BASE_URL, API_ROOT, FILE_ROOT } from '../config';
 
 window.API_BASE_URL = API_BASE_URL;
 
+const LOGIN_PATH = '/login';
+
+const AUTH_KEYS = [
+  'token',
+  'accessToken',
+  'user',
+  'userId',
+  'isAuthenticated',
+  'role',
+  'loginAt',
+];
+
+export const clearAuthSession = () => {
+  AUTH_KEYS.forEach((key) => localStorage.removeItem(key));
+};
+
+export const redirectToLogin = (reason = 'sessionExpired') => {
+  clearAuthSession();
+
+  const currentPath = window.location.pathname;
+
+  if (currentPath !== LOGIN_PATH) {
+    window.location.href = `${LOGIN_PATH}?${reason}=true`;
+  }
+};
+
+export const getStoredToken = () => {
+  return (
+    localStorage.getItem('token') ||
+    localStorage.getItem('accessToken') ||
+    sessionStorage.getItem('token') ||
+    sessionStorage.getItem('accessToken') ||
+    ''
+  );
+};
+
 const isBadUrl = (url) => {
   return (
     url === undefined ||
@@ -21,7 +57,7 @@ const getRawUrl = (input) => {
   return input?.url;
 };
 
-const normalizeApiUrl = (rawUrl) => {
+export const normalizeApiUrl = (rawUrl) => {
   if (isBadUrl(rawUrl)) {
     console.error('❌ BAD API URL:', rawUrl);
     throw new Error('API URL is undefined. Please check caller file.');
@@ -53,113 +89,151 @@ const normalizeApiUrl = (rawUrl) => {
   }
 };
 
+const applyRequestAuth = (config = {}) => {
+  const token = getStoredToken();
+
+  config.url = normalizeApiUrl(config.url || '');
+
+  config.headers = config.headers || {};
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  if (config.data instanceof FormData) {
+    // Let browser add multipart/form-data boundary automatically.
+    delete config.headers['Content-Type'];
+    delete config.headers['content-type'];
+  } else if (config.data && String(config.method || '').toLowerCase() !== 'get') {
+    config.headers['Content-Type'] = 'application/json';
+  }
+
+  return config;
+};
+
+const handleRequestError = (error) => Promise.reject(error);
+
+const handleResponseError = (error) => {
+  const status = error.response?.status;
+  const url = error.config?.url || '';
+
+  console.error(`❌ [${status}] ${url}`, error.response?.data || error);
+
+  const isLoginRequest = String(url).includes('/login') || String(url).includes('/api/users/login');
+
+  if (status === 401 && !isLoginRequest) {
+    redirectToLogin('sessionExpired');
+  }
+
+  return Promise.reject(error);
+};
+
+/**
+ * apiRawClient keeps full Axios response.
+ * Use it when old code expects response.data, response.headers, blob response, etc.
+ */
+export const apiRawClient = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 15000,
+  withCredentials: true,
+});
+
+apiRawClient.interceptors.request.use(applyRequestAuth, handleRequestError);
+apiRawClient.interceptors.response.use((response) => response, handleResponseError);
+
+/**
+ * apiClient returns response.data directly.
+ * Use it for new clean API service code.
+ */
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 15000,
   withCredentials: true,
 });
 
-apiClient.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
+apiClient.interceptors.request.use(applyRequestAuth, handleRequestError);
+apiClient.interceptors.response.use((response) => response.data, handleResponseError);
 
-    config.url = normalizeApiUrl(config.url);
-
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-
-    if (config.data instanceof FormData) {
-      delete config.headers['Content-Type'];
-    } else if (config.data && config.method !== 'get') {
-      config.headers['Content-Type'] = 'application/json';
-    }
-
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
-apiClient.interceptors.response.use(
-  (response) => response.data,
-  (error) => {
-    const status = error.response?.status;
-    const url = error.config?.url;
-
-    console.error(`❌ [${status}] ${url}`, error.response?.data || error);
-
-    if (status === 401) {
-      localStorage.clear();
-
-      if (window.location.pathname !== '/react/login') {
-        window.location.href = '/react/login?sessionExpired=true';
-      }
-    }
-
-    return Promise.reject(error);
-  }
-);
+/**
+ * Optional safety net:
+ * Existing files that still import axios directly will also receive Bearer token
+ * as long as this module is imported once by the app.
+ */
+if (!window.__BSL_AXIOS_AUTH_INTERCEPTORS_INSTALLED__) {
+  axios.interceptors.request.use(applyRequestAuth, handleRequestError);
+  axios.interceptors.response.use((response) => response, handleResponseError);
+  window.__BSL_AXIOS_AUTH_INTERCEPTORS_INSTALLED__ = true;
+}
 
 const originalFetch = window.fetch;
 
-window.fetch = async function (input, init = {}) {
-  const rawUrl = getRawUrl(input);
+if (!window.__BSL_FETCH_AUTH_INTERCEPTOR_INSTALLED__) {
+  window.fetch = async function (input, init = {}) {
+    const rawUrl = getRawUrl(input);
 
-  if (isBadUrl(rawUrl)) {
-    console.error('❌ FETCH URL UNDEFINED:', rawUrl, input);
-    throw new Error('Fetch URL is undefined. Please check the file calling fetch().');
-  }
+    if (isBadUrl(rawUrl)) {
+      console.error('❌ FETCH URL UNDEFINED:', rawUrl, input);
+      throw new Error('Fetch URL is undefined. Please check the file calling fetch().');
+    }
 
-  const normalizedUrl = normalizeApiUrl(rawUrl);
+    const normalizedUrl = normalizeApiUrl(rawUrl);
 
-  const token = localStorage.getItem('token');
-  const hasFiles = init.body instanceof FormData;
-  const headers = new Headers(init.headers || {});
+    const token = getStoredToken();
+    const hasFiles = init.body instanceof FormData;
+    const headers = new Headers(init.headers || {});
+    const method = String(init.method || 'GET').toUpperCase();
 
-  if (!hasFiles && init.body && init.method !== 'GET') {
-    headers.set('Content-Type', 'application/json');
-  }
+    if (!hasFiles && init.body && method !== 'GET' && !headers.has('Content-Type')) {
+      headers.set('Content-Type', 'application/json');
+    }
 
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
-  }
+    if (token) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
 
-  const config = {
-    ...init,
-    headers,
-    credentials: 'include',
+    const config = {
+      ...init,
+      headers,
+      credentials: 'include',
+    };
+
+    const response = await originalFetch(normalizedUrl, config);
+
+    const isLoginRequest = String(normalizedUrl).includes('/login') || String(normalizedUrl).includes('/api/users/login');
+
+    if (response.status === 401 && !isLoginRequest) {
+      redirectToLogin('sessionExpired');
+    }
+
+    return response;
   };
 
-  const response = await originalFetch(normalizedUrl, config);
-
-  if (response.status === 401) {
-    localStorage.clear();
-
-    if (window.location.pathname !== '/react/login') {
-      window.location.href = '/react/login?sessionExpired=true';
-    }
-  }
-
-  return response;
-};
+  window.__BSL_FETCH_AUTH_INTERCEPTOR_INSTALLED__ = true;
+}
 
 export const api = {
-  get: (url, params = {}) => apiClient.get(normalizeApiUrl(url), { params }),
-  post: (url, data = {}) => apiClient.post(normalizeApiUrl(url), data),
-  put: (url, data = {}) => apiClient.put(normalizeApiUrl(url), data),
-  patch: (url, data = {}) => apiClient.patch(normalizeApiUrl(url), data),
-  delete: (url, config = {}) => apiClient.delete(normalizeApiUrl(url), config),
-  postForm: (url, formData) => apiClient.post(normalizeApiUrl(url), formData),
-  upload: (url, formData) => apiClient.post(normalizeApiUrl(url), formData),
+  get: (url, params = {}) => apiClient.get(url, { params }),
+  post: (url, data = {}) => apiClient.post(url, data),
+  put: (url, data = {}) => apiClient.put(url, data),
+  patch: (url, data = {}) => apiClient.patch(url, data),
+  delete: (url, config = {}) => apiClient.delete(url, config),
+  postForm: (url, formData) => apiClient.post(url, formData),
+  upload: (url, formData) => apiClient.post(url, formData),
 };
 
 window.addEventListener('unhandledrejection', (event) => {
   const err = event.reason;
 
   if (err?.response?.status === 401) {
-    localStorage.clear();
-    window.location.href = '/react/login?globalError=true';
+    const url = err?.config?.url || '';
+    const isLoginRequest = String(url).includes('/login') || String(url).includes('/api/users/login');
+
+    if (!isLoginRequest) {
+      redirectToLogin('globalError');
+    }
   }
 });
 
 console.log('🚀 API BASE URL:', API_BASE_URL);
+
+export default apiClient;

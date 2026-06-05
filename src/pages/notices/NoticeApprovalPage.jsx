@@ -45,7 +45,7 @@ import {
 } from '@mui/icons-material';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import axios from 'axios';
+import { apiRawClient as axios } from '../../routes/globalApi';
 import { useNavigate } from 'react-router-dom';
 
 import { API_BASE_URL } from '../../config';

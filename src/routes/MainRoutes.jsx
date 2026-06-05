@@ -1,5 +1,5 @@
 import { lazy, useEffect, useState } from 'react';
-import { Navigate, useNavigate, Outlet } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate, Outlet } from 'react-router-dom';
 import Loadable from 'components/Loadable';
 import DashboardLayout from 'layout/Dashboard';
 import { Typography, Box, Button } from '@mui/material';
@@ -24,6 +24,92 @@ const Shadow = Loadable(lazy(() => import('pages/component-overview/shadows')));
 const FormListDialog = Loadable(lazy(() => import('pages/formlist/FormListDialog')));
 const AddFormDialog = Loadable(lazy(() => import('pages/formlist/AddFormDialog')));
 const EditFormDialog = Loadable(lazy(() => import('pages/formlist/EditFormDialog')));
+
+const LOGIN_PATH = '/login';
+const DEFAULT_AFTER_LOGIN_PATH = '/app-links';
+
+const decodeJwtPayload = (token) => {
+  try {
+    if (!token) return null;
+
+    const base64Url = token.split('.')[1];
+    if (!base64Url) return null;
+
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      window
+        .atob(base64)
+        .split('')
+        .map((char) => `%${`00${char.charCodeAt(0).toString(16)}`.slice(-2)}`)
+        .join('')
+    );
+
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
+};
+
+const isTokenExpired = (token) => {
+  const payload = decodeJwtPayload(token);
+
+  if (!payload?.exp) {
+    return false;
+  }
+
+  return payload.exp * 1000 <= Date.now();
+};
+
+const clearAuthSession = () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  localStorage.removeItem('userId');
+  localStorage.removeItem('isAuthenticated');
+  localStorage.removeItem('role');
+  localStorage.removeItem('loginAt');
+};
+
+const getStoredUser = () => {
+  try {
+    return JSON.parse(localStorage.getItem('user') || '{}') || {};
+  } catch {
+    return {};
+  }
+};
+
+const getStoredRole = () => {
+  const user = getStoredUser();
+
+  return String(user?.role || localStorage.getItem('role') || '')
+    .trim()
+    .toUpperCase();
+};
+
+const isAdminRole = (role) => {
+  const normalizedRole = String(role || '').trim().toUpperCase();
+
+  return normalizedRole === 'ADMIN' || normalizedRole === 'ROLE_ADMIN';
+};
+
+const canApproveNotice = () => {
+  const user = getStoredUser();
+
+  if (isAdminRole(getStoredRole())) {
+    return true;
+  }
+
+  return Boolean(user?.canApproveNotice);
+};
+
+const canApproveDocument = () => {
+  const user = getStoredUser();
+
+  if (isAdminRole(getStoredRole())) {
+    return true;
+  }
+
+  return Boolean(user?.canApproveDocument);
+};
 
 function DepartmentFormsPage() {
   const [addOpen, setAddOpen] = useState(false);
@@ -65,7 +151,7 @@ function NotFound() {
         404 Not Found
       </Typography>
 
-      <Button variant="contained" onClick={() => navigate('/dashboard')} sx={{ mt: 2 }}>
+      <Button variant="contained" onClick={() => navigate(DEFAULT_AFTER_LOGIN_PATH)} sx={{ mt: 2 }}>
         Go to Dashboard
       </Button>
     </Box>
@@ -73,44 +159,106 @@ function NotFound() {
 }
 
 function ProtectedRoute() {
-  const navigate = useNavigate();
+  const location = useLocation();
   const token = localStorage.getItem('token');
+  const expired = token ? isTokenExpired(token) : false;
 
   useEffect(() => {
-    if (!token) {
-      navigate('/', { replace: true });
+    if (expired) {
+      clearAuthSession();
+      toast.error('Session expired. Please login again.');
     }
-  }, [navigate, token]);
+  }, [expired]);
 
-  return token ? <Outlet /> : null;
+  if (!token || expired) {
+    return <Navigate to={LOGIN_PATH} replace state={{ from: location }} />;
+  }
+
+  return <Outlet />;
 }
 
 function AdminRoute({ children }) {
-  const navigate = useNavigate();
+  const location = useLocation();
   const token = localStorage.getItem('token');
-
-  let role = '';
-
-  try {
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    role = String(user?.role || localStorage.getItem('role') || '').trim().toUpperCase();
-  } catch {
-    role = String(localStorage.getItem('role') || '').trim().toUpperCase();
-  }
-
-  const isAdmin = role === 'ADMIN' || role === 'ROLE_ADMIN';
+  const expired = token ? isTokenExpired(token) : false;
+  const isAdmin = isAdminRole(getStoredRole());
 
   useEffect(() => {
-    if (!token) {
-      navigate('/', { replace: true });
-    } else if (!isAdmin) {
-      toast.error('Access denied. Admin only.');
-      navigate('/dashboard', { replace: true });
+    if (expired) {
+      clearAuthSession();
+      toast.error('Session expired. Please login again.');
+      return;
     }
-  }, [navigate, token, isAdmin]);
 
-  if (!token || !isAdmin) {
-    return null;
+    if (token && !isAdmin) {
+      toast.error('Access denied. Admin only.');
+    }
+  }, [token, expired, isAdmin]);
+
+  if (!token || expired) {
+    return <Navigate to={LOGIN_PATH} replace state={{ from: location }} />;
+  }
+
+  if (!isAdmin) {
+    return <Navigate to={DEFAULT_AFTER_LOGIN_PATH} replace />;
+  }
+
+  return children;
+}
+
+function NoticeApprovalRoute({ children }) {
+  const location = useLocation();
+  const token = localStorage.getItem('token');
+  const expired = token ? isTokenExpired(token) : false;
+  const allowed = canApproveNotice();
+
+  useEffect(() => {
+    if (expired) {
+      clearAuthSession();
+      toast.error('Session expired. Please login again.');
+      return;
+    }
+
+    if (token && !allowed) {
+      toast.error('Access denied. Notice approval permission required.');
+    }
+  }, [token, expired, allowed]);
+
+  if (!token || expired) {
+    return <Navigate to={LOGIN_PATH} replace state={{ from: location }} />;
+  }
+
+  if (!allowed) {
+    return <Navigate to={DEFAULT_AFTER_LOGIN_PATH} replace />;
+  }
+
+  return children;
+}
+
+function DocumentApprovalRoute({ children }) {
+  const location = useLocation();
+  const token = localStorage.getItem('token');
+  const expired = token ? isTokenExpired(token) : false;
+  const allowed = canApproveDocument();
+
+  useEffect(() => {
+    if (expired) {
+      clearAuthSession();
+      toast.error('Session expired. Please login again.');
+      return;
+    }
+
+    if (token && !allowed) {
+      toast.error('Access denied. Document approval permission required.');
+    }
+  }, [token, expired, allowed]);
+
+  if (!token || expired) {
+    return <Navigate to={LOGIN_PATH} replace state={{ from: location }} />;
+  }
+
+  if (!allowed) {
+    return <Navigate to={DEFAULT_AFTER_LOGIN_PATH} replace />;
   }
 
   return children;
@@ -129,13 +277,29 @@ const MainRoutes = {
           path: '/',
           element: <DashboardLayout />,
           children: [
+            { path: 'dashboard', element: <Navigate to={DEFAULT_AFTER_LOGIN_PATH} replace /> },
+
             { path: 'app-links', element: <AppLinksPage /> },
             { path: 'document-types', element: <DocumentTypesPage /> },
             { path: 'notices', element: <NoticesPage /> },
 
             { path: 'approve', element: <Navigate to="/approve/notices" replace /> },
-            { path: 'approve/notices', element: <NoticeApprovalPage /> },
-            { path: 'approve/documents', element: <DocumentApprovalPage /> },
+            {
+              path: 'approve/notices',
+              element: (
+                <NoticeApprovalRoute>
+                  <NoticeApprovalPage />
+                </NoticeApprovalRoute>
+              )
+            },
+            {
+              path: 'approve/documents',
+              element: (
+                <DocumentApprovalRoute>
+                  <DocumentApprovalPage />
+                </DocumentApprovalRoute>
+              )
+            },
 
             { path: 'notices/approval', element: <Navigate to="/approve/notices" replace /> },
             { path: 'documents/approval', element: <Navigate to="/approve/documents" replace /> },

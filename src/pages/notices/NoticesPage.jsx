@@ -26,13 +26,11 @@ import {
   Divider,
   Select,
   MenuItem,
-  TextField,
   useMediaQuery,
   Pagination,
 } from '@mui/material';
 
 import {
-  Add,
   Edit,
   Delete,
   Close,
@@ -46,12 +44,13 @@ import {
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 
-import axios from 'axios';
+import { apiRawClient as axios } from '../../routes/globalApi';
 import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../../config';
 
 import AddNoticeDialog from './AddNoticeDialog';
 import EditNoticeDialog from './EditNoticeDialog';
+import NoticeSearch from './NoticeSearch';
 
 // Import from utils
 import {
@@ -1428,111 +1427,21 @@ export default function NoticesPage() {
   return (
     <Box sx={pageWrapSx}>
       {/* Filter Section + Add Button */}
-      <Paper elevation={0} sx={{ p: 2, mb: 2, borderRadius: 2, border: '1px solid #e5e7eb', backgroundColor: '#fff' }}>
-        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
-          <Typography variant="subtitle1" fontWeight={600}>
-            Notices Filter
-          </Typography>
-
-          <Button
-            variant="contained"
-            startIcon={<Add fontSize="small" />}
-            onClick={() => setOpenAddDialog(true)}
-            disabled={loading}
-            sx={{
-              borderRadius: 1.2,
-              height: 34,
-              px: 1.25,
-              textTransform: 'none',
-              fontWeight: 400,
-              backgroundColor: '#111827',
-              '&:hover': { backgroundColor: '#0b1220' },
-            }}
-          >
-            Add Notice
-          </Button>
-        </Stack>
-
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} flexWrap="wrap" alignItems={{ md: 'flex-end' }}>
-          <TextField
-            label="Division"
-            size="small"
-            value={searchDivisionInput}
-            onChange={(e) => setSearchDivisionInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
-            sx={{ flex: 1, minWidth: { xs: '100%', md: 200 }, '& .MuiInputBase-root': { height: 38 } }}
-          />
-
-          <TextField
-            label="Department Name"
-            size="small"
-            value={searchDepartmentInput}
-            onChange={(e) => setSearchDepartmentInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
-            disabled={loading || disableDepartmentSearch}
-            sx={{ flex: 1, minWidth: { xs: '100%', md: 220 }, '& .MuiInputBase-root': { height: 38 } }}
-          />
-
-          <TextField
-            label="Title"
-            size="small"
-            value={searchTitleInput}
-            onChange={(e) => setSearchTitleInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
-            sx={{ flex: 1, minWidth: { xs: '100%', md: 220 }, '& .MuiInputBase-root': { height: 38 } }}
-          />
-
-          <TextField
-            label="Content"
-            size="small"
-            value={searchContentInput}
-            onChange={(e) => setSearchContentInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
-            sx={{ flex: 1, minWidth: { xs: '100%', md: 220 }, '& .MuiInputBase-root': { height: 38 } }}
-          />
-
-        <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
-          <Button
-            variant="contained"
-            onClick={handleSearch}
-            sx={{
-              height: 34,
-              minWidth: 92,
-              px: 2.5,
-              borderRadius: 1.2,
-              textTransform: 'none',
-              fontWeight: 400,
-              backgroundColor: '#111827',
-              '&:hover': { backgroundColor: '#0b1220' },
-            }}
-          >
-            Search
-          </Button>
-
-          <Button
-            variant="outlined"
-            onClick={handleReset}
-            sx={{
-              height: 34,
-              minWidth: 92,
-              px: 2.5,
-              borderRadius: 1.2,
-              textTransform: 'none',
-              fontWeight: 400,
-              borderColor: '#111827',
-              color: '#111827',
-              '&:hover': {
-                borderColor: '#0b1220',
-                color: '#0b1220',
-                backgroundColor: 'rgba(17, 24, 39, 0.04)',
-              },
-            }}
-          >
-            Reset
-          </Button>
-        </Stack>
-        </Stack>
-      </Paper>
+      <NoticeSearch
+        searchDivision={searchDivisionInput}
+        setSearchDivision={setSearchDivisionInput}
+        searchDepartment={searchDepartmentInput}
+        setSearchDepartment={setSearchDepartmentInput}
+        searchTitle={searchTitleInput}
+        setSearchTitle={setSearchTitleInput}
+        searchContent={searchContentInput}
+        setSearchContent={setSearchContentInput}
+        onSearch={handleSearch}
+        onReset={handleReset}
+        onAdd={() => setOpenAddDialog(true)}
+        disabled={loading}
+        disableDepartmentSearch={disableDepartmentSearch}
+      />
 
       {/* Main Table */}
       <Paper elevation={0} sx={{ borderRadius: 1.5, border: '1px solid #e5e7eb', backgroundColor: '#fff', overflow: 'hidden' }}>
