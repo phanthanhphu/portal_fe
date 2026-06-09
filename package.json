@@ -51,9 +51,22 @@
     "yup": "1.6.1"
   },
   "scripts": {
-    "start": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
+    "start": "vite --mode http",
+    "start:http": "vite --mode http",
+    "start:https": "vite --mode https",
+
+    "dev": "vite --mode http",
+    "dev:http": "vite --mode http",
+    "dev:https": "vite --mode https",
+
+    "build": "vite build --mode http",
+    "build:http": "vite build --mode http",
+    "build:https": "vite build --mode https",
+
+    "preview": "vite preview --mode http",
+    "preview:http": "vite preview --mode http",
+    "preview:https": "vite preview --mode https",
+
     "lint": "eslint \"src/**/*.{js,jsx,ts,tsx}\"",
     "lint:fix": "eslint --fix \"src/**/*.{js,jsx,ts,tsx}\"",
     "prettier": "prettier --write \"src/**/*.{js,jsx,ts,tsx}\""

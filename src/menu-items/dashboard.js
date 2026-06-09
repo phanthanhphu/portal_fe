@@ -15,6 +15,9 @@ const icons = {
   dashboard: HomeTrendUp,
   appLinks: Link21,
   documentTypes: Category2,
+  rooms: Building,
+  roomBookings: DocumentText1,
+  indexRoom: HomeTrendUp,
   notices: NotificationBing,
   approve: TickCircle,
   noticeApproval: NotificationBing,
@@ -59,25 +62,154 @@ const menuStyles = {
 };
 
 const normalizeRole = (value) => String(value || '').trim().toUpperCase();
+const normalizePermission = (value) => String(value || '').trim().toUpperCase();
+const normalizeText = (value) => String(value || '').trim().toUpperCase();
 
-const getCurrentRole = () => {
-  const roleFromStorage = localStorage.getItem('role');
-
-  if (roleFromStorage) {
-    return normalizeRole(roleFromStorage);
-  }
+const parseStoredJson = (value) => {
+  if (!value) return null;
 
   try {
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    return normalizeRole(user?.role);
+    return JSON.parse(value);
   } catch {
-    return '';
+    return null;
+  }
+};
+
+const getStoredUser = () => {
+  const keys = ['user', 'currentUser', 'authUser', 'loginUser'];
+
+  for (const key of keys) {
+    const parsed = parseStoredJson(localStorage.getItem(key));
+
+    if (parsed) {
+      return parsed.user || parsed.data || parsed;
+    }
+  }
+
+  return {};
+};
+
+const getCurrentUserContext = () => {
+  const user = getStoredUser();
+  const department = user?.department || {};
+
+  return {
+    ...user,
+    role: user?.role || localStorage.getItem('role') || '',
+
+    department,
+    departmentId:
+      user?.departmentId ||
+      department?.id ||
+      localStorage.getItem('departmentId') ||
+      '',
+    departmentName:
+      user?.departmentName ||
+      user?.department_name ||
+      department?.departmentName ||
+      department?.name ||
+      localStorage.getItem('departmentName') ||
+      '',
+    division:
+      user?.division ||
+      department?.division ||
+      localStorage.getItem('division') ||
+      '',
+
+    approvePermission: user?.approvePermission || localStorage.getItem('approvePermission') || 'NONE',
+    canApproveNotice:
+      user?.canApproveNotice ??
+      user?.can_approve_notice ??
+      (localStorage.getItem('canApproveNotice') === 'true'),
+    canApproveDocument:
+      user?.canApproveDocument ??
+      user?.can_approve_document ??
+      (localStorage.getItem('canApproveDocument') === 'true'),
+
+    bookingPermission: user?.bookingPermission || localStorage.getItem('bookingPermission') || 'NONE',
+    canManageBooking:
+      user?.canManageBooking ??
+      user?.can_manage_booking ??
+      (localStorage.getItem('canManageBooking') === 'true')
+  };
+};
+
+const isAdminRole = (role) => {
+  const normalized = normalizeRole(role);
+  return normalized === 'ADMIN' || normalized === 'ROLE_ADMIN';
+};
+
+const isItDepartment = (user) => {
+  const values = [
+    user?.departmentName,
+    user?.division,
+    user?.department?.departmentName,
+    user?.department?.name,
+    user?.department?.division,
+    localStorage.getItem('departmentName'),
+    localStorage.getItem('division')
+  ]
+    .map(normalizeText)
+    .filter(Boolean);
+
+  return values.some((value) => (
+    value === 'IT' ||
+    value === 'I.T' ||
+    value === 'I.T.' ||
+    value.includes('IT CENTER') ||
+    value.includes('INFORMATION TECHNOLOGY') ||
+    value.includes('TECHNOLOGY') ||
+    value.includes('INFORMATION SYSTEM') ||
+    value.includes('SYSTEM')
+  ));
+};
+
+const hasBookingManagePermission = (user) => {
+  if (isAdminRole(user?.role)) return true;
+
+  return Boolean(user?.canManageBooking)
+    || normalizePermission(user?.bookingPermission) === 'BOOKING';
+};
+
+const hasApproveNoticePermission = (user) => {
+  if (isAdminRole(user?.role)) return true;
+
+  const approvePermission = normalizePermission(user?.approvePermission);
+
+  return Boolean(user?.canApproveNotice)
+    || approvePermission === 'NOTICE'
+    || approvePermission === 'BOTH';
+};
+
+const hasApproveDocumentPermission = (user) => {
+  if (isAdminRole(user?.role)) return true;
+
+  const approvePermission = normalizePermission(user?.approvePermission);
+
+  return Boolean(user?.canApproveDocument)
+    || approvePermission === 'DOCUMENT'
+    || approvePermission === 'BOTH';
+};
+
+const pushUniqueMenu = (children, item) => {
+  if (!item) return;
+
+  if (!children.some((x) => x.id === item.id)) {
+    children.push(item);
   }
 };
 
 const getDashboardMenu = () => {
-  const role = getCurrentRole();
-  const isAdmin = role === 'ADMIN' || role === 'ROLE_ADMIN';
+  const currentUser = getCurrentUserContext();
+
+  const isAdmin = isAdminRole(currentUser.role);
+  const isIT = isItDepartment(currentUser);
+  const canSeeAppLinks = isAdmin || isIT;
+
+  const canManageBooking = hasBookingManagePermission(currentUser);
+  const canApproveNotice = hasApproveNoticePermission(currentUser);
+  const canApproveDocument = hasApproveDocumentPermission(currentUser);
+  const hasAnyApprovePermission = canApproveNotice || canApproveDocument;
 
   const appLinksItem = {
     id: 'app-links',
@@ -116,6 +248,36 @@ const getDashboardMenu = () => {
     breadcrumbs: false
   };
 
+  const roomsItem = {
+    id: 'rooms',
+    title: 'Rooms',
+    type: 'item',
+    url: '/rooms',
+    icon: icons.rooms,
+    breadcrumbs: false,
+    exact: true
+  };
+
+  const roomBookingsItem = {
+    id: 'room-bookings',
+    title: 'Room Bookings',
+    type: 'item',
+    url: '/room-bookings',
+    icon: icons.roomBookings,
+    breadcrumbs: false,
+    exact: true
+  };
+
+  const indexRoomItem = {
+    id: 'index-room',
+    title: 'Index Room',
+    type: 'item',
+    url: '/index-room',
+    icon: icons.indexRoom,
+    breadcrumbs: false,
+    exact: true
+  };
+
   const documentsItem = {
     id: 'department-forms',
     title: 'Documents',
@@ -134,50 +296,108 @@ const getDashboardMenu = () => {
     breadcrumbs: false
   };
 
-  const approveItem = {
-    id: 'approve',
-    title: 'Approve',
-    type: 'collapse',
-    icon: icons.approve,
+  const noticeApprovalItem = {
+    id: 'notice-approval',
+    title: 'Notice',
+    type: 'item',
+    url: '/approve/notices',
+    icon: icons.noticeApproval,
     breadcrumbs: false,
-    children: [
-      {
-        id: 'notice-approval',
-        title: 'Notice',
-        type: 'item',
-        url: '/approve/notices',
-        icon: icons.noticeApproval,
-        breadcrumbs: false,
-        exact: true
-      },
-      {
-        id: 'document-approval',
-        title: 'Document',
-        type: 'item',
-        url: '/approve/documents',
-        icon: icons.documentApproval,
-        breadcrumbs: false,
-        exact: true
-      }
-    ]
+    exact: true
   };
 
+  const documentApprovalItem = {
+    id: 'document-approval',
+    title: 'Document',
+    type: 'item',
+    url: '/approve/documents',
+    icon: icons.documentApproval,
+    breadcrumbs: false,
+    exact: true
+  };
+
+  const approveChildren = [
+    canApproveNotice ? noticeApprovalItem : null,
+    canApproveDocument ? documentApprovalItem : null
+  ].filter(Boolean);
+
+  const approveItem = approveChildren.length > 0
+    ? {
+        id: 'approve',
+        title: 'Approve',
+        type: 'collapse',
+        icon: icons.approve,
+        breadcrumbs: false,
+        children: approveChildren
+      }
+    : null;
+
   const baseChildren = [
-    appLinksItem,
+    canSeeAppLinks ? appLinksItem : null,
     departmentsItem,
     noticesItem,
     documentTypesItem,
+    roomsItem,
+    roomBookingsItem,
+    indexRoomItem,
     documentsItem
-  ];
+  ].filter(Boolean);
+
+  let children = [];
+
+  if (isAdmin) {
+    // Admin thấy toàn bộ menu, bao gồm App Links.
+    children = [
+      ...baseChildren,
+      userManagementItem,
+      approveItem
+    ].filter(Boolean);
+  } else {
+    // App Links chỉ cho bộ phận IT.
+    if (canSeeAppLinks) {
+      pushUniqueMenu(children, appLinksItem);
+    }
+
+    // User có Booking: hiện Rooms, Room Bookings, Index Room.
+    if (canManageBooking) {
+      pushUniqueMenu(children, roomsItem);
+      pushUniqueMenu(children, roomBookingsItem);
+      pushUniqueMenu(children, indexRoomItem);
+    }
+
+    // User có bất kỳ quyền Approve nào thì luôn thấy menu thường:
+    // Notices + Documents.
+    if (hasAnyApprovePermission) {
+      pushUniqueMenu(children, noticesItem);
+      pushUniqueMenu(children, documentsItem);
+    }
+
+    // Trong nhóm Approve chỉ hiện đúng quyền:
+    // NOTICE -> Approve / Notice
+    // DOCUMENT -> Approve / Document
+    // BOTH -> cả 2
+    if (approveItem) {
+      pushUniqueMenu(children, approveItem);
+    }
+
+    // User không có quyền đặc biệt thì cho menu tối thiểu,
+    // nhưng App Links vẫn chỉ hiện nếu thuộc IT.
+    if (children.length === 0) {
+      if (canSeeAppLinks) {
+        pushUniqueMenu(children, appLinksItem);
+      }
+
+      pushUniqueMenu(children, noticesItem);
+      pushUniqueMenu(children, documentsItem);
+    }
+  }
 
   return {
     id: 'group-dashboard',
     title: 'Portal Management',
     icon: icons.navigation,
     type: 'group',
-    children: isAdmin
-      ? [...baseChildren, userManagementItem, approveItem]
-      : [...baseChildren, approveItem]
+    children
   };
 };
 

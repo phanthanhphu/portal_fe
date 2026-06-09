@@ -24,6 +24,12 @@ const APPROVE_PERMISSION_OPTIONS = [
   { value: 'BOTH', label: 'Approve Notice & Document' },
 ];
 
+const BOOKING_PERMISSION_OPTIONS = [
+  { value: '', label: 'All' },
+  { value: 'NONE', label: 'No booking permission' },
+  { value: 'BOOKING', label: 'Can manage booking' },
+];
+
 export default function UserSearch({
   searchUsername,
   setSearchUsername,
@@ -37,6 +43,8 @@ export default function UserSearch({
   setSearchRole,
   searchApprovePermission,
   setSearchApprovePermission,
+  searchBookingPermission,
+  setSearchBookingPermission,
   setPage,
   onSearch,
   onReset,
@@ -116,6 +124,7 @@ export default function UserSearch({
 
     setLoading(true);
     setPage0();
+
     try {
       await onSearch?.();
     } catch (e) {
@@ -134,6 +143,7 @@ export default function UserSearch({
     setSearchEmail('');
     setSearchRole('');
     setSearchApprovePermission?.('');
+    setSearchBookingPermission?.('');
     onReset?.();
   }, [
     onReset,
@@ -142,6 +152,7 @@ export default function UserSearch({
     setSearchPhone,
     setSearchRole,
     setSearchApprovePermission,
+    setSearchBookingPermission,
     setSearchUsername,
     setPage,
   ]);
@@ -159,7 +170,7 @@ export default function UserSearch({
         backgroundColor: '#fff',
         width: '100%',
         boxSizing: 'border-box',
-        overflowX: 'auto', // quan trọng: giữ 1 hàng + màn nhỏ vẫn kéo ngang
+        overflowX: 'auto',
       }}
     >
       <Snackbar
@@ -179,17 +190,16 @@ export default function UserSearch({
         </Typography>
       </Stack>
 
-      {/* ONE ROW ONLY */}
       <Box
         sx={{
           display: 'grid',
           gridTemplateColumns: {
-            xs: 'repeat(8, minmax(180px, 1fr))',
-            md: 'repeat(8, minmax(160px, 1fr))',
+            xs: 'repeat(9, minmax(180px, 1fr))',
+            md: 'repeat(9, minmax(150px, 1fr))',
           },
           gap: 1,
           alignItems: 'center',
-          minWidth: { xs: 8 * 180, md: 'unset' }, // ép nó thành 1 hàng thật sự (xs sẽ scroll)
+          minWidth: { xs: 9 * 180, md: 'unset' },
         }}
       >
         <TextField
@@ -270,6 +280,25 @@ export default function UserSearch({
           </Select>
         </FormControl>
 
+        <FormControl fullWidth size="small" sx={inputSx}>
+          <InputLabel sx={{ fontSize: '0.8rem' }}>Booking</InputLabel>
+          <Select
+            value={searchBookingPermission || ''}
+            label="Booking"
+            onChange={(e) => {
+              setPage0();
+              setSearchBookingPermission?.(e.target.value);
+            }}
+            disabled={disabled}
+          >
+            {BOOKING_PERMISSION_OPTIONS.map((option) => (
+              <MenuItem key={option.value || 'ALL'} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
         <TextField
           label="Address"
           size="small"
@@ -308,6 +337,8 @@ UserSearch.propTypes = {
   setSearchRole: PropTypes.func.isRequired,
   searchApprovePermission: PropTypes.string,
   setSearchApprovePermission: PropTypes.func,
+  searchBookingPermission: PropTypes.string,
+  setSearchBookingPermission: PropTypes.func,
   setPage: PropTypes.func,
   onSearch: PropTypes.func,
   onReset: PropTypes.func,

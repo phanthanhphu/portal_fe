@@ -9,11 +9,15 @@ export const GRID_COMMON_SPACING = { xs: 2, md: 2.5 };
 
 // ==============================|| API CONFIG ||============================== //
 
-export const API_BASE_URL = 'https://10.232.100.68:8081';
+export {
+  APP_ENV,
+  API_BASE_URL,
+  API_ROOT,
+  FILE_ROOT,
+  WS_URL
+} from './appEnv';
 
-export const API_ROOT = `${API_BASE_URL}/api`;
-export const FILE_ROOT = API_BASE_URL;
-export const WS_URL = `${API_BASE_URL}/ws`;
+import { API_BASE_URL, API_ROOT, FILE_ROOT } from './appEnv';
 
 export const API_ENDPOINTS = {
   users: `${API_ROOT}/users`,
@@ -22,7 +26,7 @@ export const API_ENDPOINTS = {
   documentTypes: `${API_ROOT}/document-types`,
   notices: `${API_ROOT}/notices`,
   departments: `${API_ROOT}/departments`,
-  filesPreviewPdf: `${API_ROOT}/files/preview-pdf`,
+  filesPreviewPdf: `${API_ROOT}/files/preview-pdf`
 };
 
 export const toApiUrl = (path = '') => {
@@ -42,16 +46,17 @@ export const toFileUrl = (path = '') => {
       const url = new URL(raw);
       const cleanPath = url.pathname.replace(/^\/+/, '');
 
-      if (
+      const isInternalHost =
         url.hostname === 'homepage.youngone.com.vn' ||
-        url.hostname === '10.232.100.68' ||
-        url.hostname === '10.232.132.40'
-      ) {
+        url.hostname === window.location.hostname ||
+        url.hostname === new URL(API_BASE_URL).hostname;
+
+      if (isInternalHost) {
         if (cleanPath.startsWith('uploads/') || cleanPath.startsWith('files/')) {
-          return `${API_BASE_URL}/${cleanPath}${url.search}${url.hash}`;
+          return `${FILE_ROOT}/${cleanPath}${url.search}${url.hash}`;
         }
 
-        return `${API_BASE_URL}/files/${cleanPath}${url.search}${url.hash}`;
+        return `${FILE_ROOT}/files/${cleanPath}${url.search}${url.hash}`;
       }
 
       return raw;

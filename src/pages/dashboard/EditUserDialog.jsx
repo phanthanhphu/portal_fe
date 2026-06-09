@@ -58,6 +58,11 @@ const APPROVE_PERMISSION_OPTIONS = [
   { value: 'BOTH', label: 'Approve Notice & Document' },
 ];
 
+const BOOKING_PERMISSION_OPTIONS = [
+  { value: 'NONE', label: 'No booking permission' },
+  { value: 'BOOKING', label: 'Can manage booking' },
+];
+
 const normalizeApprovePermission = (value) => {
   const normalized = String(value || 'NONE').trim().toUpperCase();
   return APPROVE_PERMISSION_OPTIONS.some((item) => item.value === normalized) ? normalized : 'NONE';
@@ -66,6 +71,16 @@ const normalizeApprovePermission = (value) => {
 const getApprovePermissionLabel = (value) => {
   const normalized = normalizeApprovePermission(value);
   return APPROVE_PERMISSION_OPTIONS.find((item) => item.value === normalized)?.label || 'No approve permission';
+};
+
+const normalizeBookingPermission = (value) => {
+  const normalized = String(value || 'NONE').trim().toUpperCase();
+  return BOOKING_PERMISSION_OPTIONS.some((item) => item.value === normalized) ? normalized : 'NONE';
+};
+
+const getBookingPermissionLabel = (value) => {
+  const normalized = normalizeBookingPermission(value);
+  return BOOKING_PERMISSION_OPTIONS.find((item) => item.value === normalized)?.label || 'No booking permission';
 };
 
 
@@ -80,6 +95,7 @@ export default function EditUserDialog({ open, onClose, onUpdate, user, disabled
     phone: '',
     role: 'User',
     approvePermission: 'NONE',
+    bookingPermission: 'NONE',
     isEnabled: true,
     departmentId: '',
   });
@@ -215,6 +231,7 @@ export default function EditUserDialog({ open, onClose, onUpdate, user, disabled
       phone: user.phone || '',
       role: user.role || 'User',
       approvePermission: normalizeApprovePermission(user.approvePermission),
+      bookingPermission: normalizeBookingPermission(user.bookingPermission),
       isEnabled: user.isEnabled !== undefined ? user.isEnabled : true,
       departmentId: user.department?.id || user.departmentId || '',
     });
@@ -518,7 +535,8 @@ export default function EditUserDialog({ open, onClose, onUpdate, user, disabled
                     </Typography>
                     <Typography sx={{ fontSize: 12.5, color: 'text.secondary', mt: 0.4 }}>
                       Department: <b>{selectedDepartmentLabel}</b><br />
-                      Approve: <b>{getApprovePermissionLabel(formData.approvePermission)}</b>
+                      Approve: <b>{getApprovePermissionLabel(formData.approvePermission)}</b><br />
+                      Booking: <b>{getBookingPermissionLabel(formData.bookingPermission)}</b>
                     </Typography>
                     <Typography sx={{ fontSize: 12.5, color: 'text.secondary', mt: 0.4 }}>
                       Image: <b>{imageStatusLabel}</b>
@@ -682,6 +700,26 @@ export default function EditUserDialog({ open, onClose, onUpdate, user, disabled
                     helperText="Allow user to approve Notice, Document, both, or none."
                   >
                     {APPROVE_PERMISSION_OPTIONS.map((option) => (
+                      <MenuItem key={option.value} value={option.value}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
+
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    select
+                    label="Booking Permission"
+                    value={normalizeBookingPermission(formData.bookingPermission)}
+                    onChange={handleChange('bookingPermission')}
+                    fullWidth
+                    disabled={locked}
+                    size="small"
+                    sx={fieldSx}
+                    helperText="Allow user to add, edit, delete and show room bookings on Index Room."
+                  >
+                    {BOOKING_PERMISSION_OPTIONS.map((option) => (
                       <MenuItem key={option.value} value={option.value}>
                         {option.label}
                       </MenuItem>

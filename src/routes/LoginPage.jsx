@@ -98,12 +98,69 @@ const getUserRole = (user = {}, fallbackRole = '') => {
   return user?.role || user?.roles?.[0] || fallbackRole || '';
 };
 
+const normalizeRole = (value) => String(value || '').trim().toUpperCase();
+
+const normalizePermission = (value) => String(value || '').trim().toUpperCase();
+
+const isAdminRole = (role) => {
+  const normalized = normalizeRole(role);
+  return normalized === 'ADMIN' || normalized === 'ROLE_ADMIN';
+};
+
+const canManageBookingUser = (user = {}, fallbackRole = '') => {
+  const role = getUserRole(user, fallbackRole);
+
+  // Admin giữ route mặc định /app-links, không ép qua /rooms.
+  if (isAdminRole(role)) {
+    return false;
+  }
+
+  return Boolean(user?.canManageBooking)
+    || Boolean(user?.can_manage_booking)
+    || normalizePermission(user?.bookingPermission || user?.booking_permission) === 'BOOKING';
+};
+
+const getPostLoginPath = (user = {}, fallbackRole = '') => {
+  return canManageBookingUser(user, fallbackRole) ? '/rooms' : '/app-links';
+};
+
+const getStoredUserForRedirect = () => {
+  try {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+    return {
+      ...user,
+      role: user?.role || localStorage.getItem('role') || '',
+      bookingPermission: user?.bookingPermission || localStorage.getItem('bookingPermission') || 'NONE',
+      canManageBooking:
+        user?.canManageBooking ??
+        user?.can_manage_booking ??
+        (localStorage.getItem('canManageBooking') === 'true')
+    };
+  } catch {
+    return {
+      role: localStorage.getItem('role') || '',
+      bookingPermission: localStorage.getItem('bookingPermission') || 'NONE',
+      canManageBooking: localStorage.getItem('canManageBooking') === 'true'
+    };
+  }
+};
+
 const clearAuthSession = () => {
   localStorage.removeItem('token');
+  localStorage.removeItem('accessToken');
   localStorage.removeItem('user');
   localStorage.removeItem('userId');
   localStorage.removeItem('isAuthenticated');
   localStorage.removeItem('role');
+  localStorage.removeItem('approvePermission');
+  localStorage.removeItem('canApproveNotice');
+  localStorage.removeItem('canApproveDocument');
+  localStorage.removeItem('bookingPermission');
+  localStorage.removeItem('canManageBooking');
+  localStorage.removeItem('departmentId');
+  localStorage.removeItem('departmentName');
+  localStorage.removeItem('division');
   localStorage.removeItem('loginAt');
 };
 
@@ -121,19 +178,72 @@ const persistAuthSession = ({ token, user, role }) => {
   const userId = getUserIdFromUser(mergedUser) || tokenPayload.sub || '';
   const safeRole = getUserRole(mergedUser, role || tokenPayload.role || '');
 
+  const safeDepartmentId =
+    mergedUser.departmentId ||
+    mergedUser.department?.id ||
+    mergedUser.idDepartment ||
+    '';
+
+  const safeDepartmentName =
+    mergedUser.departmentName ||
+    mergedUser.department_name ||
+    mergedUser.department?.departmentName ||
+    mergedUser.department?.name ||
+    '';
+
+  const safeDivision =
+    mergedUser.division ||
+    mergedUser.department?.division ||
+    '';
+
+  const safeApprovePermission = normalizePermission(mergedUser.approvePermission || 'NONE') || 'NONE';
+  const safeBookingPermission = normalizePermission(mergedUser.bookingPermission || 'NONE') || 'NONE';
+  const safeCanApproveNotice = Boolean(mergedUser.canApproveNotice || mergedUser.can_approve_notice);
+  const safeCanApproveDocument = Boolean(mergedUser.canApproveDocument || mergedUser.can_approve_document);
+  const safeCanManageBooking = Boolean(
+    mergedUser.canManageBooking
+      || mergedUser.can_manage_booking
+      || safeBookingPermission === 'BOOKING'
+  );
+
   localStorage.setItem('token', token);
   localStorage.setItem('accessToken', token);
-  localStorage.setItem('user', JSON.stringify(mergedUser));
+  localStorage.setItem('user', JSON.stringify({
+    ...mergedUser,
+    departmentId: safeDepartmentId,
+    departmentName: safeDepartmentName,
+    division: safeDivision,
+    department: {
+      ...(mergedUser.department || {}),
+      id: safeDepartmentId,
+      departmentName: safeDepartmentName,
+      name: safeDepartmentName,
+      division: safeDivision
+    },
+    approvePermission: safeApprovePermission,
+    bookingPermission: safeBookingPermission,
+    canApproveNotice: safeCanApproveNotice,
+    canApproveDocument: safeCanApproveDocument,
+    canManageBooking: safeCanManageBooking
+  }));
   localStorage.setItem('userId', userId);
   localStorage.setItem('isAuthenticated', 'true');
   localStorage.setItem('role', safeRole);
+  localStorage.setItem('approvePermission', safeApprovePermission);
+  localStorage.setItem('canApproveNotice', String(safeCanApproveNotice));
+  localStorage.setItem('canApproveDocument', String(safeCanApproveDocument));
+  localStorage.setItem('bookingPermission', safeBookingPermission);
+  localStorage.setItem('canManageBooking', String(safeCanManageBooking));
+  localStorage.setItem('departmentId', safeDepartmentId);
+  localStorage.setItem('departmentName', safeDepartmentName);
+  localStorage.setItem('division', safeDivision);
   localStorage.setItem('loginAt', new Date().toISOString());
 };
 
 export default function LoginPage() {
   const navigate = useNavigate();
 
-  const APP_LINKS_PATH = useMemo(() => '/app-links', []);
+  const DEFAULT_PATH = useMemo(() => '/app-links', []);
 
   const [email, setEmail] = useState(() => getSavedLoginDraft(LOGIN_DRAFT_EMAIL_KEY));
   const [password, setPassword] = useState(() => getSavedLoginDraft(LOGIN_DRAFT_PASSWORD_KEY));
@@ -151,8 +261,11 @@ export default function LoginPage() {
       return;
     }
 
-    navigate(APP_LINKS_PATH, { replace: true });
-  }, [navigate, APP_LINKS_PATH]);
+    const storedUser = getStoredUserForRedirect();
+    const redirectPath = getPostLoginPath(storedUser, storedUser.role);
+
+    navigate(redirectPath, { replace: true });
+  }, [navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -193,17 +306,18 @@ export default function LoginPage() {
         });
         clearLoginDraft();
 
+        const redirectPath = getPostLoginPath(loggedInUser, loggedInRole) || DEFAULT_PATH;
+
         toast.success('Login successful! Redirecting...');
 
         /*
          * IMPORTANT:
-         * The sidebar menu is created from localStorage role when the app loads.
-         * If we use react-router navigate() only, the menu module may not rebuild immediately,
-         * so Admin users may not see the Users menu until manual refresh.
-         * A full reload after storing role/user fixes that.
+         * The sidebar menu is created from localStorage role/permission when the app loads.
+         * If we use react-router navigate() only, the menu module may not rebuild immediately.
+         * A full reload after storing role/user/permissions fixes that.
          */
         setTimeout(() => {
-          window.location.replace(APP_LINKS_PATH);
+          window.location.replace(redirectPath);
         }, 300);
 
         return;

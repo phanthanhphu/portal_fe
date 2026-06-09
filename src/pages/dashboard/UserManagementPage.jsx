@@ -57,9 +57,19 @@ const APPROVE_PERMISSION_META = {
   BOTH: { label: 'Both', bg: '#dcfce7', color: '#166534' },
 };
 
+const BOOKING_PERMISSION_META = {
+  NONE: { label: 'No Booking', bg: '#f3f4f6', color: '#374151' },
+  BOOKING: { label: 'Booking', bg: '#e0f2fe', color: '#075985' },
+};
+
 const normalizeApprovePermission = (value) => {
   const normalized = String(value || 'NONE').trim().toUpperCase();
   return Object.prototype.hasOwnProperty.call(APPROVE_PERMISSION_META, normalized) ? normalized : 'NONE';
+};
+
+const normalizeBookingPermission = (value) => {
+  const normalized = String(value || 'NONE').trim().toUpperCase();
+  return Object.prototype.hasOwnProperty.call(BOOKING_PERMISSION_META, normalized) ? normalized : 'NONE';
 };
 
 /* =========================
@@ -73,6 +83,7 @@ const headers = [
   { label: 'Phone', key: 'phone', sortable: true, backendKey: 'phone' },
   { label: 'Role', key: 'role', sortable: true, backendKey: 'role' },
   { label: 'Approve', key: 'approvePermission', sortable: true, backendKey: 'approvePermission' },
+  { label: 'Booking', key: 'bookingPermission', sortable: true, backendKey: 'bookingPermission' },
   // ✅ backend thường là enabled, không phải isEnabled
   { label: 'Status', key: 'isEnabled', sortable: true, backendKey: 'enabled' },
   { label: 'Profile Image', key: 'profileImage', sortable: false, backendKey: 'profileImage' },
@@ -284,6 +295,7 @@ export default function UserManagementPage() {
   const [searchEmail, setSearchEmail] = useState('');
   const [searchRole, setSearchRole] = useState('');
   const [searchApprovePermission, setSearchApprovePermission] = useState('');
+  const [searchBookingPermission, setSearchBookingPermission] = useState('');
 
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -350,6 +362,8 @@ export default function UserManagementPage() {
         displayImageUrl: finalImageUrl,
         isEnabled: user.enabled,
         approvePermission: normalizeApprovePermission(user.approvePermission),
+        bookingPermission: normalizeBookingPermission(user.bookingPermission),
+        canManageBooking: Boolean(user.canManageBooking),
       };
     });
   }, [users, normalizeImageUrl, DEFAULT_IMAGE_URL]);
@@ -371,6 +385,7 @@ export default function UserManagementPage() {
         const effEmail = overrides.searchEmail ?? searchEmail;
         const effRole = overrides.searchRole ?? searchRole;
         const effApprovePermission = overrides.searchApprovePermission ?? searchApprovePermission;
+        const effBookingPermission = overrides.searchBookingPermission ?? searchBookingPermission;
 
         const url = new URL(`${API_ROOT}/users`);
         url.searchParams.append('page', String(effPage));
@@ -382,6 +397,7 @@ export default function UserManagementPage() {
         if (effEmail) url.searchParams.append('email', effEmail);
         if (effRole) url.searchParams.append('role', effRole);
         if (effApprovePermission) url.searchParams.append('approvePermission', effApprovePermission);
+        if (effBookingPermission) url.searchParams.append('bookingPermission', effBookingPermission);
 
         // ✅ sort param
         if (effSort?.key && effSort?.direction) {
@@ -421,6 +437,7 @@ export default function UserManagementPage() {
       searchEmail,
       searchRole,
       searchApprovePermission,
+      searchBookingPermission,
     ]
   );
 
@@ -464,6 +481,7 @@ export default function UserManagementPage() {
       searchEmail: '',
       searchRole: '',
       searchApprovePermission: '',
+      searchBookingPermission: '',
     };
 
     setSearchUsername('');
@@ -472,6 +490,7 @@ export default function UserManagementPage() {
     setSearchEmail('');
     setSearchRole('');
     setSearchApprovePermission('');
+    setSearchBookingPermission('');
     setSortConfig({ key: null, direction: null });
     setPage(0);
 
@@ -570,8 +589,8 @@ export default function UserManagementPage() {
   );
 
   const hasActiveSearch = useMemo(
-    () => [searchUsername, searchAddress, searchPhone, searchEmail, searchRole, searchApprovePermission].some((v) => v?.trim?.()),
-    [searchUsername, searchAddress, searchPhone, searchEmail, searchRole, searchApprovePermission]
+    () => [searchUsername, searchAddress, searchPhone, searchEmail, searchRole, searchApprovePermission, searchBookingPermission].some((v) => v?.trim?.()),
+    [searchUsername, searchAddress, searchPhone, searchEmail, searchRole, searchApprovePermission, searchBookingPermission]
   );
 
   /* =========================
@@ -657,6 +676,35 @@ export default function UserManagementPage() {
   const approvePermissionBadge = (value) => {
     const normalized = normalizeApprovePermission(value);
     const meta = APPROVE_PERMISSION_META[normalized] || APPROVE_PERMISSION_META.NONE;
+
+    return (
+      <Box
+        sx={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          px: 1,
+          py: 0.3,
+          borderRadius: 999,
+          border: '1px solid #e5e7eb',
+          backgroundColor: meta.bg,
+          color: meta.color,
+          fontSize: '0.72rem',
+          fontWeight: 800,
+          width: '100%',
+          maxWidth: 120,
+          mx: 'auto',
+        }}
+        title={meta.label}
+      >
+        {meta.label}
+      </Box>
+    );
+  };
+
+  const bookingPermissionBadge = (value) => {
+    const normalized = normalizeBookingPermission(value);
+    const meta = BOOKING_PERMISSION_META[normalized] || BOOKING_PERMISSION_META.NONE;
 
     return (
       <Box
@@ -808,6 +856,8 @@ export default function UserManagementPage() {
           setSearchRole={setSearchRole}
           searchApprovePermission={searchApprovePermission}
           setSearchApprovePermission={setSearchApprovePermission}
+          searchBookingPermission={searchBookingPermission}
+          setSearchBookingPermission={setSearchBookingPermission}
           setPage={setPage}
           onSearch={handleSearch}
           onReset={handleReset}
@@ -827,22 +877,23 @@ export default function UserManagementPage() {
         >
           <Table stickyHeader size="small" sx={{ width: '100%', tableLayout: 'fixed' }}>
             <colgroup>
-              <col style={{ width: '5%' }} />
-              <col style={{ width: '11%' }} />
-              <col style={{ width: '17%' }} />
-              <col style={{ width: '17%' }} />
-              <col style={{ width: '9%' }} />
-              <col style={{ width: '9%' }} />
+              <col style={{ width: '4%' }} />
               <col style={{ width: '10%' }} />
+              <col style={{ width: '16%' }} />
+              <col style={{ width: '14%' }} />
+              <col style={{ width: '8%' }} />
+              <col style={{ width: '8%' }} />
               <col style={{ width: '9%' }} />
+              <col style={{ width: '9%' }} />
+              <col style={{ width: '8%' }} />
               <col style={{ width: '6%' }} />
-              <col style={{ width: '7%' }} />
+              <col style={{ width: '8%' }} />
             </colgroup>
 
             <TableHead>
               <TableRow>
                 {headers.map(({ label, key, sortable }) => {
-                  const align = ['no', 'profileImage', 'actions', 'isEnabled', 'role', 'approvePermission'].includes(key) ? 'center' : 'left';
+                  const align = ['no', 'profileImage', 'actions', 'isEnabled', 'role', 'approvePermission', 'bookingPermission'].includes(key) ? 'center' : 'left';
                   const active = sortConfig.key === key && !!sortConfig.direction;
 
                   return (
@@ -904,7 +955,7 @@ export default function UserManagementPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={10} sx={{ py: 3 }}>
+                  <TableCell colSpan={11} sx={{ py: 3 }}>
                     <Stack direction="row" spacing={1} alignItems="center" justifyContent="center">
                       <CircularProgress size={18} />
                       <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>Loading data...</Typography>
@@ -953,6 +1004,10 @@ export default function UserManagementPage() {
                       </TableCell>
 
                       <TableCell align="center" sx={{ py: 0.4, px: 0.6 }}>
+                        {bookingPermissionBadge(u.bookingPermission)}
+                      </TableCell>
+
+                      <TableCell align="center" sx={{ py: 0.4, px: 0.6 }}>
                         {enabledBadge(Boolean(u.isEnabled))}
                       </TableCell>
 
@@ -997,7 +1052,7 @@ export default function UserManagementPage() {
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={10} align="center" sx={{ py: 3 }}>
+                  <TableCell colSpan={11} align="center" sx={{ py: 3 }}>
                     <Stack direction="column" alignItems="center" spacing={0.5} sx={{ color: 'text.secondary' }}>
                       <InboxIcon fontSize="small" />
                       <Typography sx={{ fontSize: '0.85rem' }}>

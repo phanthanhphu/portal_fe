@@ -41,6 +41,11 @@ const APPROVE_PERMISSION_OPTIONS = [
   { value: 'BOTH', label: 'Approve Notice & Document' },
 ];
 
+const BOOKING_PERMISSION_OPTIONS = [
+  { value: 'NONE', label: 'No booking permission' },
+  { value: 'BOOKING', label: 'Can manage booking' },
+];
+
 const normalizeApprovePermission = (value) => {
   const normalized = String(value || 'NONE').trim().toUpperCase();
   return APPROVE_PERMISSION_OPTIONS.some((item) => item.value === normalized) ? normalized : 'NONE';
@@ -51,6 +56,16 @@ const getApprovePermissionLabel = (value) => {
   return APPROVE_PERMISSION_OPTIONS.find((item) => item.value === normalized)?.label || 'No approve permission';
 };
 
+const normalizeBookingPermission = (value) => {
+  const normalized = String(value || 'NONE').trim().toUpperCase();
+  return BOOKING_PERMISSION_OPTIONS.some((item) => item.value === normalized) ? normalized : 'NONE';
+};
+
+const getBookingPermissionLabel = (value) => {
+  const normalized = normalizeBookingPermission(value);
+  return BOOKING_PERMISSION_OPTIONS.find((item) => item.value === normalized)?.label || 'No booking permission';
+};
+
 const initialForm = {
   username: '',
   email: '',
@@ -59,6 +74,7 @@ const initialForm = {
   phone: '',
   role: 'User',
   approvePermission: 'NONE',
+  bookingPermission: 'NONE',
   isEnabled: true,
   departmentId: '',
 };
@@ -309,6 +325,7 @@ const AddUserDialog = ({ open, onClose, onAdd }) => {
     const payload = {
       ...formData,
       approvePermission: normalizeApprovePermission(formData.approvePermission),
+      bookingPermission: normalizeBookingPermission(formData.bookingPermission),
     };
 
     Object.entries(payload).forEach(([key, value]) => {
@@ -527,6 +544,24 @@ const AddUserDialog = ({ open, onClose, onAdd }) => {
                   </FormHelperText>
                 </FormControl>
 
+                <FormControl fullWidth size="small" disabled={locked} sx={fieldSx}>
+                  <InputLabel sx={{ fontWeight: 700 }}>Booking Permission</InputLabel>
+                  <Select
+                    value={normalizeBookingPermission(formData.bookingPermission)}
+                    label="Booking Permission"
+                    onChange={handleChange('bookingPermission')}
+                  >
+                    {BOOKING_PERMISSION_OPTIONS.map((option) => (
+                      <MenuItem key={option.value} value={option.value}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  <FormHelperText>
+                    Controls whether this user can add, edit, delete and show room bookings on Index Room.
+                  </FormHelperText>
+                </FormControl>
+
                 <FormControl
                   fullWidth
                   size="small"
@@ -602,6 +637,9 @@ const AddUserDialog = ({ open, onClose, onAdd }) => {
                       </Typography>
                       <Typography sx={{ fontSize: 12.5, color: 'text.secondary' }}>
                         <b>Department:</b> {selectedDepartmentLabel}
+                      </Typography>
+                      <Typography sx={{ fontSize: 12.5, color: 'text.secondary' }}>
+                        <b>Booking:</b> {getBookingPermissionLabel(formData.bookingPermission)}
                       </Typography>
                     </Box>
                   </Stack>
