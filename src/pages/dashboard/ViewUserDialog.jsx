@@ -49,16 +49,7 @@ export default function ViewUserDialog({ open, onClose, user }) {
     return { label: user?.role || 'USER', tone: 'success' };
   }, [user?.role]);
 
-  const statusMeta = useMemo(() => {
-    const enabled = user?.isEnabled !== undefined ? !!user.isEnabled : true;
-    return enabled
-      ? { label: 'Enabled', tone: 'success' }
-      : { label: 'Disabled', tone: 'default' };
-  }, [user?.isEnabled]);
-
-  const active = !!user?.isActive;
-
-  // Glass / gradient styles (aligned with your Edit dialog vibe)
+  // Glass / gradient styles
   const paperSx = {
     borderRadius: fullScreen ? 0 : 4,
     overflow: 'hidden',
@@ -136,26 +127,15 @@ export default function ViewUserDialog({ open, onClose, user }) {
               User Profile
             </Typography>
             <Typography sx={{ opacity: 0.9, mt: 0.4, fontSize: 13 }}>
-              Overview details and status
+              Overview details
             </Typography>
           </Box>
+
           <Stack direction="row" spacing={1} alignItems="center">
             <Chip
               size="small"
               label={roleMeta.label}
               color={roleMeta.tone}
-              variant="filled"
-              sx={{
-                fontWeight: 900,
-                bgcolor: alpha('#000', 0.18),
-                border: `1px solid ${alpha('#fff', 0.22)}`,
-                color: 'common.white',
-              }}
-            />
-            <Chip
-              size="small"
-              label={statusMeta.label}
-              color={statusMeta.tone}
               variant="filled"
               sx={{
                 fontWeight: 900,
@@ -182,12 +162,11 @@ export default function ViewUserDialog({ open, onClose, user }) {
                 </IconButton>
               </span>
             </Tooltip>
-
           </Stack>
         </Stack>
       </DialogTitle>
-      <br></br>
-      <DialogContent sx={{ p: { xs: 2, sm: 2.5 } }}>
+
+      <DialogContent sx={{ p: { xs: 2, sm: 2.5 }, mt: 1 }}>
         <Box
           sx={{
             display: 'grid',
@@ -199,50 +178,23 @@ export default function ViewUserDialog({ open, onClose, user }) {
           {/* Left card: Avatar */}
           <Box sx={{ ...subtleCardSx, p: 2 }}>
             <Stack spacing={1.6} alignItems="center">
-              <Box
+              <Avatar
+                src={avatarSrc}
+                alt={user?.username || 'User'}
                 sx={{
-                  position: 'relative',
-                  '@keyframes pulse': {
-                    '0%': { boxShadow: `0 0 0 0 ${alpha('#00C853', 0.45)}` },
-                    '70%': { boxShadow: `0 0 0 10px ${alpha('#00C853', 0)}` },
-                    '100%': { boxShadow: `0 0 0 0 ${alpha('#00C853', 0)}` },
-                  },
+                  width: 112,
+                  height: 112,
+                  fontSize: 34,
+                  fontWeight: 900,
+                  border: `3px solid ${alpha(theme.palette.primary.main, 0.22)}`,
+                  boxShadow: `0 14px 40px ${alpha('#000', 0.16)}`,
+                  bgcolor: alpha(theme.palette.primary.main, 0.12),
+                  color: theme.palette.primary.main,
                 }}
-              >
-                <Avatar
-                  src={avatarSrc}
-                  alt={user?.username || 'User'}
-                  sx={{
-                    width: 112,
-                    height: 112,
-                    fontSize: 34,
-                    fontWeight: 900,
-                    border: `3px solid ${alpha(theme.palette.primary.main, 0.22)}`,
-                    boxShadow: `0 14px 40px ${alpha('#000', 0.16)}`,
-                    bgcolor: alpha(theme.palette.primary.main, 0.12),
-                    color: theme.palette.primary.main,
-                  }}
-                  onError={(e) => {
-                    e.currentTarget.src = fallbackAvatar;
-                  }}
-                />
-
-                {/* Active dot */}
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    bottom: 6,
-                    right: 6,
-                    width: 16,
-                    height: 16,
-                    borderRadius: '50%',
-                    bgcolor: active ? '#00C853' : alpha(theme.palette.text.secondary, 0.4),
-                    border: `3px solid ${alpha('#fff', 0.9)}`,
-                    boxShadow: active ? `0 0 10px ${alpha('#00C853', 0.6)}` : 'none',
-                    animation: active ? 'pulse 2s infinite' : 'none',
-                  }}
-                />
-              </Box>
+                onError={(e) => {
+                  e.currentTarget.src = fallbackAvatar;
+                }}
+              />
 
               <Box sx={{ textAlign: 'center' }}>
                 <Typography sx={{ fontWeight: 900, fontSize: 18 }}>
@@ -254,26 +206,16 @@ export default function ViewUserDialog({ open, onClose, user }) {
               </Box>
 
               <Divider flexItem />
-              <Stack direction="row" spacing={1} flexWrap="wrap" justifyContent="center">
-                <Chip
-                  size="small"
-                  label={active ? 'Active' : 'Offline'}
-                  sx={{
-                    fontWeight: 800,
-                    bgcolor: alpha(active ? '#00C853' : theme.palette.text.secondary, 0.12),
-                    border: `1px solid ${alpha(active ? '#00C853' : theme.palette.text.secondary, 0.22)}`,
-                  }}
-                />
-                <Chip
-                  size="small"
-                  label={roleMeta.label}
-                  sx={{
-                    fontWeight: 800,
-                    bgcolor: alpha(theme.palette.primary.main, 0.08),
-                    border: `1px solid ${alpha(theme.palette.primary.main, 0.18)}`,
-                  }}
-                />
-              </Stack>
+
+              <Chip
+                size="small"
+                label={roleMeta.label}
+                sx={{
+                  fontWeight: 800,
+                  bgcolor: alpha(theme.palette.primary.main, 0.08),
+                  border: `1px solid ${alpha(theme.palette.primary.main, 0.18)}`,
+                }}
+              />
 
               <Typography sx={{ color: 'text.secondary', fontSize: 12 }}>
                 Avatar updates in the Edit dialog
@@ -300,11 +242,6 @@ export default function ViewUserDialog({ open, onClose, user }) {
                 <InfoRow icon="Call" label="Phone" value={user?.phone} />
                 <InfoRow icon="Location" label="Address" value={user?.address} />
                 <InfoRow icon="UserTag" label="Role" value={user?.role} />
-                <InfoRow
-                  icon="ShieldTick"
-                  label="Account Status"
-                  value={statusMeta.label}
-                />
               </Stack>
             </Stack>
           </Box>

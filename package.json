@@ -19,6 +19,7 @@
     "apexcharts": "4.7.0",
     "axios": "^1.11.0",
     "dayjs": "^1.11.18",
+    "exceljs": "^4.4.0",
     "file-saver": "^2.0.5",
     "formik": "2.4.6",
     "framer-motion": "12.12.1",
@@ -54,19 +55,15 @@
     "start": "vite --mode http",
     "start:http": "vite --mode http",
     "start:https": "vite --mode https",
-
     "dev": "vite --mode http",
     "dev:http": "vite --mode http",
     "dev:https": "vite --mode https",
-
     "build": "vite build --mode http",
     "build:http": "vite build --mode http",
     "build:https": "vite build --mode https",
-
     "preview": "vite preview --mode http",
     "preview:http": "vite preview --mode http",
     "preview:https": "vite preview --mode https",
-
     "lint": "eslint \"src/**/*.{js,jsx,ts,tsx}\"",
     "lint:fix": "eslint --fix \"src/**/*.{js,jsx,ts,tsx}\"",
     "prettier": "prettier --write \"src/**/*.{js,jsx,ts,tsx}\""

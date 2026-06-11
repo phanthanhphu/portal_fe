@@ -25,6 +25,7 @@ import {
   MenuItem,
   Pagination,
   Checkbox,
+  TextField,
 } from '@mui/material';
 
 import {
@@ -32,6 +33,8 @@ import {
   Delete,
   ArrowUpward,
   ArrowDownward,
+  Settings,
+  Save,
   Inbox as InboxIcon,
 } from '@mui/icons-material';
 
@@ -45,8 +48,25 @@ import { API_BASE_URL } from '../../config';
 import RoomBookingSearch from './RoomBookingSearch';
 import AddRoomBookingDialog from './AddRoomBookingDialog';
 import EditRoomBookingDialog from './EditRoomBookingDialog';
+import { exportRoomBookingReport } from './roomBookingExcelExport';
 
 const BOOKING_API = `${API_BASE_URL}/api/room-bookings`;
+const ROOM_API = `${API_BASE_URL}/api/rooms`;
+const DISPLAY_CONFIG_API = `${API_BASE_URL}/api/index-room-display-config`;
+
+const DEFAULT_DISPLAY_CONFIG = {
+  eyebrowText: 'Room Reservation Display',
+  welcomeText: 'Welcome to',
+  titleText: 'Broadpeak Soc Trang',
+  statusText: 'Reserved',
+};
+
+const normalizeDisplayConfig = (value = {}) => ({
+  eyebrowText: value.eyebrowText || DEFAULT_DISPLAY_CONFIG.eyebrowText,
+  welcomeText: value.welcomeText || DEFAULT_DISPLAY_CONFIG.welcomeText,
+  titleText: value.titleText || DEFAULT_DISPLAY_CONFIG.titleText,
+  statusText: value.statusText || DEFAULT_DISPLAY_CONFIG.statusText,
+});
 
 const getAuthHeaders = (accept = '*/*') => {
   const token = localStorage.getItem('token');
@@ -59,26 +79,74 @@ const getAuthHeaders = (accept = '*/*') => {
 
 const pad2 = (value) => String(value).padStart(2, '0');
 
-const formatDateOnly = (value) => {
-  if (!value) return '-';
+const toDateParts = (value) => {
+  if (!value) return null;
 
   if (Array.isArray(value) && value.length >= 3) {
     const [year, month, day] = value;
-    return `${pad2(day)}/${pad2(month)}/${year}`;
+    return { year, month, day };
   }
 
   if (typeof value === 'string') {
     const parts = value.slice(0, 10).split('-');
     if (parts.length === 3) {
-      const [year, month, day] = parts;
-      return `${pad2(day)}/${pad2(month)}/${year}`;
+      const [year, month, day] = parts.map(Number);
+      return { year, month, day };
     }
   }
 
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '-';
+  if (Number.isNaN(date.getTime())) return null;
 
-  return `${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}/${date.getFullYear()}`;
+  return {
+    year: date.getFullYear(),
+    month: date.getMonth() + 1,
+    day: date.getDate(),
+  };
+};
+
+const toTimeParts = (value) => {
+  if (!value) return { hour: 0, minute: 0, second: 0 };
+
+  if (Array.isArray(value) && value.length >= 2) {
+    const [hour, minute, second = 0] = value;
+    return { hour, minute, second };
+  }
+
+  if (typeof value === 'string') {
+    const parts = value.split(':').map(Number);
+    return {
+      hour: Number.isFinite(parts[0]) ? parts[0] : 0,
+      minute: Number.isFinite(parts[1]) ? parts[1] : 0,
+      second: Number.isFinite(parts[2]) ? parts[2] : 0,
+    };
+  }
+
+  return { hour: 0, minute: 0, second: 0 };
+};
+
+const formatDateOnly = (value) => {
+  const parts = toDateParts(value);
+  if (!parts) return '-';
+
+  return `${pad2(parts.day)}/${pad2(parts.month)}/${parts.year}`;
+};
+
+const formatTimeOnly = (value) => {
+  if (!value) return '--:--';
+
+  const { hour, minute } = toTimeParts(value);
+  return `${pad2(hour)}:${pad2(minute)}`;
+};
+
+const formatBookingDateTime = (dateValue, timeValue) => {
+  const dateText = formatDateOnly(dateValue);
+  const timeText = formatTimeOnly(timeValue);
+
+  if (dateText === '-' && timeText === '--:--') return '-';
+  if (timeText === '--:--') return dateText;
+
+  return `${dateText} ${timeText}`;
 };
 
 const formatDateTime = (value) => {
@@ -95,6 +163,14 @@ const formatDateTime = (value) => {
   return `${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}/${date.getFullYear()} ${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`;
 };
 
+const getBookingDateTimeMs = (dateValue, timeValue) => {
+  const dateParts = toDateParts(dateValue);
+  if (!dateParts) return 0;
+
+  const { hour, minute, second } = toTimeParts(timeValue);
+  return new Date(dateParts.year, Number(dateParts.month) - 1, dateParts.day, hour, minute, second).getTime();
+};
+
 const formatMoney = (value) => {
   if (value === null || value === undefined || value === '') return '-';
 
@@ -108,9 +184,6 @@ const formatMoney = (value) => {
   }).format(num);
 };
 
-/* =========================
-   Sorting helpers
-   ========================= */
 const dateKeys = new Set(['createdAt', 'updatedAt', 'checkInDate', 'checkOutDate']);
 const numberKeys = new Set(['roomCharged']);
 
@@ -128,6 +201,14 @@ const getDateComparableValue = (value) => {
 
 const getComparableValue = (row, key) => {
   if (!row || !key) return '';
+
+  if (key === 'checkInDate') {
+    return getBookingDateTimeMs(row.checkInDate, row.checkInTime);
+  }
+
+  if (key === 'checkOutDate') {
+    return getBookingDateTimeMs(row.checkOutDate, row.checkOutTime);
+  }
 
   const value = row?.[key];
 
@@ -200,7 +281,6 @@ const SortIndicator = ({ active, direction }) => {
     </Box>
   );
 };
-
 
 function PaginationBar({ count, page, rowsPerPage, onPageChange, onRowsPerPageChange, loading }) {
   const totalPages = Math.max(1, Math.ceil((count || 0) / (rowsPerPage || 1)));
@@ -321,12 +401,18 @@ export default function RoomBookingsPage() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [sortConfig, setSortConfig] = useState({ key: 'createdAt', direction: 'desc' });
 
   const [searchNameInput, setSearchNameInput] = useState('');
   const [searchNameFilter, setSearchNameFilter] = useState('');
   const [roomIdInput, setRoomIdInput] = useState('');
   const [roomIdFilter, setRoomIdFilter] = useState('');
+  const [fromDateInput, setFromDateInput] = useState('');
+  const [fromDateFilter, setFromDateFilter] = useState('');
+  const [toDateInput, setToDateInput] = useState('');
+  const [toDateFilter, setToDateFilter] = useState('');
+  const [roomOptions, setRoomOptions] = useState([]);
 
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'info' });
 
@@ -339,6 +425,33 @@ export default function RoomBookingsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
 
+  const [displayDialogOpen, setDisplayDialogOpen] = useState(false);
+  const [displayConfig, setDisplayConfig] = useState(DEFAULT_DISPLAY_CONFIG);
+  const [loadingDisplayConfig, setLoadingDisplayConfig] = useState(false);
+  const [savingDisplayConfig, setSavingDisplayConfig] = useState(false);
+
+  const fetchRoomOptions = useCallback(async () => {
+    try {
+      const response = await axios.get(`${ROOM_API}/options`, {
+        headers: getAuthHeaders('*/*'),
+      });
+
+      const options = Array.isArray(response?.data) ? response.data : [];
+
+      setRoomOptions(
+        [...options].sort((a, b) =>
+          String(a.roomName || a.id || '').localeCompare(String(b.roomName || b.id || ''), undefined, {
+            numeric: true,
+            sensitivity: 'base',
+          })
+        )
+      );
+    } catch (error) {
+      console.error('Cannot load room options for export:', error);
+      setRoomOptions([]);
+    }
+  }, []);
+
   const fetchData = useCallback(async (overrides = {}) => {
     const silent = Boolean(overrides.silent);
 
@@ -348,14 +461,18 @@ export default function RoomBookingsPage() {
 
     const effPage = Number.isInteger(overrides.page) ? overrides.page : page;
     const effSize = Number.isInteger(overrides.size) ? overrides.size : rowsPerPage;
-    const effName = overrides.name !== undefined ? overrides.name : searchNameFilter;
+    const effName = overrides.customerName !== undefined ? overrides.customerName : searchNameFilter;
     const effRoomId = overrides.roomId !== undefined ? overrides.roomId : roomIdFilter;
+    const effFromDate = overrides.fromDate !== undefined ? overrides.fromDate : fromDateFilter;
+    const effToDate = overrides.toDate !== undefined ? overrides.toDate : toDateFilter;
 
     try {
       const response = await axios.get(`${BOOKING_API}/search`, {
         params: {
           name: effName,
           roomId: effRoomId,
+          fromDate: effFromDate,
+          toDate: effToDate,
           page: effPage,
           size: effSize,
         },
@@ -384,7 +501,11 @@ export default function RoomBookingsPage() {
         setLoading(false);
       }
     }
-  }, [page, rowsPerPage, searchNameFilter, roomIdFilter]);
+  }, [page, rowsPerPage, searchNameFilter, roomIdFilter, fromDateFilter, toDateFilter]);
+
+  useEffect(() => {
+    fetchRoomOptions();
+  }, [fetchRoomOptions]);
 
   const refreshBySocket = useCallback(async (event) => {
     const module = String(event?.module || 'ALL').toUpperCase();
@@ -456,20 +577,125 @@ export default function RoomBookingsPage() {
   const handleSearch = useCallback(() => {
     const nextName = searchNameInput.trim();
     const nextRoomId = roomIdInput;
+    const nextFromDate = fromDateInput;
+    const nextToDate = toDateInput;
+
+    if (nextFromDate && nextToDate && nextToDate < nextFromDate) {
+      setNotification({
+        open: true,
+        message: 'To Date must be after or equal to From Date',
+        severity: 'error',
+      });
+      return;
+    }
 
     setSearchNameFilter(nextName);
     setRoomIdFilter(nextRoomId);
+    setFromDateFilter(nextFromDate);
+    setToDateFilter(nextToDate);
     setPage(0);
-  }, [searchNameInput, roomIdInput]);
+  }, [searchNameInput, roomIdInput, fromDateInput, toDateInput]);
 
   const handleReset = useCallback(() => {
     setSearchNameInput('');
     setSearchNameFilter('');
     setRoomIdInput('');
     setRoomIdFilter('');
+    setFromDateInput('');
+    setFromDateFilter('');
+    setToDateInput('');
+    setToDateFilter('');
     setPage(0);
   }, []);
 
+
+  const fetchAllRowsForExport = useCallback(async () => {
+    const exportPageSize = 100;
+    let exportPage = 0;
+    let totalPages = 1;
+    const allRows = [];
+
+    do {
+      const response = await axios.get(`${BOOKING_API}/search`, {
+        params: {
+          name: searchNameFilter,
+          roomId: roomIdFilter,
+          fromDate: fromDateFilter,
+          toDate: toDateFilter,
+          page: exportPage,
+          size: exportPageSize,
+        },
+        headers: getAuthHeaders('*/*'),
+      });
+
+      const result = response?.data || {};
+      const content = Array.isArray(result.content) ? result.content : [];
+      allRows.push(...content);
+
+      totalPages = Number(result.totalPages || 1);
+      exportPage += 1;
+    } while (exportPage < totalPages);
+
+    return allRows;
+  }, [searchNameFilter, roomIdFilter, fromDateFilter, toDateFilter]);
+
+  const selectedRoomName = useMemo(() => {
+    if (!roomIdFilter) return '';
+
+    const matchedRoom = roomOptions.find((room) =>
+      String(room?.id || '').trim() === String(roomIdFilter || '').trim()
+    );
+
+    return matchedRoom?.roomName || matchedRoom?.name || '';
+  }, [roomIdFilter, roomOptions]);
+
+  const handleExportExcel = useCallback(async () => {
+    if (totalElements <= 0) {
+      setNotification({
+        open: true,
+        message: 'No room booking data to export.',
+        severity: 'warning',
+      });
+      return;
+    }
+
+    setExporting(true);
+
+    try {
+      const exportRows = await fetchAllRowsForExport();
+      const sortedExportRows = sortRowsClient(exportRows, sortConfig);
+
+      const rowRoomName = roomIdFilter
+        ? sortedExportRows.find((row) => String(row?.roomId || '').trim() === String(roomIdFilter).trim())?.roomName
+        : '';
+
+      await exportRoomBookingReport({
+        rows: sortedExportRows,
+        filters: {
+          name: searchNameFilter,
+          roomId: roomIdFilter,
+          roomName: roomIdFilter ? (selectedRoomName || rowRoomName || roomIdFilter) : '',
+          fromDate: fromDateFilter,
+          toDate: toDateFilter,
+        },
+      });
+
+      setNotification({
+        open: true,
+        message: `Exported ${sortedExportRows.length} room booking row(s) successfully.`,
+        severity: 'success',
+      });
+    } catch (error) {
+      console.error(error);
+      setNotification({
+        open: true,
+        message: error?.response?.data?.message || error?.message || 'Export room booking report failed.',
+        severity: 'error',
+      });
+    } finally {
+      setExporting(false);
+    }
+  }, [totalElements, fetchAllRowsForExport, sortConfig, searchNameFilter, roomIdFilter, selectedRoomName, fromDateFilter, toDateFilter]);
 
   const handleToggleIndexRoomDisplay = useCallback(async (item, checked) => {
     if (!item?.id) return;
@@ -508,6 +734,82 @@ export default function RoomBookingsPage() {
       setLoading(false);
     }
   }, []);
+
+  const fetchDisplayConfig = useCallback(async () => {
+    setLoadingDisplayConfig(true);
+
+    try {
+      const response = await axios.get(DISPLAY_CONFIG_API, {
+        headers: getAuthHeaders('application/json'),
+      });
+
+      setDisplayConfig(normalizeDisplayConfig(response?.data || {}));
+    } catch (error) {
+      console.error(error);
+      setDisplayConfig(DEFAULT_DISPLAY_CONFIG);
+      setNotification({
+        open: true,
+        message: error?.response?.data?.message || 'Failed to load display config.',
+        severity: 'error',
+      });
+    } finally {
+      setLoadingDisplayConfig(false);
+    }
+  }, []);
+
+  const handleOpenDisplayDialog = useCallback(async () => {
+    setDisplayDialogOpen(true);
+    await fetchDisplayConfig();
+  }, [fetchDisplayConfig]);
+
+  const handleCloseDisplayDialog = useCallback(() => {
+    if (savingDisplayConfig) return;
+    setDisplayDialogOpen(false);
+  }, [savingDisplayConfig]);
+
+  const handleChangeDisplayConfig = useCallback((field, value) => {
+    setDisplayConfig((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  }, []);
+
+  const handleSaveDisplayConfig = useCallback(async () => {
+    setSavingDisplayConfig(true);
+
+    try {
+      const payload = {
+        eyebrowText: displayConfig.eyebrowText?.trim() || DEFAULT_DISPLAY_CONFIG.eyebrowText,
+        welcomeText: displayConfig.welcomeText?.trim() || DEFAULT_DISPLAY_CONFIG.welcomeText,
+        titleText: displayConfig.titleText?.trim() || DEFAULT_DISPLAY_CONFIG.titleText,
+        statusText: displayConfig.statusText?.trim() || DEFAULT_DISPLAY_CONFIG.statusText,
+      };
+
+      const response = await axios.put(DISPLAY_CONFIG_API, payload, {
+        headers: {
+          ...getAuthHeaders('application/json'),
+          'Content-Type': 'application/json',
+        },
+      });
+
+      setDisplayConfig(normalizeDisplayConfig(response?.data || payload));
+      setDisplayDialogOpen(false);
+      setNotification({
+        open: true,
+        message: 'Display information updated successfully.',
+        severity: 'success',
+      });
+    } catch (error) {
+      console.error(error);
+      setNotification({
+        open: true,
+        message: error?.response?.data?.message || 'Update display information failed.',
+        severity: 'error',
+      });
+    } finally {
+      setSavingDisplayConfig(false);
+    }
+  }, [displayConfig]);
 
   const handleOpenEdit = useCallback((item) => {
     setCurrentItem(item);
@@ -582,15 +884,71 @@ export default function RoomBookingsPage() {
 
   return (
     <Box sx={pageWrapSx}>
+      <Paper
+        elevation={0}
+        sx={{
+          p: 1.5,
+          mb: 1.5,
+          borderRadius: 1.5,
+          border: '1px solid #e5e7eb',
+          backgroundColor: '#fff',
+        }}
+      >
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={1}
+          alignItems={{ xs: 'stretch', sm: 'center' }}
+          justifyContent="space-between"
+        >
+          <Box>
+            <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, color: '#111827' }}>
+              Index Room Display
+            </Typography>
+            <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary' }}>
+              Edit the header text shown on the Room Reservation Display screen.
+            </Typography>
+          </Box>
+
+          <Button
+            variant="outlined"
+            startIcon={<Settings fontSize="small" />}
+            onClick={handleOpenDisplayDialog}
+            disabled={loading || exporting}
+            sx={{
+              height: 36,
+              borderRadius: 1.2,
+              textTransform: 'none',
+              fontWeight: 600,
+              borderColor: '#111827',
+              color: '#111827',
+              '&:hover': {
+                borderColor: '#0b1220',
+                color: '#0b1220',
+                backgroundColor: 'rgba(17, 24, 39, 0.04)',
+              },
+            }}
+          >
+            Edit Display
+          </Button>
+        </Stack>
+      </Paper>
+
       <RoomBookingSearch
         searchName={searchNameInput}
         setSearchName={setSearchNameInput}
         roomId={roomIdInput}
         setRoomId={setRoomIdInput}
+        fromDate={fromDateInput}
+        setFromDate={setFromDateInput}
+        toDate={toDateInput}
+        setToDate={setToDateInput}
         onSearch={handleSearch}
         onReset={handleReset}
         onAdd={() => setOpenAddDialog(true)}
-        disabled={loading}
+        onExport={handleExportExcel}
+        exporting={exporting}
+        canExport={totalElements > 0}
+        disabled={loading || exporting}
       />
 
       <Paper elevation={0} sx={{ borderRadius: 1.5, border: '1px solid #e5e7eb', backgroundColor: '#fff', overflow: 'hidden' }}>
@@ -616,7 +974,7 @@ export default function RoomBookingsPage() {
                         whiteSpace: 'nowrap',
                         userSelect: 'none',
                         ...(key === 'no' && { position: 'sticky', left: 0, zIndex: 3, width: 64 }),
-                        ...(key === 'title' && { minWidth: 220 }),
+                        ...(key === 'title' && { minWidth: 180 }),
                         ...(key === 'actions' && { width: 120, position: 'sticky', right: 0, zIndex: 3 }),
                         ...(hideOnSmall && { display: { xs: 'none', md: 'table-cell' } }),
                       }}
@@ -686,7 +1044,7 @@ export default function RoomBookingsPage() {
                         {page * rowsPerPage + idx + 1}
                       </TableCell>
 
-                      <TableCell sx={{ fontSize: '0.75rem', py: 0.45, px: 0.7, fontWeight: 600, whiteSpace: 'normal', wordBreak: 'break-word', minWidth: 220 }}>
+                      <TableCell sx={{ fontSize: '0.75rem', py: 0.45, px: 0.7, fontWeight: 600, whiteSpace: 'normal', wordBreak: 'break-word', minWidth: 180 }}>
                         {item.title || '-'}
                       </TableCell>
 
@@ -694,12 +1052,12 @@ export default function RoomBookingsPage() {
                         {item.roomName || item.roomId || '-'}
                       </TableCell>
 
-                      <TableCell sx={{ fontSize: '0.75rem', py: 0.45, px: 0.7, minWidth: 110 }}>
-                        {formatDateOnly(item.checkInDate)}
+                      <TableCell sx={{ fontSize: '0.75rem', py: 0.45, px: 0.7, minWidth: 135 }}>
+                        {formatBookingDateTime(item.checkInDate, item.checkInTime)}
                       </TableCell>
 
-                      <TableCell sx={{ fontSize: '0.75rem', py: 0.45, px: 0.7, minWidth: 110 }}>
-                        {formatDateOnly(item.checkOutDate)}
+                      <TableCell sx={{ fontSize: '0.75rem', py: 0.45, px: 0.7, minWidth: 135 }}>
+                        {formatBookingDateTime(item.checkOutDate, item.checkOutTime)}
                       </TableCell>
 
                       <TableCell sx={{ fontSize: '0.75rem', py: 0.45, px: 0.7, minWidth: 160 }}>
@@ -849,6 +1207,203 @@ export default function RoomBookingsPage() {
 
           <Button onClick={handleConfirmDelete} variant="contained" color="error" disabled={loading}>
             {loading ? <CircularProgress size={20} /> : 'Yes'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={displayDialogOpen}
+        onClose={handleCloseDisplayDialog}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 2 } }}
+      >
+        <DialogTitle sx={{ borderBottom: '1px solid #e5e7eb' }}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+            <Box>
+              <Typography sx={{ fontSize: '1rem', fontWeight: 800 }}>
+                Edit Room Reservation Display
+              </Typography>
+              <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary' }}>
+                This popup edits only one display configuration.
+              </Typography>
+            </Box>
+          </Stack>
+        </DialogTitle>
+
+        <DialogContent sx={{ p: 2 }}>
+          {loadingDisplayConfig ? (
+            <Stack direction="row" spacing={1} alignItems="center" justifyContent="center" sx={{ py: 5 }}>
+              <CircularProgress size={20} />
+              <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary' }}>
+                Loading display config...
+              </Typography>
+            </Stack>
+          ) : (
+            <Stack spacing={2}>
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                <Box sx={{ flex: 1 }}>
+                  <Typography sx={{ fontWeight: 800, mb: 1 }}>
+                    Edit Information
+                  </Typography>
+
+                  <Stack spacing={2}>
+                    <TextField
+                      label="Small Label"
+                      size="small"
+                      value={displayConfig.eyebrowText}
+                      onChange={(e) => handleChangeDisplayConfig('eyebrowText', e.target.value)}
+                      disabled={savingDisplayConfig}
+                      fullWidth
+                      helperText="Example: Room Reservation Display"
+                    />
+
+                    <TextField
+                      label="Welcome Text"
+                      size="small"
+                      value={displayConfig.welcomeText}
+                      onChange={(e) => handleChangeDisplayConfig('welcomeText', e.target.value)}
+                      disabled={savingDisplayConfig}
+                      fullWidth
+                      helperText="Example: Welcome to"
+                    />
+
+                    <TextField
+                      label="Main Title"
+                      size="small"
+                      value={displayConfig.titleText}
+                      onChange={(e) => handleChangeDisplayConfig('titleText', e.target.value)}
+                      disabled={savingDisplayConfig}
+                      fullWidth
+                      helperText="Example: Broadpeak Soc Trang"
+                    />
+
+                    <TextField
+                      label="Status Text"
+                      size="small"
+                      value={displayConfig.statusText}
+                      onChange={(e) => handleChangeDisplayConfig('statusText', e.target.value)}
+                      disabled={savingDisplayConfig}
+                      fullWidth
+                      helperText="Example: Reserved"
+                    />
+                  </Stack>
+                </Box>
+
+                <Box sx={{ flex: 1 }}>
+                  <Typography sx={{ fontWeight: 800, mb: 1 }}>
+                    Preview
+                  </Typography>
+
+                  <Box
+                    sx={{
+                      position: 'relative',
+                      overflow: 'hidden',
+                      borderRadius: 2,
+                      p: 2,
+                      minHeight: 170,
+                      border: '1px solid #164e63',
+                      background: 'linear-gradient(135deg, #0f3a5d, #183f42)',
+                      color: '#fff',
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        display: 'inline-flex',
+                        px: 1.4,
+                        py: 0.35,
+                        mb: 0.8,
+                        borderRadius: 999,
+                        bgcolor: '#facc15',
+                        color: '#111827',
+                        fontSize: 10,
+                        fontWeight: 900,
+                        letterSpacing: 2,
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      {displayConfig.eyebrowText || DEFAULT_DISPLAY_CONFIG.eyebrowText}
+                    </Box>
+
+                    <Typography
+                      sx={{
+                        fontSize: 18,
+                        letterSpacing: 4,
+                        textTransform: 'uppercase',
+                        opacity: 0.9,
+                        fontWeight: 500,
+                        lineHeight: 1.1,
+                      }}
+                    >
+                      {displayConfig.welcomeText || DEFAULT_DISPLAY_CONFIG.welcomeText}
+                    </Typography>
+
+                    <Typography
+                      sx={{
+                        fontSize: { xs: 30, md: 38 },
+                        lineHeight: 1.05,
+                        fontWeight: 1000,
+                        letterSpacing: 1.2,
+                        textTransform: 'uppercase',
+                        mb: 2,
+                      }}
+                    >
+                      {displayConfig.titleText || DEFAULT_DISPLAY_CONFIG.titleText}
+                    </Typography>
+
+                    <Box
+                      sx={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        px: 2,
+                        py: 0.8,
+                        borderRadius: 2,
+                        bgcolor: '#facc15',
+                        color: '#111827',
+                        fontWeight: 900,
+                        letterSpacing: 1.2,
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      <Box
+                        component="span"
+                        sx={{
+                          width: 9,
+                          height: 9,
+                          borderRadius: '50%',
+                          bgcolor: '#22c55e',
+                          mr: 0.8,
+                          boxShadow: '0 0 8px rgba(34,197,94,0.85)',
+                        }}
+                      />
+                      {displayConfig.statusText || DEFAULT_DISPLAY_CONFIG.statusText}
+                    </Box>
+
+                    <Divider sx={{ mt: 2, borderColor: '#facc15', borderBottomWidth: 2 }} />
+                  </Box>
+                </Box>
+              </Stack>
+            </Stack>
+          )}
+        </DialogContent>
+
+        <DialogActions sx={{ px: 2, py: 1.5, borderTop: '1px solid #e5e7eb' }}>
+          <Button
+            onClick={handleCloseDisplayDialog}
+            disabled={savingDisplayConfig}
+            sx={{ textTransform: 'none' }}
+          >
+            Cancel
+          </Button>
+
+          <Button
+            variant="contained"
+            startIcon={savingDisplayConfig ? <CircularProgress size={16} color="inherit" /> : <Save fontSize="small" />}
+            onClick={handleSaveDisplayConfig}
+            disabled={loadingDisplayConfig || savingDisplayConfig}
+            sx={{ textTransform: 'none', fontWeight: 700 }}
+          >
+            Save
           </Button>
         </DialogActions>
       </Dialog>

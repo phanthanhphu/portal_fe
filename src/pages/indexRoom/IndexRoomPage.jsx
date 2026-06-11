@@ -10,8 +10,23 @@ import backgroundB from './assets/background14.JPG';
 import youngoneLogo from './assets/youngone-logo.png';
 
 const BOOKING_API = `${API_BASE_URL}/api/room-bookings`;
+const DISPLAY_CONFIG_API = `${API_BASE_URL}/api/index-room-display-config`;
 const PAGE_SIZE = 8;
 const PAGE_CHANGE_INTERVAL_MS = 10000;
+
+const DEFAULT_DISPLAY_CONFIG = {
+  eyebrowText: 'Room Reservation Display',
+  welcomeText: 'Welcome to',
+  titleText: 'Broadpeak Soc Trang',
+  statusText: 'Reserved',
+};
+
+const normalizeDisplayConfig = (value = {}) => ({
+  eyebrowText: displayValue(value.eyebrowText || DEFAULT_DISPLAY_CONFIG.eyebrowText),
+  welcomeText: displayValue(value.welcomeText || DEFAULT_DISPLAY_CONFIG.welcomeText),
+  titleText: displayValue(value.titleText || DEFAULT_DISPLAY_CONFIG.titleText),
+  statusText: displayValue(value.statusText || DEFAULT_DISPLAY_CONFIG.statusText),
+});
 
 const clockItems = [
   { city: 'SEOUL', timeZone: 'Asia/Seoul' },
@@ -179,12 +194,32 @@ function AnalogClock({ city, timeZone }) {
 
 export default function IndexRoomPage() {
   const [reservationRows, setReservationRows] = useState([]);
+  const [displayConfig, setDisplayConfig] = useState(DEFAULT_DISPLAY_CONFIG);
   const [loadingBookings, setLoadingBookings] = useState(false);
   const [bookingError, setBookingError] = useState('');
   const [currentPage, setCurrentPage] = useState(0);
 
   const realtimeRefreshRef = useRef(null);
   const socketRefreshingRef = useRef(false);
+
+  const fetchDisplayConfig = useCallback(async () => {
+    try {
+      const response = await fetch(DISPLAY_CONFIG_API, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Fetch display config failed (${response.status})`);
+      }
+
+      const result = await response.json();
+      setDisplayConfig(normalizeDisplayConfig(result));
+    } catch (error) {
+      console.warn('Cannot load index room display config. Fallback to default config.', error);
+      setDisplayConfig(DEFAULT_DISPLAY_CONFIG);
+    }
+  }, []);
 
   const fetchRoomBookings = useCallback(async () => {
     setLoadingBookings(true);
@@ -226,17 +261,25 @@ export default function IndexRoomPage() {
   const refreshBySocket = useCallback(async (event) => {
     const module = String(event?.module || 'ALL').toUpperCase();
 
-    const shouldRefresh =
+    const shouldRefreshBookings =
       module === 'ROOM' ||
       module === 'ROOMS' ||
       module === 'ROOM_BOOKING' ||
       module === 'ROOM_BOOKINGS' ||
       module === 'ALL';
 
-    if (!shouldRefresh) return;
+    const shouldRefreshConfig =
+      module === 'INDEX_ROOM_DISPLAY_CONFIG' ||
+      module === 'INDEX_ROOM_CONFIG' ||
+      module === 'ALL';
 
-    await fetchRoomBookings();
-  }, [fetchRoomBookings]);
+    if (!shouldRefreshBookings && !shouldRefreshConfig) return;
+
+    await Promise.all([
+      shouldRefreshBookings ? fetchRoomBookings() : Promise.resolve(),
+      shouldRefreshConfig ? fetchDisplayConfig() : Promise.resolve(),
+    ]);
+  }, [fetchRoomBookings, fetchDisplayConfig]);
 
   useEffect(() => {
     realtimeRefreshRef.current = refreshBySocket;
@@ -244,12 +287,17 @@ export default function IndexRoomPage() {
 
   useEffect(() => {
     fetchRoomBookings();
+    fetchDisplayConfig();
 
     // Backup refresh để phòng trường hợp socket mất kết nối.
-    const timer = setInterval(fetchRoomBookings, 60000);
+    const bookingsTimer = setInterval(fetchRoomBookings, 60000);
+    const configTimer = setInterval(fetchDisplayConfig, 60000);
 
-    return () => clearInterval(timer);
-  }, [fetchRoomBookings]);
+    return () => {
+      clearInterval(bookingsTimer);
+      clearInterval(configTimer);
+    };
+  }, [fetchRoomBookings, fetchDisplayConfig]);
 
   useEffect(() => {
     const client = new Client({
@@ -352,16 +400,16 @@ export default function IndexRoomPage() {
             </div>
 
             <div className="ir-title-block">
-              <div className="ir-title-eyebrow">Room Reservation Display</div>
+              <div className="ir-title-eyebrow">{displayConfig.eyebrowText}</div>
               <h1>
-                <span>Welcome to</span>
-                <strong>Broadpeak Soc Trang</strong>
+                <span>{displayConfig.welcomeText}</span>
+                <strong>{displayConfig.titleText}</strong>
               </h1>
             </div>
 
             <div className="ir-status-card">
               <span className="ir-status-dot" />
-              <span>Reserved</span>
+              <span>{displayConfig.statusText}</span>
             </div>
           </div>
         </header>
@@ -384,10 +432,10 @@ export default function IndexRoomPage() {
               <tr>
                 <th className="ir-no-col">No.</th>
                 <th className="ir-sort-mark">Name</th>
-                <th>Check-in date</th>
-                <th>Check-out date</th>
+                <th>Check In</th>
+                <th>Check Out</th>
                 <th>Based Location</th>
-                <th>Room No.</th>
+                <th>Room</th>
               </tr>
             </thead>
 

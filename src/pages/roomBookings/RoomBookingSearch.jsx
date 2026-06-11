@@ -9,8 +9,9 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  CircularProgress,
 } from '@mui/material';
-import { Add } from '@mui/icons-material';
+import { Add, FileDownload } from '@mui/icons-material';
 import axios from 'axios';
 import { API_BASE_URL } from '../../config';
 
@@ -30,12 +31,22 @@ export default function RoomBookingSearch({
   setSearchName,
   roomId,
   setRoomId,
+  fromDate,
+  setFromDate,
+  toDate,
+  setToDate,
   onSearch,
   onReset,
   onAdd,
+  onExport,
+  exporting = false,
+  canExport = true,
   disabled = false,
 }) {
   const [rooms, setRooms] = useState([]);
+
+  const searchKeyword = searchName ?? '';
+  const setSearchKeyword = setSearchName || (() => {});
 
   const fetchRooms = useCallback(async () => {
     try {
@@ -68,10 +79,12 @@ export default function RoomBookingSearch({
   }, [onSearch]);
 
   const handleReset = useCallback(() => {
-    setSearchName('');
-    setRoomId('');
+    setSearchKeyword('');
+    setRoomId?.('');
+    setFromDate?.('');
+    setToDate?.('');
     onReset?.();
-  }, [setSearchName, setRoomId, onReset]);
+  }, [setSearchKeyword, setRoomId, setFromDate, setToDate, onReset]);
 
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'Enter' && !disabled) {
@@ -101,23 +114,48 @@ export default function RoomBookingSearch({
           Room Booking Filter
         </Typography>
 
-        <Button
-          variant="contained"
-          startIcon={<Add fontSize="small" />}
-          onClick={onAdd}
-          disabled={disabled}
-          sx={{
-            borderRadius: 1.2,
-            height: 34,
-            px: 1.25,
-            textTransform: 'none',
-            fontWeight: 400,
-            backgroundColor: '#111827',
-            '&:hover': { backgroundColor: '#0b1220' },
-          }}
-        >
-          Add Booking
-        </Button>
+        <Stack direction="row" spacing={1} justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}>
+          <Button
+            variant="outlined"
+            startIcon={exporting ? <CircularProgress size={15} /> : <FileDownload fontSize="small" />}
+            onClick={onExport}
+            disabled={disabled || exporting || !canExport}
+            sx={{
+              borderRadius: 1.2,
+              height: 34,
+              px: 1.25,
+              textTransform: 'none',
+              fontWeight: 400,
+              borderColor: '#111827',
+              color: '#111827',
+              '&:hover': {
+                borderColor: '#0b1220',
+                color: '#0b1220',
+                backgroundColor: 'rgba(17, 24, 39, 0.04)',
+              },
+            }}
+          >
+            Export Excel
+          </Button>
+
+          <Button
+            variant="contained"
+            startIcon={<Add fontSize="small" />}
+            onClick={onAdd}
+            disabled={disabled}
+            sx={{
+              borderRadius: 1.2,
+              height: 34,
+              px: 1.25,
+              textTransform: 'none',
+              fontWeight: 400,
+              backgroundColor: '#111827',
+              '&:hover': { backgroundColor: '#0b1220' },
+            }}
+          >
+            Add Booking
+          </Button>
+        </Stack>
       </Stack>
 
       <Stack
@@ -128,16 +166,16 @@ export default function RoomBookingSearch({
         sx={{ width: '100%' }}
       >
         <TextField
-          label="Search Title / People in Charge / Based Location"
+          label="Title"
           size="small"
-          value={searchName}
-          onChange={(e) => setSearchName(e.target.value)}
+          value={searchKeyword}
+          onChange={(e) => setSearchKeyword(e.target.value)}
           onKeyDown={handleKeyDown}
           disabled={disabled}
           fullWidth
           sx={{
             flex: 1,
-            minWidth: { xs: '100%', md: 320 },
+            minWidth: { xs: '100%', md: 300 },
             '& .MuiInputBase-root': { height: 38 },
           }}
         />
@@ -145,7 +183,7 @@ export default function RoomBookingSearch({
         <FormControl
           size="small"
           sx={{
-            minWidth: { xs: '100%', md: 240 },
+            minWidth: { xs: '100%', md: 220 },
             '& .MuiInputBase-root': { height: 38 },
           }}
           disabled={disabled}
@@ -153,8 +191,8 @@ export default function RoomBookingSearch({
           <InputLabel>Room</InputLabel>
           <Select
             label="Room"
-            value={roomId}
-            onChange={(e) => setRoomId(e.target.value)}
+            value={roomId || ''}
+            onChange={(e) => setRoomId?.(e.target.value)}
           >
             <MenuItem value="">All Rooms</MenuItem>
             {rooms.map((room) => (
@@ -164,6 +202,36 @@ export default function RoomBookingSearch({
             ))}
           </Select>
         </FormControl>
+
+        <TextField
+          label="From Date"
+          type="date"
+          size="small"
+          value={fromDate || ''}
+          onChange={(e) => setFromDate?.(e.target.value)}
+          onKeyDown={handleKeyDown}
+          disabled={disabled}
+          InputLabelProps={{ shrink: true }}
+          sx={{
+            minWidth: { xs: '100%', md: 160 },
+            '& .MuiInputBase-root': { height: 38 },
+          }}
+        />
+
+        <TextField
+          label="To Date"
+          type="date"
+          size="small"
+          value={toDate || ''}
+          onChange={(e) => setToDate?.(e.target.value)}
+          onKeyDown={handleKeyDown}
+          disabled={disabled}
+          InputLabelProps={{ shrink: true }}
+          sx={{
+            minWidth: { xs: '100%', md: 160 },
+            '& .MuiInputBase-root': { height: 38 },
+          }}
+        />
 
         <Stack direction="row" spacing={1.5} sx={{ flexShrink: 0, mt: 1 }}>
           <Button

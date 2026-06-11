@@ -30,6 +30,8 @@ import {
 import {
   Edit,
   Delete,
+  ArrowUpward,
+  ArrowDownward,
   Inbox as InboxIcon,
 } from '@mui/icons-material';
 
@@ -70,6 +72,113 @@ const formatDateTime = (value) => {
 
   return `${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}/${date.getFullYear()} ${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`;
 };
+
+/* =========================
+   Sorting helpers
+   ========================= */
+const dateKeys = new Set(['createdAt', 'updatedAt']);
+
+const getDateComparableValue = (value) => {
+  if (!value) return 0;
+
+  if (Array.isArray(value) && value.length >= 3) {
+    const [year, month, day, hour = 0, minute = 0, second = 0] = value;
+    return new Date(year, Number(month) - 1, day, hour, minute, second).getTime();
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+};
+
+const getDepartmentComparableText = (departments) => {
+  if (!Array.isArray(departments) || departments.length === 0) return '';
+
+  return departments
+    .map((department) => (
+      department?.name
+      || department?.departmentName
+      || department?.idDepartment
+      || department?.id
+      || ''
+    ))
+    .filter(Boolean)
+    .join(' ');
+};
+
+const getComparableValue = (row, key) => {
+  if (!row || !key) return '';
+
+  if (dateKeys.has(key)) {
+    return getDateComparableValue(row?.[key]);
+  }
+
+  if (key === 'departments') {
+    return getDepartmentComparableText(row?.departments).trim().toLowerCase();
+  }
+
+  const value = row?.[key];
+
+  return value == null ? '' : String(value).trim().toLowerCase();
+};
+
+const sortRowsClient = (rows, sortConfig) => {
+  if (!Array.isArray(rows) || rows.length === 0) return [];
+  if (!sortConfig?.key || !sortConfig?.direction) return rows;
+
+  const dir = sortConfig.direction === 'desc' ? -1 : 1;
+  const key = sortConfig.key;
+
+  const withIndex = rows.map((r, i) => ({ r, i }));
+
+  withIndex.sort((a, b) => {
+    const va = getComparableValue(a.r, key);
+    const vb = getComparableValue(b.r, key);
+
+    let cmp = 0;
+
+    if (typeof va === 'number' && typeof vb === 'number') {
+      cmp = va - vb;
+    } else {
+      cmp = String(va).localeCompare(String(vb), undefined, {
+        numeric: true,
+        sensitivity: 'base',
+      });
+    }
+
+    if (cmp !== 0) return cmp * dir;
+    return a.i - b.i;
+  });
+
+  return withIndex.map((x) => x.r);
+};
+
+const SortIndicator = ({ active, direction }) => {
+  if (!active) {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', ml: 0.2, lineHeight: 0 }}>
+        <ArrowUpward sx={{ fontSize: '0.7rem', color: '#9ca3af' }} />
+        <ArrowDownward sx={{ fontSize: '0.7rem', color: '#9ca3af', mt: '-4px' }} />
+      </Box>
+    );
+  }
+
+  if (direction === 'asc') {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', ml: 0.2, lineHeight: 0 }}>
+        <ArrowUpward sx={{ fontSize: '0.85rem', color: '#6b7280' }} />
+        <ArrowDownward sx={{ fontSize: '0.7rem', color: '#d1d5db', mt: '-4px' }} />
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', ml: 0.2, lineHeight: 0 }}>
+      <ArrowUpward sx={{ fontSize: '0.7rem', color: '#d1d5db' }} />
+      <ArrowDownward sx={{ fontSize: '0.85rem', color: '#6b7280', mt: '-4px' }} />
+    </Box>
+  );
+};
+
 
 function PaginationBar({ count, page, rowsPerPage, onPageChange, onRowsPerPageChange, loading }) {
   const totalPages = Math.max(1, Math.ceil((count || 0) / (rowsPerPage || 1)));
@@ -170,12 +279,12 @@ export default function DocumentTypesPage() {
   }), []);
 
   const tableHeaders = useMemo(() => ([
-    { label: 'No', key: 'no', align: 'center' },
-    { label: 'Type Name', key: 'name', align: 'left' },
-    { label: 'Departments', key: 'departments', align: 'left', hideOnSmall: true },
-    { label: 'Created At', key: 'createdAt', align: 'left', hideOnSmall: true },
-    { label: 'Updated At', key: 'updatedAt', align: 'left', hideOnSmall: true },
-    { label: 'Actions', key: 'actions', align: 'center' },
+    { label: 'No', key: 'no', align: 'center', sortable: false },
+    { label: 'Type Name', key: 'name', align: 'left', sortable: true },
+    { label: 'Departments', key: 'departments', align: 'left', sortable: true, hideOnSmall: true },
+    { label: 'Created At', key: 'createdAt', align: 'left', sortable: true, hideOnSmall: true },
+    { label: 'Updated At', key: 'updatedAt', align: 'left', sortable: true, hideOnSmall: true },
+    { label: 'Actions', key: 'actions', align: 'center', sortable: false },
   ]), []);
 
   const [data, setData] = useState([]);
@@ -183,6 +292,7 @@ export default function DocumentTypesPage() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [loading, setLoading] = useState(false);
+  const [sortConfig, setSortConfig] = useState({ key: 'createdAt', direction: 'desc' });
 
   const [searchNameInput, setSearchNameInput] = useState('');
   const [searchNameFilter, setSearchNameFilter] = useState('');
@@ -403,6 +513,30 @@ export default function DocumentTypesPage() {
     setPage(0);
   };
 
+  const handleSort = useCallback((key) => {
+    if (loading) return;
+
+    const meta = tableHeaders.find((h) => h.key === key);
+    if (!meta?.sortable) return;
+
+    let direction = 'asc';
+
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    } else if (sortConfig.key === key && sortConfig.direction === 'desc') {
+      direction = null;
+    }
+
+    setSortConfig({
+      key: direction ? key : null,
+      direction,
+    });
+  }, [loading, sortConfig, tableHeaders]);
+
+  const sortedData = useMemo(() => (
+    sortRowsClient(data, sortConfig)
+  ), [data, sortConfig]);
+
   return (
     <Box sx={pageWrapSx}>
       <DocumentTypeSearch
@@ -419,29 +553,61 @@ export default function DocumentTypesPage() {
           <Table stickyHeader size="small" sx={{ width: '100%' }}>
             <TableHead>
               <TableRow>
-                {tableHeaders.map(({ label, key, align, hideOnSmall }) => (
-                  <TableCell
-                    key={key}
-                    align={align}
-                    sx={{
-                      fontSize: '0.75rem',
-                      fontWeight: 600,
-                      color: '#111827',
-                      backgroundColor: '#f3f4f6',
-                      borderBottom: '1px solid #e5e7eb',
-                      py: 0.6,
-                      px: 0.7,
-                      whiteSpace: 'nowrap',
-                      ...(key === 'no' && { position: 'sticky', left: 0, zIndex: 3, width: 64 }),
-                      ...(key === 'actions' && { width: 120 }),
-                      ...(hideOnSmall && { display: { xs: 'none', md: 'table-cell' } }),
-                    }}
-                  >
-                    <Tooltip title={label} arrow>
-                      <span>{label}</span>
-                    </Tooltip>
-                  </TableCell>
-                ))}
+                {tableHeaders.map(({ label, key, align, sortable, hideOnSmall }) => {
+                  const active = sortConfig.key === key && !!sortConfig.direction;
+
+                  return (
+                    <TableCell
+                      key={key}
+                      align={align}
+                      sx={{
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        color: '#111827',
+                        backgroundColor: '#f3f4f6',
+                        borderBottom: '1px solid #e5e7eb',
+                        py: 0.6,
+                        px: 0.7,
+                        whiteSpace: 'nowrap',
+                        userSelect: 'none',
+                        ...(key === 'no' && { position: 'sticky', left: 0, zIndex: 3, width: 64 }),
+                        ...(key === 'actions' && { width: 120 }),
+                        ...(hideOnSmall && { display: { xs: 'none', md: 'table-cell' } }),
+                      }}
+                    >
+                      <Stack
+                        direction="row"
+                        spacing={0.6}
+                        alignItems="center"
+                        justifyContent={align === 'center' ? 'center' : align === 'right' ? 'flex-end' : 'flex-start'}
+                      >
+                        <Tooltip title={label} arrow>
+                          <span>{label}</span>
+                        </Tooltip>
+
+                        {sortable && (
+                          <Tooltip title="Sort" arrow>
+                            <IconButton
+                              size="small"
+                              disabled={loading}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSort(key);
+                              }}
+                              sx={{
+                                p: 0.25,
+                                border: '1px solid transparent',
+                                '&:hover': { borderColor: '#e5e7eb', backgroundColor: '#eef2f7' },
+                              }}
+                            >
+                              <SortIndicator active={active} direction={sortConfig.direction} />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Stack>
+                    </TableCell>
+                  );
+                })}
               </TableRow>
             </TableHead>
 
@@ -457,8 +623,8 @@ export default function DocumentTypesPage() {
                     </Stack>
                   </TableCell>
                 </TableRow>
-              ) : data.length > 0 ? (
-                data.map((item, idx) => {
+              ) : sortedData.length > 0 ? (
+                sortedData.map((item, idx) => {
                   const zebra = idx % 2 === 0 ? '#ffffff' : '#fafafa';
                   const departments = Array.isArray(item.departments) ? item.departments : [];
 

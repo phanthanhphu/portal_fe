@@ -46,7 +46,9 @@ const initialForm = {
   title: '',
   roomId: '',
   checkInDate: '',
+  checkInTime: '14:00',
   checkOutDate: '',
+  checkOutTime: '12:00',
   peopleInCharge: '',
   basedLocation: '',
   roomCharged: '',
@@ -65,6 +67,27 @@ const toDateInputValue = (value) => {
   }
 
   return '';
+};
+
+const toTimeInputValue = (value, fallback = '') => {
+  if (!value) return fallback;
+
+  if (Array.isArray(value) && value.length >= 2) {
+    const [hour, minute] = value;
+    return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+  }
+
+  if (typeof value === 'string') {
+    return value.slice(0, 5);
+  }
+
+  return fallback;
+};
+
+const toDateTime = (date, time) => {
+  if (!date || !time) return null;
+  const value = new Date(`${date}T${time}:00`);
+  return Number.isNaN(value.getTime()) ? null : value;
 };
 
 export default function EditRoomBookingDialog({
@@ -101,7 +124,16 @@ export default function EditRoomBookingDialog({
         headers: getAuthHeaders(false),
       });
 
-      setRooms(Array.isArray(response?.data) ? response.data : []);
+      const roomOptions = Array.isArray(response?.data) ? response.data : [];
+
+      setRooms(
+        [...roomOptions].sort((a, b) =>
+          String(a.roomName || a.id || '').localeCompare(String(b.roomName || b.id || ''), undefined, {
+            numeric: true,
+            sensitivity: 'base',
+          })
+        )
+      );
     } catch (error) {
       console.error(error);
       setRooms([]);
@@ -123,7 +155,9 @@ export default function EditRoomBookingDialog({
       title: currentItem?.title || '',
       roomId: currentItem?.roomId || '',
       checkInDate: toDateInputValue(currentItem?.checkInDate),
+      checkInTime: toTimeInputValue(currentItem?.checkInTime, '14:00'),
       checkOutDate: toDateInputValue(currentItem?.checkOutDate),
+      checkOutTime: toTimeInputValue(currentItem?.checkOutTime, '12:00'),
       peopleInCharge: currentItem?.peopleInCharge || '',
       basedLocation: currentItem?.basedLocation || '',
       roomCharged: currentItem?.roomCharged ?? '',
@@ -148,12 +182,21 @@ export default function EditRoomBookingDialog({
     if (!form.title.trim()) return 'Title is required';
     if (!form.roomId) return 'Room is required';
     if (!form.checkInDate) return 'Check-in date is required';
+    if (!form.checkInTime) return 'Check-in time is required';
     if (!form.checkOutDate) return 'Check-out date is required';
+    if (!form.checkOutTime) return 'Check-out time is required';
     if (!form.peopleInCharge.trim()) return 'People in charge is required';
     if (!form.basedLocation.trim()) return 'Based location is required';
 
-    if (form.checkOutDate <= form.checkInDate) {
-      return 'Check-out date must be after check-in date';
+    const checkInAt = toDateTime(form.checkInDate, form.checkInTime);
+    const checkOutAt = toDateTime(form.checkOutDate, form.checkOutTime);
+
+    if (!checkInAt || !checkOutAt) {
+      return 'Check-in/check-out date time is invalid';
+    }
+
+    if (checkOutAt <= checkInAt) {
+      return 'Check-out date/time must be after check-in date/time';
     }
 
     if (form.roomCharged !== '') {
@@ -180,10 +223,13 @@ export default function EditRoomBookingDialog({
     title: form.title.trim(),
     roomId: form.roomId,
     checkInDate: form.checkInDate,
+    checkInTime: form.checkInTime,
     checkOutDate: form.checkOutDate,
+    checkOutTime: form.checkOutTime,
     peopleInCharge: form.peopleInCharge.trim(),
     basedLocation: form.basedLocation.trim(),
     roomCharged: form.roomCharged === '' ? null : Number(form.roomCharged),
+    showOnIndexRoom: currentItem.showOnIndexRoom,
     createdBy: currentItem.createdBy,
     createdAt: currentItem.createdAt,
     updatedAt: currentItem.updatedAt,
@@ -337,31 +383,75 @@ export default function EditRoomBookingDialog({
                 </Select>
               </FormControl>
 
-              <TextField
-                label="Check-in Date"
-                type="date"
-                value={form.checkInDate}
-                onChange={(e) => setValue('checkInDate', e.target.value)}
-                disabled={locked}
-                size="small"
-                fullWidth
-                required
-                InputLabelProps={{ shrink: true }}
-                sx={fieldSx}
-              />
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: { xs: '1fr', sm: '1.3fr 0.7fr' },
+                  gap: 1,
+                }}
+              >
+                <TextField
+                  label="Check-in Date"
+                  type="date"
+                  value={form.checkInDate}
+                  onChange={(e) => setValue('checkInDate', e.target.value)}
+                  disabled={locked}
+                  size="small"
+                  fullWidth
+                  required
+                  InputLabelProps={{ shrink: true }}
+                  sx={fieldSx}
+                />
 
-              <TextField
-                label="Check-out Date"
-                type="date"
-                value={form.checkOutDate}
-                onChange={(e) => setValue('checkOutDate', e.target.value)}
-                disabled={locked}
-                size="small"
-                fullWidth
-                required
-                InputLabelProps={{ shrink: true }}
-                sx={fieldSx}
-              />
+                <TextField
+                  label="Check-in Time"
+                  type="time"
+                  value={form.checkInTime}
+                  onChange={(e) => setValue('checkInTime', e.target.value)}
+                  disabled={locked}
+                  size="small"
+                  fullWidth
+                  required
+                  InputLabelProps={{ shrink: true }}
+                  inputProps={{ step: 60 }}
+                  sx={fieldSx}
+                />
+              </Box>
+
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: { xs: '1fr', sm: '1.3fr 0.7fr' },
+                  gap: 1,
+                }}
+              >
+                <TextField
+                  label="Check-out Date"
+                  type="date"
+                  value={form.checkOutDate}
+                  onChange={(e) => setValue('checkOutDate', e.target.value)}
+                  disabled={locked}
+                  size="small"
+                  fullWidth
+                  required
+                  InputLabelProps={{ shrink: true }}
+                  sx={fieldSx}
+                />
+
+                <TextField
+                  label="Check-out Time"
+                  type="time"
+                  value={form.checkOutTime}
+                  onChange={(e) => setValue('checkOutTime', e.target.value)}
+                  disabled={locked}
+                  size="small"
+                  fullWidth
+                  required
+                  InputLabelProps={{ shrink: true }}
+                  inputProps={{ step: 60 }}
+                  sx={fieldSx}
+                />
+              </Box>
 
               <TextField
                 label="People in Charge"
@@ -411,7 +501,7 @@ export default function EditRoomBookingDialog({
               <Stack direction="row" spacing={1}>
                 <InfoRoundedIcon fontSize="small" color="warning" />
                 <Typography fontSize={12}>
-                  Booking saves roomId only. Current selected room: <b>{selectedRoomName || '-'}</b>.
+                  Booking saves roomId, check-in/check-out date and time. Current selected room: <b>{selectedRoomName || '-'}</b>.
                 </Typography>
               </Stack>
             </Box>
@@ -426,7 +516,17 @@ export default function EditRoomBookingDialog({
           <Button
             onClick={handleSubmit}
             variant="contained"
-            disabled={locked || !form.title.trim() || !form.roomId || !form.peopleInCharge.trim() || !form.basedLocation.trim()}
+            disabled={
+              locked
+              || !form.title.trim()
+              || !form.roomId
+              || !form.checkInDate
+              || !form.checkInTime
+              || !form.checkOutDate
+              || !form.checkOutTime
+              || !form.peopleInCharge.trim()
+              || !form.basedLocation.trim()
+            }
             sx={gradientBtnSx}
           >
             {saving ? <CircularProgress size={20} /> : 'Update'}
@@ -440,6 +540,9 @@ export default function EditRoomBookingDialog({
         <DialogContent>
           <Typography>
             Update room booking <b>{form.title}</b> ?
+          </Typography>
+          <Typography fontSize={12} color="text.secondary" sx={{ mt: 1 }}>
+            {form.checkInDate} {form.checkInTime} → {form.checkOutDate} {form.checkOutTime}
           </Typography>
         </DialogContent>
 

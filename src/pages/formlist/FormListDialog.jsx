@@ -642,6 +642,79 @@ const headers = [
   { label: 'Actions', key: 'actions', sortable: false },
 ];
 
+/* Client-side sorting helpers */
+const dateKeys = new Set(['createdAt', 'updatedAt']);
+
+const getDateComparableValue = (value) => {
+  if (!value) return 0;
+
+  if (Array.isArray(value) && value.length >= 3) {
+    const [year, month, day, hour = 0, minute = 0, second = 0] = value;
+    return new Date(year, Number(month) - 1, day, hour, minute, second).getTime();
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+};
+
+const getDepartmentComparableValue = (row = {}) => {
+  return [row.departmentName, row.division]
+    .filter(Boolean)
+    .join(' ')
+    .trim()
+    .toLowerCase();
+};
+
+const getComparableValue = (row, key, getTypeName) => {
+  if (!row || !key) return '';
+
+  if (dateKeys.has(key)) {
+    return getDateComparableValue(row?.[key]);
+  }
+
+  if (key === 'department') {
+    return getDepartmentComparableValue(row);
+  }
+
+  if (key === 'typeName') {
+    return String(getTypeName?.(row.typeId) || '').trim().toLowerCase();
+  }
+
+  const value = row?.[key];
+
+  return value == null ? '' : String(value).trim().toLowerCase();
+};
+
+const sortRowsClient = (rows, sortConfig, getTypeName) => {
+  if (!Array.isArray(rows) || rows.length === 0) return [];
+  if (!sortConfig?.key || !sortConfig?.direction) return rows;
+
+  const dir = sortConfig.direction === 'desc' ? -1 : 1;
+  const key = sortConfig.key;
+  const withIndex = rows.map((row, index) => ({ row, index }));
+
+  withIndex.sort((a, b) => {
+    const va = getComparableValue(a.row, key, getTypeName);
+    const vb = getComparableValue(b.row, key, getTypeName);
+
+    let cmp = 0;
+
+    if (typeof va === 'number' && typeof vb === 'number') {
+      cmp = va - vb;
+    } else {
+      cmp = String(va).localeCompare(String(vb), undefined, {
+        numeric: true,
+        sensitivity: 'base',
+      });
+    }
+
+    if (cmp !== 0) return cmp * dir;
+    return a.index - b.index;
+  });
+
+  return withIndex.map((item) => item.row);
+};
+
 /* Sort Indicator */
 const SortIndicator = ({ active, direction }) => {
   if (!active) {
@@ -777,7 +850,7 @@ export default function FormListDialog() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(isLargeScreen ? 20 : 12);
   const [loading, setLoading] = useState(false);
-  const [sortConfig, setSortConfig] = useState({ key: 'updatedAt', direction: 'desc' });
+  const [sortConfig, setSortConfig] = useState({ key: 'createdAt', direction: 'desc' });
 
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'info' });
   const [openAdd, setOpenAdd] = useState(false);
@@ -878,7 +951,7 @@ export default function FormListDialog() {
         setLoading(false);
       }
     },
-    [page, rowsPerPage, sortConfig],
+    [page, rowsPerPage],
   );
 
 
@@ -1117,12 +1190,22 @@ export default function FormListDialog() {
   const handleSort = useCallback(
     (key) => {
       if (loading) return;
-      let direction = 'asc';
-      if (sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
-      else if (sortConfig.key === key && sortConfig.direction === 'desc') direction = null;
 
-      setSortConfig({ key: direction ? key : null, direction });
-      setPage(0);
+      const meta = headers.find((header) => header.key === key);
+      if (!meta?.sortable) return;
+
+      let direction = 'asc';
+
+      if (sortConfig.key === key && sortConfig.direction === 'asc') {
+        direction = 'desc';
+      } else if (sortConfig.key === key && sortConfig.direction === 'desc') {
+        direction = null;
+      }
+
+      setSortConfig({
+        key: direction ? key : null,
+        direction,
+      });
     },
     [loading, sortConfig],
   );
@@ -1279,6 +1362,11 @@ export default function FormListDialog() {
     [previewState.previewKind, previewState.fileName, previewState.mimeType],
   );
 
+  const sortedData = useMemo(
+    () => sortRowsClient(data, sortConfig, getTypeName),
+    [data, sortConfig, getTypeName],
+  );
+
   return (
     <Box sx={{ bgcolor: '#f7f7f7', minHeight: '100vh', p: 1.5 }}>
       {/* Header */}
@@ -1426,7 +1514,7 @@ export default function FormListDialog() {
                     </Stack>
                   </TableCell>
                 </TableRow>
-              ) : data.length === 0 ? (
+              ) : sortedData.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={headers.length} sx={{ py: 4 }}>
                     <Stack alignItems="center" spacing={1} sx={{ color: 'text.secondary' }}>
@@ -1436,7 +1524,7 @@ export default function FormListDialog() {
                   </TableCell>
                 </TableRow>
               ) : (
-                data.map((item, idx) => {
+                sortedData.map((item, idx) => {
                   const zebra = idx % 2 === 0 ? '#ffffff' : '#fafafa';
                   const fileUrls = getFileUrls(item);
                   const editEnabled = canModifyItem(item, 'edit');

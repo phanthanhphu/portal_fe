@@ -32,6 +32,8 @@ import {
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import {
+  ArrowDownward,
+  ArrowUpward,
   Cancel,
   CheckCircle,
   Close,
@@ -415,6 +417,134 @@ function StatusChip({ status }) {
     />
   );
 }
+
+
+const noticeApprovalTableHeaders = [
+  { label: 'No', key: 'no', sortable: false },
+  { label: 'Title', key: 'title', sortable: true },
+  { label: 'Content', key: 'content', sortable: true },
+  { label: 'Department', key: 'department', sortable: true },
+  { label: 'Created At', key: 'createdAt', sortable: true },
+  { label: 'Files', key: 'files', sortable: true },
+  { label: 'Status', key: 'status', sortable: true },
+  { label: 'Actions', key: 'actions', sortable: false },
+];
+
+const dateKeys = new Set(['createdAt', 'updatedAt', 'approvedAt', 'rejectedAt']);
+const numberKeys = new Set(['files']);
+const statusOrder = {
+  PENDING: 1,
+  APPROVED: 2,
+  REJECTED: 3,
+};
+
+const getDateComparableValue = (value) => {
+  if (!value) return 0;
+
+  if (Array.isArray(value) && value.length >= 3) {
+    const [year, month, day, hour = 0, minute = 0, second = 0] = value;
+    return new Date(year, Number(month) - 1, day, hour, minute, second).getTime();
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+};
+
+const getComparableValue = (row, key) => {
+  if (!row || !key) return '';
+
+  if (dateKeys.has(key)) {
+    return getDateComparableValue(row?.[key]);
+  }
+
+  if (numberKeys.has(key)) {
+    if (key === 'files') {
+      return getNoticeFileUrls(row).length;
+    }
+
+    const num = Number(row?.[key]);
+    return Number.isNaN(num) ? 0 : num;
+  }
+
+  if (key === 'content') {
+    return stripHtml(row?.content || '').trim().toLowerCase();
+  }
+
+  if (key === 'department') {
+    return [row?.departmentName, row?.division]
+      .filter(Boolean)
+      .join(' ')
+      .trim()
+      .toLowerCase();
+  }
+
+  if (key === 'status') {
+    const status = String(row?.status || '').trim().toUpperCase();
+    return statusOrder[status] || 999;
+  }
+
+  const value = row?.[key];
+
+  return value == null ? '' : String(value).trim().toLowerCase();
+};
+
+const sortRowsClient = (rows, sortConfig) => {
+  if (!Array.isArray(rows) || rows.length === 0) return [];
+  if (!sortConfig?.key || !sortConfig?.direction) return rows;
+
+  const dir = sortConfig.direction === 'desc' ? -1 : 1;
+  const key = sortConfig.key;
+
+  const withIndex = rows.map((row, index) => ({ row, index }));
+
+  withIndex.sort((a, b) => {
+    const va = getComparableValue(a.row, key);
+    const vb = getComparableValue(b.row, key);
+
+    let cmp = 0;
+
+    if (typeof va === 'number' && typeof vb === 'number') {
+      cmp = va - vb;
+    } else {
+      cmp = String(va).localeCompare(String(vb), undefined, {
+        numeric: true,
+        sensitivity: 'base',
+      });
+    }
+
+    if (cmp !== 0) return cmp * dir;
+    return a.index - b.index;
+  });
+
+  return withIndex.map((item) => item.row);
+};
+
+const SortIndicator = ({ active, direction }) => {
+  if (!active) {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', ml: 0.2, lineHeight: 0 }}>
+        <ArrowUpward sx={{ fontSize: '0.7rem', color: '#9ca3af' }} />
+        <ArrowDownward sx={{ fontSize: '0.7rem', color: '#9ca3af', mt: '-4px' }} />
+      </Box>
+    );
+  }
+
+  if (direction === 'asc') {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', ml: 0.2, lineHeight: 0 }}>
+        <ArrowUpward sx={{ fontSize: '0.85rem', color: '#6b7280' }} />
+        <ArrowDownward sx={{ fontSize: '0.7rem', color: '#d1d5db', mt: '-4px' }} />
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', ml: 0.2, lineHeight: 0 }}>
+      <ArrowUpward sx={{ fontSize: '0.7rem', color: '#d1d5db' }} />
+      <ArrowDownward sx={{ fontSize: '0.85rem', color: '#6b7280', mt: '-4px' }} />
+    </Box>
+  );
+};
 
 function PaginationBar({ count, page, rowsPerPage, onPageChange, onRowsPerPageChange, loading }) {
   const totalPages = Math.max(1, Math.ceil((count || 0) / (rowsPerPage || 1)));
@@ -896,6 +1026,7 @@ export default function NoticeApprovalPage() {
   const [loadingDepartments, setLoadingDepartments] = useState(false);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
+  const [sortConfig, setSortConfig] = useState({ key: 'createdAt', direction: 'desc' });
   const [totalElements, setTotalElements] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [counts, setCounts] = useState({ PENDING: 0, APPROVED: 0, REJECTED: 0 });
@@ -1562,6 +1693,31 @@ export default function NoticeApprovalPage() {
     await fetchCounts();
   }, [editItem, fetchData, fetchCounts, statusTab]);
 
+  const handleSort = useCallback((key) => {
+    if (loading || actionLoading) return;
+
+    const meta = noticeApprovalTableHeaders.find((header) => header.key === key);
+
+    if (!meta?.sortable) return;
+
+    let direction = 'asc';
+
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    } else if (sortConfig.key === key && sortConfig.direction === 'desc') {
+      direction = null;
+    }
+
+    setSortConfig({
+      key: direction ? key : null,
+      direction,
+    });
+  }, [loading, actionLoading, sortConfig]);
+
+  const sortedRows = useMemo(() => (
+    sortRowsClient(rows, sortConfig)
+  ), [rows, sortConfig]);
+
   const summaryCards = [
     { status: APPROVAL_STATUS.PENDING, label: 'Waiting approval', value: counts.PENDING },
     { status: APPROVAL_STATUS.APPROVED, label: 'Published', value: counts.APPROVED },
@@ -1749,28 +1905,68 @@ export default function NoticeApprovalPage() {
           <Table size="small">
             <TableHead>
               <TableRow>
-                {['No', 'Title', 'Content', 'Department', 'Created At', 'Files', 'Status', 'Actions'].map((label) => (
-                  <TableCell
-                    key={label}
-                    align={['No', 'Files', 'Status', 'Actions'].includes(label) ? 'center' : 'left'}
-                    sx={{
-                      fontSize: '0.75rem',
-                      fontWeight: 800,
-                      color: '#111827',
-                      backgroundColor: '#f3f4f6',
-                      borderBottom: '1px solid #e5e7eb',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {label}
-                  </TableCell>
-                ))}
+                {noticeApprovalTableHeaders.map(({ label, key, sortable }) => {
+                  const align = ['no', 'files', 'status', 'actions'].includes(key) ? 'center' : 'left';
+                  const active = sortConfig.key === key && !!sortConfig.direction;
+
+                  return (
+                    <TableCell
+                      key={key}
+                      align={align}
+                      sx={{
+                        fontSize: '0.75rem',
+                        fontWeight: 800,
+                        color: '#111827',
+                        backgroundColor: '#f3f4f6',
+                        borderBottom: '1px solid #e5e7eb',
+                        whiteSpace: 'nowrap',
+                        userSelect: 'none',
+                      }}
+                    >
+                      <Stack
+                        direction="row"
+                        spacing={0.6}
+                        alignItems="center"
+                        justifyContent={align === 'center' ? 'center' : 'flex-start'}
+                      >
+                        <Tooltip title={label} arrow>
+                          <span>{label}</span>
+                        </Tooltip>
+
+                        {sortable && (
+                          <Tooltip title="Sort" arrow>
+                            <span>
+                              <IconButton
+                                size="small"
+                                disabled={loading || actionLoading}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSort(key);
+                                }}
+                                sx={{
+                                  p: 0.25,
+                                  border: '1px solid transparent',
+                                  '&:hover': {
+                                    borderColor: '#e5e7eb',
+                                    backgroundColor: '#eef2f7',
+                                  },
+                                }}
+                              >
+                                <SortIndicator active={active} direction={sortConfig.direction} />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        )}
+                      </Stack>
+                    </TableCell>
+                  );
+                })}
               </TableRow>
             </TableHead>
 
             <TableBody>
-              {rows.length > 0 ? (
-                rows.map((item, index) => {
+              {sortedRows.length > 0 ? (
+                sortedRows.map((item, index) => {
                   const files = getNoticeFileUrls(item);
                   const isPending = item.status === APPROVAL_STATUS.PENDING;
                   const contentText = stripHtml(item.content || '');
@@ -1917,7 +2113,7 @@ export default function NoticeApprovalPage() {
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={8} sx={{ py: 5 }}>
+                  <TableCell colSpan={noticeApprovalTableHeaders.length} sx={{ py: 5 }}>
                     <Stack alignItems="center" spacing={0.75} sx={{ color: 'text.secondary' }}>
                       <InboxIcon sx={{ fontSize: 36, opacity: 0.65 }} />
                       <Typography fontWeight={800}>No Notices Found</Typography>

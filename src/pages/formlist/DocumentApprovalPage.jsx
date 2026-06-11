@@ -37,6 +37,8 @@ import {
   Close,
   Download,
   Edit,
+  ArrowUpward,
+  ArrowDownward,
   Inbox as InboxIcon,
   Refresh,
   Search,
@@ -543,6 +545,129 @@ function PaginationBar({ count, page, rowsPerPage, onPageChange, onRowsPerPageCh
   );
 }
 
+
+const documentApprovalTableHeaders = [
+  { label: 'No', key: 'no', align: 'center', sortable: false },
+  { label: 'Title', key: 'title', align: 'left', sortable: true },
+  { label: 'Description', key: 'description', align: 'left', sortable: true },
+  { label: 'Department', key: 'department', align: 'left', sortable: true },
+  { label: 'Type', key: 'typeName', align: 'left', sortable: true },
+  { label: 'Created At', key: 'createdAt', align: 'left', sortable: true },
+  { label: 'Files', key: 'fileCount', align: 'center', sortable: true },
+  { label: 'Status', key: 'status', align: 'center', sortable: true },
+  { label: 'Actions', key: 'actions', align: 'center', sortable: false },
+];
+
+const dateKeys = new Set(['createdAt', 'updatedAt', 'approvedAt', 'rejectedAt']);
+const numberKeys = new Set(['fileCount']);
+
+const getDateComparableValue = (value) => {
+  if (!value) return 0;
+
+  if (Array.isArray(value) && value.length >= 3) {
+    const [year, month, day, hour = 0, minute = 0, second = 0] = value;
+    return new Date(year, Number(month) - 1, day, hour, minute, second).getTime();
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+};
+
+const getComparableValue = (row, key, resolveTypeName) => {
+  if (!row || !key) return '';
+
+  if (dateKeys.has(key)) {
+    return getDateComparableValue(row?.[key]);
+  }
+
+  if (numberKeys.has(key)) {
+    if (key === 'fileCount') {
+      return getDocumentFileUrls(row).length;
+    }
+
+    const num = Number(row?.[key]);
+    return Number.isNaN(num) ? 0 : num;
+  }
+
+  if (key === 'department') {
+    return [row.departmentName, row.division].filter(Boolean).join(' ').trim().toLowerCase();
+  }
+
+  if (key === 'typeName') {
+    return String(resolveTypeName?.(row) || '').trim().toLowerCase();
+  }
+
+  if (key === 'description') {
+    return stripText(row.description || '').toLowerCase();
+  }
+
+  if (key === 'status') {
+    return String(STATUS_META[row.status]?.label || row.status || '').trim().toLowerCase();
+  }
+
+  const value = row?.[key];
+  return value == null ? '' : String(value).trim().toLowerCase();
+};
+
+const sortRowsClient = (rows, sortConfig, resolveTypeName) => {
+  if (!Array.isArray(rows) || rows.length === 0) return [];
+  if (!sortConfig?.key || !sortConfig?.direction) return rows;
+
+  const dir = sortConfig.direction === 'desc' ? -1 : 1;
+  const key = sortConfig.key;
+
+  const withIndex = rows.map((row, index) => ({ row, index }));
+
+  withIndex.sort((a, b) => {
+    const va = getComparableValue(a.row, key, resolveTypeName);
+    const vb = getComparableValue(b.row, key, resolveTypeName);
+
+    let cmp = 0;
+
+    if (typeof va === 'number' && typeof vb === 'number') {
+      cmp = va - vb;
+    } else {
+      cmp = String(va).localeCompare(String(vb), undefined, {
+        numeric: true,
+        sensitivity: 'base',
+      });
+    }
+
+    if (cmp !== 0) return cmp * dir;
+    return a.index - b.index;
+  });
+
+  return withIndex.map((item) => item.row);
+};
+
+const SortIndicator = ({ active, direction }) => {
+  if (!active) {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', ml: 0.2, lineHeight: 0 }}>
+        <ArrowUpward sx={{ fontSize: '0.7rem', color: '#9ca3af' }} />
+        <ArrowDownward sx={{ fontSize: '0.7rem', color: '#9ca3af', mt: '-4px' }} />
+      </Box>
+    );
+  }
+
+  if (direction === 'asc') {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', ml: 0.2, lineHeight: 0 }}>
+        <ArrowUpward sx={{ fontSize: '0.85rem', color: '#6b7280' }} />
+        <ArrowDownward sx={{ fontSize: '0.7rem', color: '#d1d5db', mt: '-4px' }} />
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', ml: 0.2, lineHeight: 0 }}>
+      <ArrowUpward sx={{ fontSize: '0.7rem', color: '#d1d5db' }} />
+      <ArrowDownward sx={{ fontSize: '0.85rem', color: '#6b7280', mt: '-4px' }} />
+    </Box>
+  );
+};
+
+
 function DocumentDetailDialog({
   open,
   item,
@@ -946,6 +1071,7 @@ export default function DocumentApprovalPage() {
   const previewFullScreen = useMediaQuery((theme) => theme.breakpoints.down('md'));
 
   const [rows, setRows] = useState([]);
+  const [sortConfig, setSortConfig] = useState({ key: 'createdAt', direction: 'desc' });
   const [statusTab, setStatusTab] = useState(APPROVAL_STATUS.PENDING);
   const [keywordInput, setKeywordInput] = useState('');
   const [keywordFilter, setKeywordFilter] = useState('');
@@ -1649,6 +1775,30 @@ export default function DocumentApprovalPage() {
     return previewState.previewKind || getPreviewKind(previewState.item, previewState.mimeType);
   }, [previewState.previewKind, previewState.item, previewState.mimeType]);
 
+  const handleSort = useCallback((key) => {
+    if (loading || actionLoading) return;
+
+    const meta = documentApprovalTableHeaders.find((header) => header.key === key);
+    if (!meta?.sortable) return;
+
+    let direction = 'asc';
+
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    } else if (sortConfig.key === key && sortConfig.direction === 'desc') {
+      direction = null;
+    }
+
+    setSortConfig({
+      key: direction ? key : null,
+      direction,
+    });
+  }, [loading, actionLoading, sortConfig]);
+
+  const sortedRows = useMemo(() => (
+    sortRowsClient(rows, sortConfig, resolveTypeName)
+  ), [rows, sortConfig, resolveTypeName]);
+
   const summaryCards = [
     { status: APPROVAL_STATUS.PENDING, label: 'Waiting approval', value: counts.PENDING },
     { status: APPROVAL_STATUS.APPROVED, label: 'Published', value: counts.APPROVED },
@@ -1844,28 +1994,62 @@ export default function DocumentApprovalPage() {
           <Table size="small">
             <TableHead>
               <TableRow>
-                {['No', 'Title', 'Description', 'Department', 'Type', 'Created At', 'Files', 'Status', 'Actions'].map((label) => (
-                  <TableCell
-                    key={label}
-                    align={['No', 'Files', 'Status', 'Actions'].includes(label) ? 'center' : 'left'}
-                    sx={{
-                      fontSize: '0.75rem',
-                      fontWeight: 800,
-                      color: '#111827',
-                      backgroundColor: '#f3f4f6',
-                      borderBottom: '1px solid #e5e7eb',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {label}
-                  </TableCell>
-                ))}
+                {documentApprovalTableHeaders.map(({ label, key, align, sortable }) => {
+                  const active = sortConfig.key === key && !!sortConfig.direction;
+
+                  return (
+                    <TableCell
+                      key={key}
+                      align={align}
+                      sx={{
+                        fontSize: '0.75rem',
+                        fontWeight: 800,
+                        color: '#111827',
+                        backgroundColor: '#f3f4f6',
+                        borderBottom: '1px solid #e5e7eb',
+                        whiteSpace: 'nowrap',
+                        userSelect: 'none',
+                      }}
+                    >
+                      <Stack
+                        direction="row"
+                        spacing={0.6}
+                        alignItems="center"
+                        justifyContent={align === 'center' ? 'center' : align === 'right' ? 'flex-end' : 'flex-start'}
+                      >
+                        <Tooltip title={label} arrow>
+                          <span>{label}</span>
+                        </Tooltip>
+
+                        {sortable && (
+                          <Tooltip title="Sort" arrow>
+                            <IconButton
+                              size="small"
+                              disabled={loading || actionLoading}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSort(key);
+                              }}
+                              sx={{
+                                p: 0.25,
+                                border: '1px solid transparent',
+                                '&:hover': { borderColor: '#e5e7eb', backgroundColor: '#eef2f7' },
+                              }}
+                            >
+                              <SortIndicator active={active} direction={sortConfig.direction} />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Stack>
+                    </TableCell>
+                  );
+                })}
               </TableRow>
             </TableHead>
 
             <TableBody>
-              {rows.length > 0 ? (
-                rows.map((item, index) => {
+              {sortedRows.length > 0 ? (
+                sortedRows.map((item, index) => {
                   const files = getDocumentFileUrls(item);
                   const isPending = item.status === APPROVAL_STATUS.PENDING;
                   const descriptionText = stripText(item.description || '');
