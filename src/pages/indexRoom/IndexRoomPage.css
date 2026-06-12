@@ -418,6 +418,7 @@
 .ir-reserved-table td {
   padding: clamp(7px, 0.75vw, 13px) clamp(12px, 2.4vw, 34px);
   border-right: 1px solid rgba(255, 255, 255, 0.28);
+  
 }
 
 .ir-reserved-table th:last-child,
@@ -760,4 +761,37 @@
     bottom: auto;
     margin: 7px 8px 8px auto;
   }
+}
+.ir-reserved-table tbody td:not(.ir-no-col) {
+  font-size: clamp(15px, 1.45vw, 22px);
+  font-weight: 850;
+  line-height: 1.15;
+}
+
+/* =========================================================
+   Clear database-loaded table data
+   - Make loaded row content slightly bigger
+   - Remove text shadow so text is sharper/easier to read
+   ========================================================= */
+.ir-reserved-table tbody td {
+  text-shadow: none !important;
+  filter: none !important;
+}
+
+.ir-reserved-table tbody td:not(.ir-no-col) {
+  font-size: clamp(16px, 1.65vw, 25px) !important;
+  font-weight: 850;
+  line-height: 1.2;
+}
+
+/* Final override: dữ liệu load từ database to hơn, không đổ bóng, không in đậm */
+.ir-reserved-table tbody td {
+  text-shadow: none !important;
+  filter: none !important;
+}
+
+.ir-reserved-table tbody td:not(.ir-no-col) {
+  font-size: clamp(16px, 1.65vw, 25px) !important;
+  font-weight: 500 !important;
+  line-height: 1.2 !important;
 }
