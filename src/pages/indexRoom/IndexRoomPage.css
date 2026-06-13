@@ -22,12 +22,17 @@
 }
 
 .ir-bg-one {
-  animation: irBgOne 18s ease-in-out infinite;
+  animation: irBgOne 30s ease-in-out infinite;
 }
 
 .ir-bg-two {
   opacity: 0;
-  animation: irBgTwo 18s ease-in-out infinite;
+  animation: irBgTwo 30s ease-in-out infinite;
+}
+
+.ir-bg-three {
+  opacity: 0;
+  animation: irBgThree 30s ease-in-out infinite;
 }
 
 @keyframes irBgOne {
@@ -35,14 +40,14 @@
     opacity: 1;
     transform: scale(1.04) translate3d(0, 0, 0);
   }
-  42% {
+  28% {
     opacity: 1;
   }
-  50% {
+  33% {
     opacity: 0;
     transform: scale(1.1) translate3d(-1.2%, -0.8%, 0);
   }
-  92% {
+  95% {
     opacity: 0;
   }
   100% {
@@ -56,20 +61,44 @@
     opacity: 0;
     transform: scale(1.08) translate3d(1%, 0.5%, 0);
   }
-  42% {
+  28% {
     opacity: 0;
   }
-  50% {
+  33% {
     opacity: 1;
   }
-  92% {
+  61% {
     opacity: 1;
     transform: scale(1.03) translate3d(-0.8%, -0.5%, 0);
+  }
+  66% {
+    opacity: 0;
   }
   100% {
     opacity: 0;
   }
 }
+
+@keyframes irBgThree {
+  0% {
+    opacity: 0;
+    transform: scale(1.06) translate3d(-0.6%, 0.4%, 0);
+  }
+  61% {
+    opacity: 0;
+  }
+  66% {
+    opacity: 1;
+  }
+  95% {
+    opacity: 1;
+    transform: scale(1.02) translate3d(0.8%, -0.4%, 0);
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 
 .ir-overlay {
   position: absolute;
@@ -794,4 +823,82 @@
   font-size: clamp(16px, 1.65vw, 25px) !important;
   font-weight: 500 !important;
   line-height: 1.2 !important;
+}
+
+/* Normal credit text: bottom-left corner */
+.ir-developed-by {
+  position: fixed;
+  left: 14px;
+  bottom: 10px;
+  z-index: 5;
+  margin: 0;
+  padding: 0;
+  color: rgba(255, 255, 255, 0.48);
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: normal;
+  text-align: left;
+  text-shadow: none;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .ir-developed-by {
+    left: 8px;
+    bottom: 8px;
+    font-size: 11px;
+  }
+}
+
+/* =========================================================
+   Final override: align table header and content to the left
+   ========================================================= */
+.ir-reserved-table th,
+.ir-reserved-table td {
+  text-align: left !important;
+}
+
+.ir-reserved-table th {
+  padding-left: clamp(14px, 1.4vw, 24px) !important;
+  padding-right: clamp(8px, 1vw, 16px) !important;
+}
+
+.ir-reserved-table td {
+  padding-left: clamp(14px, 1.4vw, 24px) !important;
+  padding-right: clamp(8px, 1vw, 16px) !important;
+}
+
+.ir-reserved-table th.ir-no-col,
+.ir-reserved-table td.ir-no-col {
+  text-align: left !important;
+  padding-left: 14px !important;
+  padding-right: 8px !important;
+}
+
+.ir-sort-mark {
+  padding-left: 34px !important;
+}
+
+.ir-sort-mark::before {
+  left: 12px;
+}
+
+
+/* =========================================================
+   Final override: remove sort arrow beside Name header
+   ========================================================= */
+.ir-sort-mark {
+  padding-left: clamp(14px, 1.4vw, 24px) !important;
+}
+
+.ir-sort-mark::before {
+  content: none !important;
+  display: none !important;
+  border: none !important;
+  filter: none !important;
 }

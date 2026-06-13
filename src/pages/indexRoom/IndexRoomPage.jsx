@@ -7,7 +7,9 @@ import { API_BASE_URL } from '../../config';
 
 import backgroundA from './assets/background3.JPG';
 import backgroundB from './assets/background14.JPG';
+import backgroundC from './assets/background-bc.JPG';
 import youngoneLogo from './assets/youngone-logo.png';
+import MascotGreeter from './MascotGreeter';
 
 const BOOKING_API = `${API_BASE_URL}/api/room-bookings`;
 const DISPLAY_CONFIG_API = `${API_BASE_URL}/api/index-room-display-config`;
@@ -289,7 +291,6 @@ export default function IndexRoomPage() {
     fetchRoomBookings();
     fetchDisplayConfig();
 
-    // Backup refresh để phòng trường hợp socket mất kết nối.
     const bookingsTimer = setInterval(fetchRoomBookings, 60000);
     const configTimer = setInterval(fetchDisplayConfig, 60000);
 
@@ -343,7 +344,6 @@ export default function IndexRoomPage() {
     };
   }, []);
 
-
   const totalPages = useMemo(() => (
     Math.max(1, Math.ceil(reservationRows.length / PAGE_SIZE))
   ), [reservationRows.length]);
@@ -388,6 +388,10 @@ export default function IndexRoomPage() {
       <div
         className="ir-bg ir-bg-two"
         style={{ backgroundImage: `url(${backgroundB})` }}
+      />
+      <div
+        className="ir-bg ir-bg-three"
+        style={{ backgroundImage: `url(${backgroundC})` }}
       />
       <div className="ir-overlay" />
       <div className="ir-scanline" />
@@ -482,6 +486,12 @@ export default function IndexRoomPage() {
             </div>
           )}
         </section>
+
+        <footer className="ir-developed-by">
+          Website developed by BSL IT
+        </footer>
+
+        <MascotGreeter />
       </section>
     </main>
   );
