@@ -30,6 +30,7 @@ import axios from 'axios';
 import { API_BASE_URL } from '../../config';
 
 const ROOM_API = `${API_BASE_URL}/api/rooms`;
+const LOCATION_API = `${API_BASE_URL}/api/locations`;
 const BOOKING_API = `${API_BASE_URL}/api/room-bookings`;
 
 const getAuthHeaders = (contentType = true) => {
@@ -50,6 +51,7 @@ const initialForm = {
   checkOutDate: '',
   checkOutTime: '12:00',
   peopleInCharge: '',
+  locationId: '',
   basedLocation: '',
   roomCharged: '',
 };
@@ -58,6 +60,20 @@ const toDateTime = (date, time) => {
   if (!date || !time) return null;
   const value = new Date(`${date}T${time}:00`);
   return Number.isNaN(value.getTime()) ? null : value;
+};
+
+const getTodayDateInput = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+};
+
+const isPastDateInput = (dateValue) => {
+  if (!dateValue) return false;
+  return String(dateValue).slice(0, 10) < getTodayDateInput();
 };
 
 export default function AddRoomBookingDialog({
@@ -71,7 +87,9 @@ export default function AddRoomBookingDialog({
 
   const [form, setForm] = useState(initialForm);
   const [rooms, setRooms] = useState([]);
+  const [locations, setLocations] = useState([]);
   const [loadingRooms, setLoadingRooms] = useState(false);
+  const [loadingLocations, setLoadingLocations] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -112,6 +130,34 @@ export default function AddRoomBookingDialog({
     }
   }, []);
 
+  const fetchLocations = useCallback(async () => {
+    setLoadingLocations(true);
+
+    try {
+      const response = await axios.get(`${LOCATION_API}/options`, {
+        headers: getAuthHeaders(false),
+      });
+
+      const locationOptions = Array.isArray(response?.data) ? response.data : [];
+
+      setLocations(
+        [...locationOptions].sort((a, b) =>
+          String(a.location || a.id || '').localeCompare(String(b.location || b.id || ''), undefined, {
+            numeric: true,
+            sensitivity: 'base',
+          })
+        )
+      );
+    } catch (error) {
+      console.error(error);
+      setLocations([]);
+      toast(error?.response?.data?.message || 'Fetch locations failed', 'error');
+    } finally {
+      setLoadingLocations(false);
+    }
+  }, []);
+
+
   useEffect(() => {
     if (!open) {
       setForm(initialForm);
@@ -122,9 +168,11 @@ export default function AddRoomBookingDialog({
 
     setForm(initialForm);
     fetchRooms();
-  }, [open, fetchRooms]);
+    fetchLocations();
+  }, [open, fetchRooms, fetchLocations]);
 
-  const locked = saving || loadingRooms || disabled;
+  const locked = saving || loadingRooms || loadingLocations || disabled;
+  const todayDateValue = useMemo(() => getTodayDateInput(), []);
 
   const setValue = (field, value) => {
     setForm((prev) => ({
@@ -134,14 +182,22 @@ export default function AddRoomBookingDialog({
   };
 
   const validate = () => {
-    if (!form.title.trim()) return 'Title is required';
+    if (!form.title.trim()) return 'Name is required';
     if (!form.roomId) return 'Room is required';
     if (!form.checkInDate) return 'Check-in date is required';
     if (!form.checkInTime) return 'Check-in time is required';
     if (!form.checkOutDate) return 'Check-out date is required';
     if (!form.checkOutTime) return 'Check-out time is required';
     if (!form.peopleInCharge.trim()) return 'People in charge is required';
-    if (!form.basedLocation.trim()) return 'Based location is required';
+    if (!form.locationId) return 'Location is required';
+
+    if (isPastDateInput(form.checkInDate)) {
+      return 'Check-in date cannot be in the past';
+    }
+
+    if (isPastDateInput(form.checkOutDate)) {
+      return 'Check-out date cannot be in the past';
+    }
 
     const checkInAt = toDateTime(form.checkInDate, form.checkInTime);
     const checkOutAt = toDateTime(form.checkOutDate, form.checkOutTime);
@@ -176,12 +232,14 @@ export default function AddRoomBookingDialog({
   const buildPayload = () => ({
     title: form.title.trim(),
     roomId: form.roomId,
+    locationId: form.locationId,
     checkInDate: form.checkInDate,
     checkInTime: form.checkInTime,
     checkOutDate: form.checkOutDate,
     checkOutTime: form.checkOutTime,
     peopleInCharge: form.peopleInCharge.trim(),
-    basedLocation: form.basedLocation.trim(),
+    // Backend sẽ lấy tên location theo locationId. Giữ basedLocation để tương thích dữ liệu cũ.
+    basedLocation: selectedLocationName || form.basedLocation || '',
     roomCharged: form.roomCharged === '' ? null : Number(form.roomCharged),
   });
 
@@ -223,6 +281,7 @@ export default function AddRoomBookingDialog({
   };
 
   const selectedRoomName = rooms.find((room) => room.id === form.roomId)?.roomName || '';
+  const selectedLocationName = locations.find((location) => location.id === form.locationId)?.location || '';
 
   const paperSx = useMemo(() => ({
     borderRadius: fullScreen ? 0 : 4,
@@ -291,7 +350,7 @@ export default function AddRoomBookingDialog({
             </Stack>
           </Stack>
         </DialogTitle>
-
+        <br></br>
         <DialogContent sx={{ p: 3, mt: 1 }}>
           <Stack spacing={2}>
             <Box
@@ -302,7 +361,7 @@ export default function AddRoomBookingDialog({
               }}
             >
               <TextField
-                label="Title"
+                label="Name"
                 value={form.title}
                 onChange={(e) => setValue('title', e.target.value)}
                 disabled={locked}
@@ -351,6 +410,7 @@ export default function AddRoomBookingDialog({
                   fullWidth
                   required
                   InputLabelProps={{ shrink: true }}
+                  inputProps={{ min: todayDateValue }}
                   sx={fieldSx}
                 />
 
@@ -386,6 +446,7 @@ export default function AddRoomBookingDialog({
                   fullWidth
                   required
                   InputLabelProps={{ shrink: true }}
+                  inputProps={{ min: todayDateValue }}
                   sx={fieldSx}
                 />
 
@@ -415,16 +476,41 @@ export default function AddRoomBookingDialog({
                 sx={fieldSx}
               />
 
-              <TextField
-                label="Based Location"
-                value={form.basedLocation}
-                onChange={(e) => setValue('basedLocation', e.target.value)}
-                disabled={locked}
-                size="small"
-                fullWidth
-                required
-                sx={fieldSx}
-              />
+              <FormControl size="small" fullWidth required disabled={locked} sx={fieldSx}>
+                <InputLabel>Location</InputLabel>
+                <Select
+                  label="Location"
+                  value={form.locationId}
+                  onChange={(e) => {
+                    const nextLocationId = e.target.value;
+                    const matchedLocation = locations.find((location) => location.id === nextLocationId);
+
+                    setForm((prev) => ({
+                      ...prev,
+                      locationId: nextLocationId,
+                      basedLocation: matchedLocation?.location || '',
+                    }));
+                  }}
+                >
+                  {locations.length === 0 && (
+                    <MenuItem value="" disabled>
+                      {loadingLocations ? 'Loading locations...' : 'No locations available'}
+                    </MenuItem>
+                  )}
+
+                  {form.locationId && !locations.some((location) => location.id === form.locationId) && (
+                    <MenuItem value={form.locationId}>
+                      {form.basedLocation || form.locationId}
+                    </MenuItem>
+                  )}
+
+                  {locations.map((location) => (
+                    <MenuItem key={location.id} value={location.id}>
+                      {location.location || location.id}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
 
               <TextField
                 label="Room Charged (VND)"
@@ -452,7 +538,7 @@ export default function AddRoomBookingDialog({
               <Stack direction="row" spacing={1}>
                 <InfoRoundedIcon fontSize="small" />
                 <Typography fontSize={12}>
-                  Booking saves roomId, check-in/check-out date and time. Selected room name: <b>{selectedRoomName || '-'}</b>.
+                  Booking saves roomId and locationId. Selected room: <b>{selectedRoomName || '-'}</b>. Selected location: <b>{selectedLocationName || '-'}</b>.
                 </Typography>
               </Stack>
             </Box>
@@ -476,7 +562,7 @@ export default function AddRoomBookingDialog({
               || !form.checkOutDate
               || !form.checkOutTime
               || !form.peopleInCharge.trim()
-              || !form.basedLocation.trim()
+              || !form.locationId
             }
             sx={gradientBtnSx}
           >
@@ -494,6 +580,9 @@ export default function AddRoomBookingDialog({
           </Typography>
           <Typography fontSize={12} color="text.secondary" sx={{ mt: 1 }}>
             {form.checkInDate} {form.checkInTime} → {form.checkOutDate} {form.checkOutTime}
+          </Typography>
+          <Typography fontSize={12} color="text.secondary" sx={{ mt: 0.5 }}>
+            Location: {selectedLocationName || '-'}
           </Typography>
         </DialogContent>
 

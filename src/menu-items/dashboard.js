@@ -15,6 +15,7 @@ const icons = {
   dashboard: HomeTrendUp,
   appLinks: Link21,
   documentTypes: Category2,
+  locations: Building,
   rooms: Building,
   roomBookings: DocumentText1,
   indexRoom: HomeTrendUp,
@@ -248,6 +249,16 @@ const getDashboardMenu = () => {
     breadcrumbs: false
   };
 
+  const locationsItem = {
+    id: 'locations',
+    title: 'Locations',
+    type: 'item',
+    url: '/locations',
+    icon: icons.locations,
+    breadcrumbs: false,
+    exact: true
+  };
+
   const roomsItem = {
     id: 'rooms',
     title: 'Rooms',
@@ -337,9 +348,6 @@ const getDashboardMenu = () => {
     departmentsItem,
     noticesItem,
     documentTypesItem,
-    roomsItem,
-    roomBookingsItem,
-    indexRoomItem,
     documentsItem
   ].filter(Boolean);
 
@@ -347,22 +355,22 @@ const getDashboardMenu = () => {
 
   if (isAdmin) {
     // Admin thấy toàn bộ menu, bao gồm App Links.
+    // Thứ tự yêu cầu:
+    // Approve nằm trên Users.
+    // Locations, Rooms, Room Bookings, Index Room nằm dưới Users và ở cuối.
     children = [
       ...baseChildren,
+      approveItem,
       userManagementItem,
-      approveItem
+      locationsItem,
+      roomsItem,
+      roomBookingsItem,
+      indexRoomItem
     ].filter(Boolean);
   } else {
     // App Links chỉ cho bộ phận IT.
     if (canSeeAppLinks) {
       pushUniqueMenu(children, appLinksItem);
-    }
-
-    // User có Booking: hiện Rooms, Room Bookings, Index Room.
-    if (canManageBooking) {
-      pushUniqueMenu(children, roomsItem);
-      pushUniqueMenu(children, roomBookingsItem);
-      pushUniqueMenu(children, indexRoomItem);
     }
 
     // User có bất kỳ quyền Approve nào thì luôn thấy menu thường:
@@ -378,6 +386,15 @@ const getDashboardMenu = () => {
     // BOTH -> cả 2
     if (approveItem) {
       pushUniqueMenu(children, approveItem);
+    }
+
+    // User có quyền canManageBooking thì luôn thấy Locations,
+    // sau đó mới đến Rooms, Room Bookings, Index Room ở cuối menu.
+    if (canManageBooking) {
+      pushUniqueMenu(children, locationsItem);
+      pushUniqueMenu(children, roomsItem);
+      pushUniqueMenu(children, roomBookingsItem);
+      pushUniqueMenu(children, indexRoomItem);
     }
 
     // User không có quyền đặc biệt thì cho menu tối thiểu,

@@ -52,6 +52,7 @@ import { exportRoomBookingReport } from './roomBookingExcelExport';
 
 const BOOKING_API = `${API_BASE_URL}/api/room-bookings`;
 const ROOM_API = `${API_BASE_URL}/api/rooms`;
+const LOCATION_API = `${API_BASE_URL}/api/locations`;
 const DISPLAY_CONFIG_API = `${API_BASE_URL}/api/index-room-display-config`;
 
 const DEFAULT_DISPLAY_CONFIG = {
@@ -169,6 +170,35 @@ const getBookingDateTimeMs = (dateValue, timeValue) => {
 
   const { hour, minute, second } = toTimeParts(timeValue);
   return new Date(dateParts.year, Number(dateParts.month) - 1, dateParts.day, hour, minute, second).getTime();
+};
+
+const isPastIndexRoomBooking = (item) => {
+  if (!item) return false;
+
+  /*
+   * Index Room chỉ nên hiển thị booking còn hiệu lực.
+   * Khi check-out date/time đã qua hiện tại thì tự bỏ check Index Room.
+   */
+  const checkOutMs = getBookingDateTimeMs(item.checkOutDate, item.checkOutTime);
+
+  if (!checkOutMs) {
+    return false;
+  }
+
+  return checkOutMs < Date.now();
+};
+
+const normalizeIndexRoomFlag = (item) => {
+  if (!item) return item;
+
+  if (isPastIndexRoomBooking(item)) {
+    return {
+      ...item,
+      showOnIndexRoom: false,
+    };
+  }
+
+  return item;
 };
 
 const formatMoney = (value) => {
@@ -382,7 +412,7 @@ export default function RoomBookingsPage() {
 
   const tableHeaders = useMemo(() => ([
     { label: 'No', key: 'no', align: 'center', sortable: false },
-    { label: 'Title', key: 'title', align: 'left', sortable: true },
+    { label: 'Name', key: 'title', align: 'left', sortable: true },
     { label: 'Room', key: 'roomName', align: 'left', sortable: true },
     { label: 'Check-in', key: 'checkInDate', align: 'left', sortable: true },
     { label: 'Check-out', key: 'checkOutDate', align: 'left', sortable: true },
@@ -408,11 +438,14 @@ export default function RoomBookingsPage() {
   const [searchNameFilter, setSearchNameFilter] = useState('');
   const [roomIdInput, setRoomIdInput] = useState('');
   const [roomIdFilter, setRoomIdFilter] = useState('');
+  const [locationIdInput, setLocationIdInput] = useState('');
+  const [locationIdFilter, setLocationIdFilter] = useState('');
   const [fromDateInput, setFromDateInput] = useState('');
   const [fromDateFilter, setFromDateFilter] = useState('');
   const [toDateInput, setToDateInput] = useState('');
   const [toDateFilter, setToDateFilter] = useState('');
   const [roomOptions, setRoomOptions] = useState([]);
+  const [locationOptions, setLocationOptions] = useState([]);
 
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'info' });
 
@@ -452,6 +485,28 @@ export default function RoomBookingsPage() {
     }
   }, []);
 
+  const fetchLocationOptions = useCallback(async () => {
+    try {
+      const response = await axios.get(`${LOCATION_API}/options`, {
+        headers: getAuthHeaders('*/*'),
+      });
+
+      const options = Array.isArray(response?.data) ? response.data : [];
+
+      setLocationOptions(
+        [...options].sort((a, b) =>
+          String(a.location || a.id || '').localeCompare(String(b.location || b.id || ''), undefined, {
+            numeric: true,
+            sensitivity: 'base',
+          })
+        )
+      );
+    } catch (error) {
+      console.error('Cannot load location options for filter/export:', error);
+      setLocationOptions([]);
+    }
+  }, []);
+
   const fetchData = useCallback(async (overrides = {}) => {
     const silent = Boolean(overrides.silent);
 
@@ -463,6 +518,7 @@ export default function RoomBookingsPage() {
     const effSize = Number.isInteger(overrides.size) ? overrides.size : rowsPerPage;
     const effName = overrides.customerName !== undefined ? overrides.customerName : searchNameFilter;
     const effRoomId = overrides.roomId !== undefined ? overrides.roomId : roomIdFilter;
+    const effLocationId = overrides.locationId !== undefined ? overrides.locationId : locationIdFilter;
     const effFromDate = overrides.fromDate !== undefined ? overrides.fromDate : fromDateFilter;
     const effToDate = overrides.toDate !== undefined ? overrides.toDate : toDateFilter;
 
@@ -471,6 +527,7 @@ export default function RoomBookingsPage() {
         params: {
           name: effName,
           roomId: effRoomId,
+          locationId: effLocationId,
           fromDate: effFromDate,
           toDate: effToDate,
           page: effPage,
@@ -481,9 +538,37 @@ export default function RoomBookingsPage() {
 
       const result = response?.data || {};
       const content = Array.isArray(result.content) ? result.content : [];
+      const normalizedContent = content.map(normalizeIndexRoomFlag);
 
-      setData(content);
+      setData(normalizedContent);
       setTotalElements(Number(result.totalElements || 0));
+
+      /*
+       * Nếu booking đã quá check-out nhưng DB vẫn còn showOnIndexRoom = true,
+       * UI sẽ tự gọi API để bỏ check trên backend.
+       */
+      const expiredIndexRoomItems = content.filter((item) => (
+        item?.id &&
+        Boolean(item.showOnIndexRoom) &&
+        isPastIndexRoomBooking(item)
+      ));
+
+      if (expiredIndexRoomItems.length > 0) {
+        Promise.allSettled(
+          expiredIndexRoomItems.map((item) => (
+            axios.patch(
+              `${BOOKING_API}/${item.id}/index-room-display`,
+              null,
+              {
+                params: { enabled: false },
+                headers: getAuthHeaders('*/*'),
+              }
+            )
+          ))
+        ).catch((error) => {
+          console.error('Auto uncheck expired Index Room booking failed:', error);
+        });
+      }
     } catch (error) {
       console.error(error);
 
@@ -501,11 +586,12 @@ export default function RoomBookingsPage() {
         setLoading(false);
       }
     }
-  }, [page, rowsPerPage, searchNameFilter, roomIdFilter, fromDateFilter, toDateFilter]);
+  }, [page, rowsPerPage, searchNameFilter, roomIdFilter, locationIdFilter, fromDateFilter, toDateFilter]);
 
   useEffect(() => {
     fetchRoomOptions();
-  }, [fetchRoomOptions]);
+    fetchLocationOptions();
+  }, [fetchRoomOptions, fetchLocationOptions]);
 
   const refreshBySocket = useCallback(async (event) => {
     const module = String(event?.module || 'ALL').toUpperCase();
@@ -577,6 +663,7 @@ export default function RoomBookingsPage() {
   const handleSearch = useCallback(() => {
     const nextName = searchNameInput.trim();
     const nextRoomId = roomIdInput;
+    const nextLocationId = locationIdInput;
     const nextFromDate = fromDateInput;
     const nextToDate = toDateInput;
 
@@ -591,16 +678,19 @@ export default function RoomBookingsPage() {
 
     setSearchNameFilter(nextName);
     setRoomIdFilter(nextRoomId);
+    setLocationIdFilter(nextLocationId);
     setFromDateFilter(nextFromDate);
     setToDateFilter(nextToDate);
     setPage(0);
-  }, [searchNameInput, roomIdInput, fromDateInput, toDateInput]);
+  }, [searchNameInput, roomIdInput, locationIdInput, fromDateInput, toDateInput]);
 
   const handleReset = useCallback(() => {
     setSearchNameInput('');
     setSearchNameFilter('');
     setRoomIdInput('');
     setRoomIdFilter('');
+    setLocationIdInput('');
+    setLocationIdFilter('');
     setFromDateInput('');
     setFromDateFilter('');
     setToDateInput('');
@@ -620,6 +710,7 @@ export default function RoomBookingsPage() {
         params: {
           name: searchNameFilter,
           roomId: roomIdFilter,
+          locationId: locationIdFilter,
           fromDate: fromDateFilter,
           toDate: toDateFilter,
           page: exportPage,
@@ -637,7 +728,7 @@ export default function RoomBookingsPage() {
     } while (exportPage < totalPages);
 
     return allRows;
-  }, [searchNameFilter, roomIdFilter, fromDateFilter, toDateFilter]);
+  }, [searchNameFilter, roomIdFilter, locationIdFilter, fromDateFilter, toDateFilter]);
 
   const selectedRoomName = useMemo(() => {
     if (!roomIdFilter) return '';
@@ -648,6 +739,16 @@ export default function RoomBookingsPage() {
 
     return matchedRoom?.roomName || matchedRoom?.name || '';
   }, [roomIdFilter, roomOptions]);
+
+  const selectedLocationName = useMemo(() => {
+    if (!locationIdFilter) return '';
+
+    const matchedLocation = locationOptions.find((item) =>
+      String(item?.id || '').trim() === String(locationIdFilter || '').trim()
+    );
+
+    return matchedLocation?.location || matchedLocation?.name || '';
+  }, [locationIdFilter, locationOptions]);
 
   const handleExportExcel = useCallback(async () => {
     if (totalElements <= 0) {
@@ -669,12 +770,18 @@ export default function RoomBookingsPage() {
         ? sortedExportRows.find((row) => String(row?.roomId || '').trim() === String(roomIdFilter).trim())?.roomName
         : '';
 
+      const rowLocationName = locationIdFilter
+        ? sortedExportRows.find((row) => String(row?.locationId || '').trim() === String(locationIdFilter).trim())?.basedLocation
+        : '';
+
       await exportRoomBookingReport({
         rows: sortedExportRows,
         filters: {
           name: searchNameFilter,
           roomId: roomIdFilter,
           roomName: roomIdFilter ? (selectedRoomName || rowRoomName || roomIdFilter) : '',
+          locationId: locationIdFilter,
+          locationName: locationIdFilter ? (selectedLocationName || rowLocationName || locationIdFilter) : '',
           fromDate: fromDateFilter,
           toDate: toDateFilter,
         },
@@ -695,10 +802,24 @@ export default function RoomBookingsPage() {
     } finally {
       setExporting(false);
     }
-  }, [totalElements, fetchAllRowsForExport, sortConfig, searchNameFilter, roomIdFilter, selectedRoomName, fromDateFilter, toDateFilter]);
+  }, [totalElements, fetchAllRowsForExport, sortConfig, searchNameFilter, roomIdFilter, selectedRoomName, locationIdFilter, selectedLocationName, fromDateFilter, toDateFilter]);
 
   const handleToggleIndexRoomDisplay = useCallback(async (item, checked) => {
     if (!item?.id) return;
+
+    if (checked && isPastIndexRoomBooking(item)) {
+      setData((prev) => (
+        prev.map((row) => (row.id === item.id ? { ...row, showOnIndexRoom: false } : row))
+      ));
+
+      setNotification({
+        open: true,
+        message: 'This booking is already past check-out time, so it cannot be shown on Index Room.',
+        severity: 'warning',
+      });
+
+      return;
+    }
 
     setLoading(true);
 
@@ -712,10 +833,10 @@ export default function RoomBookingsPage() {
         }
       );
 
-      const updatedItem = response?.data || {};
+      const updatedItem = normalizeIndexRoomFlag(response?.data || {});
 
       setData((prev) => (
-        prev.map((row) => (row.id === item.id ? { ...row, ...updatedItem } : row))
+        prev.map((row) => (row.id === item.id ? normalizeIndexRoomFlag({ ...row, ...updatedItem }) : row))
       ));
 
       setNotification({
@@ -938,6 +1059,8 @@ export default function RoomBookingsPage() {
         setSearchName={setSearchNameInput}
         roomId={roomIdInput}
         setRoomId={setRoomIdInput}
+        locationId={locationIdInput}
+        setLocationId={setLocationIdInput}
         fromDate={fromDateInput}
         setFromDate={setFromDateInput}
         toDate={toDateInput}
@@ -1030,6 +1153,8 @@ export default function RoomBookingsPage() {
               ) : sortedData.length > 0 ? (
                 sortedData.map((item, idx) => {
                   const zebra = idx % 2 === 0 ? '#ffffff' : '#fafafa';
+                  const pastIndexRoomBooking = isPastIndexRoomBooking(item);
+                  const indexRoomChecked = pastIndexRoomBooking ? false : Boolean(item.showOnIndexRoom);
 
                   return (
                     <TableRow
@@ -1069,12 +1194,21 @@ export default function RoomBookingsPage() {
                       </TableCell>
 
                       <TableCell align="center" sx={{ fontSize: '0.75rem', py: 0.35, px: 0.7, minWidth: 100 }}>
-                        <Tooltip title={item.showOnIndexRoom ? 'Hide from Index Room' : 'Show on Index Room'} arrow>
+                        <Tooltip
+                          title={
+                            pastIndexRoomBooking
+                              ? 'Past check-out time. Index Room is automatically unchecked.'
+                              : indexRoomChecked
+                                ? 'Hide from Index Room'
+                                : 'Show on Index Room'
+                          }
+                          arrow
+                        >
                           <span>
                             <Checkbox
                               size="small"
-                              checked={Boolean(item.showOnIndexRoom)}
-                              disabled={loading}
+                              checked={indexRoomChecked}
+                              disabled={loading || pastIndexRoomBooking}
                               onChange={(e) => handleToggleIndexRoomDisplay(item, e.target.checked)}
                               sx={{ p: 0.25 }}
                             />

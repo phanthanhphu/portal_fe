@@ -139,7 +139,7 @@ const successFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCF
 
 const columns = [
   { header: 'No', key: 'no', width: 8 },
-  { header: 'Title', key: 'title', width: 24 },
+  { header: 'Name', key: 'title', width: 24 },
   { header: 'Room', key: 'room', width: 22 },
   { header: 'Check-in Date', key: 'checkInDate', width: 16 },
   { header: 'Check-in Time', key: 'checkInTime', width: 14 },
@@ -217,21 +217,25 @@ export const exportRoomBookingReport = async ({ rows = [], filters = {} }) => {
   subtitleCell.alignment = { horizontal: 'center', vertical: 'middle' };
 
   addLabelValueRow(sheet, 4, [
-    { label: 'Keyword', value: filters.name || 'All' },
+    { label: 'Name', value: filters.name || 'All' },
     { label: 'Room', value: filters.roomName || filters.roomId || 'All' },
-    { label: 'From Date', value: filters.fromDate ? formatDateInput(filters.fromDate) : 'All' },
+    { label: 'Based Location', value: filters.locationName || filters.locationId || 'All' },
   ]);
 
   addLabelValueRow(sheet, 5, [
+    { label: 'From Date', value: filters.fromDate ? formatDateInput(filters.fromDate) : 'All' },
     { label: 'To Date', value: filters.toDate ? formatDateInput(filters.toDate) : 'All' },
     { label: 'Total Rows', value: rows.length },
+  ]);
+
+  addLabelValueRow(sheet, 6, [
     {
       label: 'Total Charged',
       value: rows.reduce((sum, item) => sum + (Number(item?.roomCharged) || 0), 0),
     },
   ]);
 
-  sheet.getCell('F5').numFmt = '#,##0';
+  sheet.getCell('B6').numFmt = '#,##0';
 
   const tableHeaderRowNumber = 8;
   const headerRow = sheet.getRow(tableHeaderRowNumber);

@@ -7,8 +7,33 @@ import {
   Button,
   Snackbar,
   Alert,
+  Box,
 } from '@mui/material';
 import { Add } from '@mui/icons-material';
+
+const mainFieldSx = {
+  flex: '1.15 1 220px',
+  minWidth: { xs: '100%', sm: 200, md: 220 },
+  '& .MuiInputBase-root': { height: 38 },
+};
+
+const smallFieldSx = {
+  // Division và Department Name nhỏ hơn Title/Content.
+  flex: '0.75 1 165px',
+  minWidth: { xs: '100%', sm: 155, md: 165 },
+  maxWidth: { xs: '100%', lg: 220 },
+  '& .MuiInputBase-root': { height: 38 },
+};
+
+const actionButtonSx = {
+  height: 34,
+  minWidth: 92,
+  px: 2.5,
+  borderRadius: 1.2,
+  textTransform: 'none',
+  fontWeight: 400,
+  whiteSpace: 'nowrap',
+};
 
 export default function NoticeSearch({
   searchDivision = '',
@@ -64,9 +89,16 @@ export default function NoticeSearch({
         borderRadius: 2,
         border: '1px solid #e5e7eb',
         backgroundColor: '#fff',
+        overflow: 'hidden',
       }}
     >
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        justifyContent="space-between"
+        alignItems={{ xs: 'stretch', sm: 'center' }}
+        spacing={1.5}
+        sx={{ mb: 1.5 }}
+      >
         <Typography variant="subtitle1" fontWeight={600}>
           Notices Filter
         </Typography>
@@ -83,6 +115,7 @@ export default function NoticeSearch({
               px: 1.25,
               textTransform: 'none',
               fontWeight: 400,
+              whiteSpace: 'nowrap',
               backgroundColor: '#111827',
               '&:hover': { backgroundColor: '#0b1220' },
             }}
@@ -92,13 +125,37 @@ export default function NoticeSearch({
         )}
       </Stack>
 
-      <Stack
-        direction={{ xs: 'column', md: 'row' }}
-        spacing={2}
-        flexWrap="wrap"
-        alignItems={{ md: 'flex-end' }}
-        sx={{ width: '100%' }}
+      <Box
+        sx={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 2,
+          alignItems: 'flex-end',
+          width: '100%',
+        }}
       >
+        <TextField
+          label="Title"
+          size="small"
+          value={searchTitle}
+          onChange={(event) => setSearchTitle?.(event.target.value)}
+          onKeyDown={handleKeyDown}
+          disabled={disabled}
+          fullWidth
+          sx={mainFieldSx}
+        />
+
+        <TextField
+          label="Content"
+          size="small"
+          value={searchContent}
+          onChange={(event) => setSearchContent?.(event.target.value)}
+          onKeyDown={handleKeyDown}
+          disabled={disabled}
+          fullWidth
+          sx={mainFieldSx}
+        />
+
         {setSearchDivision && (
           <TextField
             label="Division"
@@ -108,11 +165,7 @@ export default function NoticeSearch({
             onKeyDown={handleKeyDown}
             disabled={disabled}
             fullWidth
-            sx={{
-              flex: 1,
-              minWidth: { xs: '100%', md: 200 },
-              '& .MuiInputBase-root': { height: 38 },
-            }}
+            sx={smallFieldSx}
           />
         )}
 
@@ -125,58 +178,38 @@ export default function NoticeSearch({
             onKeyDown={handleKeyDown}
             disabled={disabled || disableDepartmentSearch}
             fullWidth
-            sx={{
-              flex: 1,
-              minWidth: { xs: '100%', md: 220 },
-              '& .MuiInputBase-root': { height: 38 },
-            }}
+            sx={smallFieldSx}
           />
         )}
 
-        <TextField
-          label="Title"
-          size="small"
-          value={searchTitle}
-          onChange={(event) => setSearchTitle?.(event.target.value)}
-          onKeyDown={handleKeyDown}
-          disabled={disabled}
-          fullWidth
+        <Stack
+          direction="row"
+          spacing={1}
           sx={{
-            flex: 1,
-            minWidth: { xs: '100%', md: 220 },
-            '& .MuiInputBase-root': { height: 38 },
+            flex: {
+              xs: '1 1 100%',
+              sm: '0 0 auto',
+            },
+            flexShrink: 0,
+            flexWrap: 'nowrap',
+            ml: { xs: 0, lg: 'auto' },
+            minWidth: { xs: '100%', sm: 196 },
           }}
-        />
-
-        <TextField
-          label="Content"
-          size="small"
-          value={searchContent}
-          onChange={(event) => setSearchContent?.(event.target.value)}
-          onKeyDown={handleKeyDown}
-          disabled={disabled}
-          fullWidth
-          sx={{
-            flex: 1,
-            minWidth: { xs: '100%', md: 220 },
-            '& .MuiInputBase-root': { height: 38 },
-          }}
-        />
-
-        <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
+        >
           <Button
             variant="contained"
             onClick={handleSearch}
             disabled={disabled}
+            fullWidth
             sx={{
-              height: 34,
-              minWidth: 92,
-              px: 2.5,
-              borderRadius: 1.2,
-              textTransform: 'none',
-              fontWeight: 400,
+              ...actionButtonSx,
+              flex: '1 1 0',
               backgroundColor: '#111827',
-              '&:hover': { backgroundColor: '#0b1220' },
+              boxShadow: 'none',
+              '&:hover': {
+                backgroundColor: '#0b1220',
+                boxShadow: 'none',
+              },
             }}
           >
             Search
@@ -186,13 +219,10 @@ export default function NoticeSearch({
             variant="outlined"
             onClick={handleReset}
             disabled={disabled}
+            fullWidth
             sx={{
-              height: 34,
-              minWidth: 92,
-              px: 2.5,
-              borderRadius: 1.2,
-              textTransform: 'none',
-              fontWeight: 400,
+              ...actionButtonSx,
+              flex: '1 1 0',
               borderColor: '#111827',
               color: '#111827',
               '&:hover': {
@@ -205,7 +235,7 @@ export default function NoticeSearch({
             Reset
           </Button>
         </Stack>
-      </Stack>
+      </Box>
 
       <Snackbar
         open={!!localError}

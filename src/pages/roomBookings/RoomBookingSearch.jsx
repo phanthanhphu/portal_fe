@@ -10,12 +10,14 @@ import {
   Select,
   MenuItem,
   CircularProgress,
+  Box,
 } from '@mui/material';
 import { Add, FileDownload } from '@mui/icons-material';
 import axios from 'axios';
 import { API_BASE_URL } from '../../config';
 
 const ROOM_API = `${API_BASE_URL}/api/rooms`;
+const LOCATION_API = `${API_BASE_URL}/api/locations`;
 
 const getAuthHeaders = (accept = '*/*') => {
   const token = localStorage.getItem('token');
@@ -26,11 +28,43 @@ const getAuthHeaders = (accept = '*/*') => {
   };
 };
 
+const inputSx = {
+  '& .MuiInputBase-root': { height: 38 },
+};
+
+const filterItemSx = {
+  flex: '1.2 1 190px',
+  minWidth: { xs: '100%', sm: 180 },
+};
+
+const dateItemSx = {
+  flex: '0.8 1 145px',
+  minWidth: { xs: '100%', sm: 145 },
+};
+
+const nameItemSx = {
+  // Thu nhỏ ô Name: không chiếm quá nhiều chiều ngang.
+  flex: '1 1 180px',
+  minWidth: { xs: '100%', sm: 170 },
+  maxWidth: { xs: '100%', md: 240 },
+};
+
+const actionButtonSx = {
+  height: 38,
+  minWidth: 96,
+  borderRadius: 1.2,
+  textTransform: 'none',
+  fontWeight: 400,
+  whiteSpace: 'nowrap',
+};
+
 export default function RoomBookingSearch({
   searchName,
   setSearchName,
   roomId,
   setRoomId,
+  locationId,
+  setLocationId,
   fromDate,
   setFromDate,
   toDate,
@@ -44,6 +78,7 @@ export default function RoomBookingSearch({
   disabled = false,
 }) {
   const [rooms, setRooms] = useState([]);
+  const [locations, setLocations] = useState([]);
 
   const searchKeyword = searchName ?? '';
   const setSearchKeyword = setSearchName || (() => {});
@@ -70,9 +105,32 @@ export default function RoomBookingSearch({
     }
   }, []);
 
+  const fetchLocations = useCallback(async () => {
+    try {
+      const response = await axios.get(`${LOCATION_API}/options`, {
+        headers: getAuthHeaders('*/*'),
+      });
+
+      const locationOptions = Array.isArray(response?.data) ? response.data : [];
+
+      setLocations(
+        [...locationOptions].sort((a, b) =>
+          String(a.location || a.id || '').localeCompare(String(b.location || b.id || ''), undefined, {
+            numeric: true,
+            sensitivity: 'base',
+          })
+        )
+      );
+    } catch (error) {
+      console.error(error);
+      setLocations([]);
+    }
+  }, []);
+
   useEffect(() => {
     fetchRooms();
-  }, [fetchRooms]);
+    fetchLocations();
+  }, [fetchRooms, fetchLocations]);
 
   const handleSearch = useCallback(() => {
     onSearch?.();
@@ -81,10 +139,11 @@ export default function RoomBookingSearch({
   const handleReset = useCallback(() => {
     setSearchKeyword('');
     setRoomId?.('');
+    setLocationId?.('');
     setFromDate?.('');
     setToDate?.('');
     onReset?.();
-  }, [setSearchKeyword, setRoomId, setFromDate, setToDate, onReset]);
+  }, [setSearchKeyword, setRoomId, setLocationId, setFromDate, setToDate, onReset]);
 
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'Enter' && !disabled) {
@@ -101,6 +160,7 @@ export default function RoomBookingSearch({
         borderRadius: 2,
         border: '1px solid #e5e7eb',
         backgroundColor: '#fff',
+        overflow: 'hidden',
       }}
     >
       <Stack
@@ -114,18 +174,25 @@ export default function RoomBookingSearch({
           Room Booking Filter
         </Typography>
 
-        <Stack direction="row" spacing={1} justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}>
+        <Stack
+          direction="row"
+          spacing={1}
+          justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
+          sx={{
+            flexWrap: 'nowrap',
+            overflowX: { xs: 'auto', sm: 'visible' },
+            pb: { xs: 0.25, sm: 0 },
+          }}
+        >
           <Button
             variant="outlined"
             startIcon={exporting ? <CircularProgress size={15} /> : <FileDownload fontSize="small" />}
             onClick={onExport}
             disabled={disabled || exporting || !canExport}
             sx={{
-              borderRadius: 1.2,
-              height: 34,
+              ...actionButtonSx,
               px: 1.25,
-              textTransform: 'none',
-              fontWeight: 400,
+              flexShrink: 0,
               borderColor: '#111827',
               color: '#111827',
               '&:hover': {
@@ -144,11 +211,9 @@ export default function RoomBookingSearch({
             onClick={onAdd}
             disabled={disabled}
             sx={{
-              borderRadius: 1.2,
-              height: 34,
+              ...actionButtonSx,
               px: 1.25,
-              textTransform: 'none',
-              fontWeight: 400,
+              flexShrink: 0,
               backgroundColor: '#111827',
               '&:hover': { backgroundColor: '#0b1220' },
             }}
@@ -158,15 +223,17 @@ export default function RoomBookingSearch({
         </Stack>
       </Stack>
 
-      <Stack
-        direction={{ xs: 'column', md: 'row' }}
-        spacing={2}
-        flexWrap="wrap"
-        alignItems={{ md: 'flex-end' }}
-        sx={{ width: '100%' }}
+      <Box
+        sx={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 2,
+          alignItems: 'flex-end',
+          width: '100%',
+        }}
       >
         <TextField
-          label="Title"
+          label="Name"
           size="small"
           value={searchKeyword}
           onChange={(e) => setSearchKeyword(e.target.value)}
@@ -174,19 +241,19 @@ export default function RoomBookingSearch({
           disabled={disabled}
           fullWidth
           sx={{
-            flex: 1,
-            minWidth: { xs: '100%', md: 300 },
-            '& .MuiInputBase-root': { height: 38 },
+            ...inputSx,
+            ...nameItemSx,
           }}
         />
 
         <FormControl
           size="small"
-          sx={{
-            minWidth: { xs: '100%', md: 220 },
-            '& .MuiInputBase-root': { height: 38 },
-          }}
+          fullWidth
           disabled={disabled}
+          sx={{
+            ...inputSx,
+            ...filterItemSx,
+          }}
         >
           <InputLabel>Room</InputLabel>
           <Select
@@ -203,6 +270,30 @@ export default function RoomBookingSearch({
           </Select>
         </FormControl>
 
+        <FormControl
+          size="small"
+          fullWidth
+          disabled={disabled}
+          sx={{
+            ...inputSx,
+            ...filterItemSx,
+          }}
+        >
+          <InputLabel>Based Location</InputLabel>
+          <Select
+            label="Based Location"
+            value={locationId || ''}
+            onChange={(e) => setLocationId?.(e.target.value)}
+          >
+            <MenuItem value="">All Locations</MenuItem>
+            {locations.map((item) => (
+              <MenuItem key={item.id} value={item.id}>
+                {item.location || item.id}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
         <TextField
           label="From Date"
           type="date"
@@ -211,10 +302,11 @@ export default function RoomBookingSearch({
           onChange={(e) => setFromDate?.(e.target.value)}
           onKeyDown={handleKeyDown}
           disabled={disabled}
+          fullWidth
           InputLabelProps={{ shrink: true }}
           sx={{
-            minWidth: { xs: '100%', md: 160 },
-            '& .MuiInputBase-root': { height: 38 },
+            ...inputSx,
+            ...dateItemSx,
           }}
         />
 
@@ -226,24 +318,36 @@ export default function RoomBookingSearch({
           onChange={(e) => setToDate?.(e.target.value)}
           onKeyDown={handleKeyDown}
           disabled={disabled}
+          fullWidth
           InputLabelProps={{ shrink: true }}
           sx={{
-            minWidth: { xs: '100%', md: 160 },
-            '& .MuiInputBase-root': { height: 38 },
+            ...inputSx,
+            ...dateItemSx,
           }}
         />
 
-        <Stack direction="row" spacing={1.5} sx={{ flexShrink: 0, mt: 1 }}>
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{
+            flex: {
+              xs: '1 1 100%',
+              sm: '0 0 auto',
+            },
+            minWidth: { xs: '100%', sm: 205 },
+            ml: { xs: 0, lg: 'auto' },
+            flexWrap: 'nowrap',
+            justifyContent: { xs: 'stretch', sm: 'flex-end' },
+          }}
+        >
           <Button
             variant="contained"
             onClick={handleSearch}
             disabled={disabled}
+            fullWidth
             sx={{
-              height: 38,
-              minWidth: 100,
-              borderRadius: 1.2,
-              textTransform: 'none',
-              fontWeight: 400,
+              ...actionButtonSx,
+              flex: '1 1 0',
               backgroundColor: '#111827',
               '&:hover': { backgroundColor: '#0b1220' },
             }}
@@ -255,12 +359,10 @@ export default function RoomBookingSearch({
             variant="outlined"
             onClick={handleReset}
             disabled={disabled}
+            fullWidth
             sx={{
-              height: 38,
-              minWidth: 100,
-              borderRadius: 1.2,
-              textTransform: 'none',
-              fontWeight: 400,
+              ...actionButtonSx,
+              flex: '1 1 0',
               borderColor: '#111827',
               color: '#111827',
               '&:hover': {
@@ -273,7 +375,7 @@ export default function RoomBookingSearch({
             Reset
           </Button>
         </Stack>
-      </Stack>
+      </Box>
     </Paper>
   );
 }

@@ -11,6 +11,7 @@ const DepartmentPage = Loadable(lazy(() => import('pages/department/DepartmentMa
 const UserManagementPage = Loadable(lazy(() => import('pages/dashboard/UserManagementPage')));
 const AppLinksPage = Loadable(lazy(() => import('pages/appLinks/AppLinksPage')));
 const DocumentTypesPage = Loadable(lazy(() => import('pages/documenttype/DocumentTypesPage')));
+const LocationsPage = Loadable(lazy(() => import('pages/locations/LocationsPage')));
 const RoomsPage = Loadable(lazy(() => import('pages/rooms/RoomsPage')));
 const RoomBookingsPage = Loadable(lazy(() => import('pages/roomBookings/RoomBookingsPage')));
 const IndexRoomPage = Loadable(lazy(() => import('pages/indexRoom/IndexRoomPage')));
@@ -288,6 +289,7 @@ const MainRoutes = {
 
             { path: 'app-links', element: <AppLinksPage /> },
             { path: 'document-types', element: <DocumentTypesPage /> },
+            { path: 'locations', element: <LocationsPage /> },
             { path: 'rooms', element: <RoomsPage /> },
             { path: 'room-bookings', element: <RoomBookingsPage /> },
             { path: 'notices', element: <NoticesPage /> },

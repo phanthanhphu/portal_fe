@@ -69,6 +69,7 @@ export default function FormsSearchFilter({
         alignItems={{ md: 'flex-end' }}
         sx={{ width: '100%' }}
       >
+        {/* 1. Department Name */}
         <TextField
           key="search-dept-name"
           label="Department Name"
@@ -85,6 +86,7 @@ export default function FormsSearchFilter({
           }}
         />
 
+        {/* 2. Type */}
         <TextField
           key="search-type"
           select
@@ -108,6 +110,7 @@ export default function FormsSearchFilter({
           ))}
         </TextField>
 
+        {/* 3. Title */}
         <TextField
           key="search-title"
           label="Title"
@@ -124,6 +127,7 @@ export default function FormsSearchFilter({
           }}
         />
 
+        {/* 4. Description */}
         <TextField
           key="search-desc"
           label="Description"
