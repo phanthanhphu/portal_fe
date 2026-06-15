@@ -9,7 +9,6 @@ import backgroundA from './assets/background3.JPG';
 import backgroundB from './assets/background14.JPG';
 import backgroundC from './assets/background-bc.JPG';
 import youngoneLogo from './assets/youngone-logo.png';
-import MascotGreeter from './MascotGreeter';
 
 const BOOKING_API = `${API_BASE_URL}/api/room-bookings`;
 const DISPLAY_CONFIG_API = `${API_BASE_URL}/api/index-room-display-config`;
@@ -491,7 +490,6 @@ export default function IndexRoomPage() {
           Website developed by BSL IT
         </footer>
 
-        <MascotGreeter />
       </section>
     </main>
   );

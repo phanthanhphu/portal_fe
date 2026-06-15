@@ -902,3 +902,42 @@
   border: none !important;
   filter: none !important;
 }
+
+/* =========================================================
+   Logo only override
+   Chỉ chỉnh riêng khu vực logo - không ảnh hưởng header/title/status/table
+   ========================================================= */
+.ir-logo-card {
+  background: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.95) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.18) !important;
+
+  /* Logo nhỏ lại, khung vẫn giữ đẹp và gọn */
+  min-height: clamp(44px, 4.2vw, 62px) !important;
+  padding: clamp(5px, 0.55vw, 8px) clamp(14px, 1.25vw, 20px) !important;
+}
+
+.ir-logo {
+  display: block !important;
+
+  /* Giảm kích thước logo */
+  width: min(100%, 240px) !important;
+  max-height: clamp(26px, 2.5vw, 38px) !important;
+
+  object-fit: contain !important;
+  filter: none !important;
+}
+
+@media (max-width: 640px) {
+  .ir-logo-card {
+    min-height: 48px !important;
+    padding: 6px 12px !important;
+    border-radius: 12px !important;
+  }
+
+  .ir-logo {
+    width: min(100%, 220px) !important;
+    max-height: 32px !important;
+  }
+}
