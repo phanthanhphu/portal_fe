@@ -2,10 +2,12 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "re
 import { createPortal } from "react-dom";
 import SockJS from "sockjs-client";
 import { Client } from "@stomp/stompjs";
-import companyLogo from "./youngone-logo.png";
-import backgroundA from "./background1.JPG";
-import backgroundB from "./background2.JPG";
-import backgroundC from "./background3.JPG";
+import companyLogo from "../../assets/images/background/youngone-logo.png";
+
+import backgroundA from "../../assets/images/background/background1.JPG";
+import backgroundB from "../../assets/images/background/background2.JPG";
+import backgroundC from "../../assets/images/background/background3.JPG";
+
 import "./PageHome.css";
 import { LinksHoverMenu, DocumentHoverMenu, NoticeHoverMenu } from "./HeaderHoverMenus";
 

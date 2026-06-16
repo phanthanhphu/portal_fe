@@ -5,10 +5,11 @@ import SockJS from 'sockjs-client';
 import { Client } from '@stomp/stompjs';
 import { API_BASE_URL } from '../../config';
 
-import backgroundA from './assets/background3.JPG';
-import backgroundB from './assets/background14.JPG';
-import backgroundC from './assets/background-bc.JPG';
-import youngoneLogo from './assets/youngone-logo.png';
+import backgroundA from "../../assets/images/background/background1.JPG";
+import backgroundB from "../../assets/images/background/background2.JPG";
+import backgroundC from "../../assets/images/background/background3.JPG";
+import youngoneLogo from "../../assets/images/background/youngone-logo.png";
+
 
 const BOOKING_API = `${API_BASE_URL}/api/room-bookings`;
 const DISPLAY_CONFIG_API = `${API_BASE_URL}/api/index-room-display-config`;
