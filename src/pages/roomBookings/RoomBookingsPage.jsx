@@ -516,7 +516,7 @@ export default function RoomBookingsPage() {
 
     const effPage = Number.isInteger(overrides.page) ? overrides.page : page;
     const effSize = Number.isInteger(overrides.size) ? overrides.size : rowsPerPage;
-    const effName = overrides.customerName !== undefined ? overrides.customerName : searchNameFilter;
+    const effName = overrides.name !== undefined ? overrides.name : searchNameFilter;
     const effRoomId = overrides.roomId !== undefined ? overrides.roomId : roomIdFilter;
     const effLocationId = overrides.locationId !== undefined ? overrides.locationId : locationIdFilter;
     const effFromDate = overrides.fromDate !== undefined ? overrides.fromDate : fromDateFilter;

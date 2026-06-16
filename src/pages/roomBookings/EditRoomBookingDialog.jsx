@@ -364,16 +364,16 @@ export default function EditRoomBookingDialog({
 
   const paperSx = useMemo(() => ({
     borderRadius: fullScreen ? 0 : 4,
-    overflow: 'hidden',
-    boxShadow: `0 22px 70px ${alpha('#000', 0.25)}`,
-    background: alpha('#FFFFFF', 0.95),
-    backdropFilter: 'blur(14px)',
+    boxShadow: `0 20px 60px ${alpha('#000', 0.25)}`,
   }), [fullScreen]);
 
   const headerSx = useMemo(() => ({
-    py: 2,
-    px: 2.5,
+    pt: 3,
+    pb: 2,
+    px: 3,
     color: 'white',
+    display: 'flex',
+    alignItems: 'center',
     background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
   }), [theme]);
 
@@ -402,11 +402,12 @@ export default function EditRoomBookingDialog({
         PaperProps={{ sx: paperSx }}
       >
         <DialogTitle sx={headerSx}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
+          <Stack direction="row" alignItems="center" justifyContent="space-between" width="100%">
             <Box>
-              <Typography fontWeight={900}>
+              <Typography variant="h6" fontWeight={700}>
                 Edit Room Booking
               </Typography>
+
               <Typography fontSize={13} sx={{ opacity: 0.9 }}>
                 Update room booking request
               </Typography>
@@ -608,11 +609,11 @@ export default function EditRoomBookingDialog({
               sx={{
                 p: 1.5,
                 borderRadius: 2,
-                background: alpha(theme.palette.warning.main, 0.12),
+                background: alpha(theme.palette.primary.main, 0.08),
               }}
             >
               <Stack direction="row" spacing={1}>
-                <InfoRoundedIcon fontSize="small" color="warning" />
+                <InfoRoundedIcon fontSize="small" />
                 <Typography fontSize={12}>
                   Booking saves roomId and locationId. Current selected room: <b>{selectedRoomName || '-'}</b>. Current selected location: <b>{selectedLocationName || '-'}</b>.
                 </Typography>
