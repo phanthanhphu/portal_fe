@@ -8253,3 +8253,143 @@ body:has(.portal-more-file-popup-backdrop) {
   }
 }
 
+/* =========================================================
+   Hero animated background: background1.JPG / background2.JPG / background3.JPG
+   Áp dụng kiểu chuyển động giống IndexRoomPage:
+   3 lớp ảnh chồng nhau, tự crossfade + zoom/pan nhẹ.
+   ========================================================= */
+.portal-hero__surface {
+  position: relative !important;
+  overflow: hidden !important;
+  background:
+    linear-gradient(135deg, #102451 0%, #183f8f 46%, #2f94d6 100%) !important;
+  background-size: auto !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  background-color: #102451 !important;
+}
+
+.portal-hero-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+
+  background-size: 100% 118%;
+  background-position: center 68%;
+  background-repeat: no-repeat;
+
+  transform: scale(1.04);
+  will-change: opacity, transform;
+}
+
+.portal-hero-bg-one {
+  opacity: 1;
+  animation: portalHeroBgOne 30s ease-in-out infinite;
+}
+
+.portal-hero-bg-two {
+  opacity: 0;
+  animation: portalHeroBgTwo 30s ease-in-out infinite;
+}
+
+.portal-hero-bg-three {
+  opacity: 0;
+  animation: portalHeroBgThree 30s ease-in-out infinite;
+}
+
+/* Giữ overlay/grid nằm trên ảnh nền nhưng dưới nội dung */
+.portal-hero__surface::before {
+  z-index: 1 !important;
+}
+
+.portal-hero__surface::after {
+  z-index: 2 !important;
+}
+
+.portal-hero__copy,
+.portal-hero__card,
+.portal-hero-latest-notice {
+  position: relative !important;
+  z-index: 3 !important;
+}
+
+@keyframes portalHeroBgOne {
+  0% {
+    opacity: 1;
+    transform: scale(1.04) translate3d(0, 0, 0);
+  }
+  28% {
+    opacity: 1;
+  }
+  33% {
+    opacity: 0;
+    transform: scale(1.1) translate3d(-1.2%, -0.8%, 0);
+  }
+  95% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1.04) translate3d(0, 0, 0);
+  }
+}
+
+@keyframes portalHeroBgTwo {
+  0% {
+    opacity: 0;
+    transform: scale(1.08) translate3d(1%, 0.5%, 0);
+  }
+  28% {
+    opacity: 0;
+  }
+  33% {
+    opacity: 1;
+  }
+  61% {
+    opacity: 1;
+    transform: scale(1.03) translate3d(-0.8%, -0.5%, 0);
+  }
+  66% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes portalHeroBgThree {
+  0% {
+    opacity: 0;
+    transform: scale(1.06) translate3d(-0.6%, 0.4%, 0);
+  }
+  61% {
+    opacity: 0;
+  }
+  66% {
+    opacity: 1;
+  }
+  95% {
+    opacity: 1;
+    transform: scale(1.02) translate3d(0.8%, -0.4%, 0);
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Tablet */
+@media (max-width: 1280px) {
+  .portal-hero-bg {
+    background-size: 100% 114%;
+    background-position: center 64%;
+  }
+}
+
+/* Mobile */
+@media (max-width: 900px) {
+  .portal-hero-bg {
+    background-size: 100% 108%;
+    background-position: center 58%;
+  }
+}

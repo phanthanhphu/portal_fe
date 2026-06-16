@@ -3,7 +3,9 @@ import { createPortal } from "react-dom";
 import SockJS from "sockjs-client";
 import { Client } from "@stomp/stompjs";
 import companyLogo from "./youngone-logo.png";
-import companyBg from "./background.JPG";
+import backgroundA from "./background1.JPG";
+import backgroundB from "./background2.JPG";
+import backgroundC from "./background3.JPG";
 import "./PageHome.css";
 import { LinksHoverMenu, DocumentHoverMenu, NoticeHoverMenu } from "./HeaderHoverMenus";
 
@@ -19,7 +21,6 @@ const DEPARTMENTS_API_BASE = `${API_ORIGIN}/api/departments`;
 
 const FORMS_PAGE_PATH = "/forms";
 const NOTICES_PAGE_PATH = "/notices";
-const COMPANY_BG_URL = companyBg;
 const MENU_MAX_VISIBLE_ITEMS = 4;
 
 function toAbsoluteUrl(path) {
@@ -56,7 +57,7 @@ function normalizeExternalUrl(value) {
   if (rawUrl.startsWith("//")) return `${window.location.protocol}${rawUrl}`;
   if (rawUrl.startsWith("/") || rawUrl.startsWith("#")) return rawUrl;
 
-  // Browser address bar auto-fixes values like "10.232.132.34:8081" or "intranet.local".
+  // Browser address bar auto-fixes values like "10.232.132.42:8081" or "intranet.local".
   // React <a href> does not, so the portal accidentally routes them through the current app.
   const looksLikeHost =
     /^(\d{1,3}\.){3}\d{1,3}(:\d+)?([/?#].*)?$/i.test(rawUrl) ||
@@ -3659,12 +3660,19 @@ const visibleNotices = useMemo(() => {
         <main className="portal-main">
           <section className="portal-hero">
             <div className="portal-shell">
-              <div
-                className="portal-hero__surface"
-                style={{
-                  backgroundImage: `linear-gradient(120deg, rgba(7, 16, 39, 0.34), rgba(7, 16, 39, 0.18)), url(${COMPANY_BG_URL})`
-                }}
-              >
+              <div className="portal-hero__surface">
+                <div
+                  className="portal-hero-bg portal-hero-bg-one"
+                  style={{ backgroundImage: `url(${backgroundA})` }}
+                />
+                <div
+                  className="portal-hero-bg portal-hero-bg-two"
+                  style={{ backgroundImage: `url(${backgroundB})` }}
+                />
+                <div
+                  className="portal-hero-bg portal-hero-bg-three"
+                  style={{ backgroundImage: `url(${backgroundC})` }}
+                />
                 <div className="portal-hero__copy">
                   <div className="portal-tag">HOME PAGE</div>
                   <h1>Internal portal for notices, documents, and links.</h1>
