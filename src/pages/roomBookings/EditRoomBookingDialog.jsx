@@ -13,6 +13,7 @@ import {
   Stack,
   Box,
   IconButton,
+  InputAdornment,
   Chip,
   Tooltip,
   FormControl,
@@ -58,6 +59,52 @@ const initialForm = {
   basedLocation: '',
   roomCharged: '',
 };
+
+const normalizeUsdInput = (value) => {
+  const text = String(value ?? '').replace(/[^0-9.]/g, '');
+
+  if (!text) return '';
+
+  const firstDotIndex = text.indexOf('.');
+  const cleaned = firstDotIndex === -1
+    ? text
+    : text.slice(0, firstDotIndex + 1) + text.slice(firstDotIndex + 1).replace(/\./g, '');
+
+  const hasDot = cleaned.includes('.');
+  const [integerPartRaw, decimalPartRaw = ''] = cleaned.split('.');
+  const integerPart = integerPartRaw.replace(/^0+(?=\d)/, '') || '0';
+  const decimalPart = decimalPartRaw.slice(0, 2);
+
+  return hasDot ? `${integerPart}.${decimalPart}` : integerPart;
+};
+
+const formatUsdDisplay = (value) => {
+  const normalized = normalizeUsdInput(value);
+
+  if (!normalized) return '';
+
+  const hasDot = normalized.includes('.');
+  const [integerPart, decimalPart = ''] = normalized.split('.');
+  const formattedInteger = Number(integerPart || 0).toLocaleString('en-US');
+
+  return hasDot ? `${formattedInteger}.${decimalPart}` : formattedInteger;
+};
+
+const parseUsdAmount = (value) => {
+  const normalized = normalizeUsdInput(value);
+
+  if (!normalized || normalized === '.') return null;
+
+  const amount = Number(normalized);
+  return Number.isFinite(amount) ? amount : null;
+};
+
+const getUsdPayloadValue = (value) => {
+  const normalized = normalizeUsdInput(value);
+  if (!normalized) return null;
+  return parseUsdAmount(normalized);
+};
+
 
 
 const normalizeIsoDateValue = (value) => {
@@ -240,7 +287,7 @@ export default function EditRoomBookingDialog({
       peopleInCharge: currentItem?.peopleInCharge || '',
       locationId: String(currentItem?.locationId || ''),
       basedLocation: currentItem?.basedLocation || '',
-      roomCharged: currentItem?.roomCharged ?? '',
+      roomCharged: formatUsdDisplay(currentItem?.roomCharged ?? ''),
     });
 
     setSaving(false);
@@ -335,10 +382,10 @@ export default function EditRoomBookingDialog({
     }
 
     if (form.roomCharged !== '') {
-      const chargedText = String(form.roomCharged).trim();
-      const charged = Number(chargedText);
+      const normalizedUsd = normalizeUsdInput(form.roomCharged);
+      const charged = parseUsdAmount(form.roomCharged);
 
-      if (Number.isNaN(charged)) {
+      if (!normalizedUsd || charged === null) {
         return 'Room charged must be a valid USD amount';
       }
 
@@ -346,7 +393,7 @@ export default function EditRoomBookingDialog({
         return 'Room charged must be greater than or equal to 0 USD';
       }
 
-      if (!/^\d+(\.\d{1,2})?$/.test(chargedText)) {
+      if (!/^\d+(\.\d{1,2})?$/.test(normalizedUsd)) {
         return 'Room charged supports up to 2 decimal places in USD';
       }
     }
@@ -366,7 +413,7 @@ export default function EditRoomBookingDialog({
     locationId: form.locationId,
     // Backend sẽ lấy tên location theo locationId. Giữ basedLocation để tương thích dữ liệu cũ.
     basedLocation: selectedLocationName || form.basedLocation || '',
-    roomCharged: form.roomCharged === '' ? null : Number(form.roomCharged),
+    roomCharged: getUsdPayloadValue(form.roomCharged),
     showOnIndexRoom: currentItem.showOnIndexRoom,
     createdBy: currentItem.createdBy,
     createdAt: currentItem.createdAt,
@@ -632,15 +679,20 @@ export default function EditRoomBookingDialog({
 
               <TextField
                 label="Room Charged (USD)"
-                type="number"
+                type="text"
                 value={form.roomCharged}
-                onChange={(e) => setValue('roomCharged', e.target.value)}
+                onChange={(e) => setValue('roomCharged', formatUsdDisplay(e.target.value))}
                 disabled={locked}
                 size="small"
                 fullWidth
+                placeholder="0.00"
+                helperText="USD format: 1,234.56"
                 inputProps={{
-                  min: 0,
-                  step: 0.01,
+                  inputMode: 'decimal',
+                  'aria-label': 'Room charged in USD',
+                }}
+                InputProps={{
+                  startAdornment: <InputAdornment position="start">$</InputAdornment>,
                 }}
                 sx={fieldSx}
               />
