@@ -13,6 +13,7 @@ import {
   Box,
 } from '@mui/material';
 import { Add, FileDownload } from '@mui/icons-material';
+import EnglishDateField from './EnglishDateField';
 import axios from 'axios';
 import { API_BASE_URL } from '../../config';
 
@@ -33,20 +34,24 @@ const inputSx = {
 };
 
 const filterItemSx = {
-  flex: '1.2 1 190px',
-  minWidth: { xs: '100%', sm: 180 },
+  // Cho input tự giãn để phủ đầy chiều ngang của hàng search.
+  flex: '1.15 1 0',
+  minWidth: 165,
+};
+
+const locationItemSx = {
+  flex: '1.25 1 0',
+  minWidth: 180,
 };
 
 const dateItemSx = {
-  flex: '0.8 1 145px',
-  minWidth: { xs: '100%', sm: 145 },
+  flex: '0.95 1 0',
+  minWidth: 160,
 };
 
 const nameItemSx = {
-  // Thu nhỏ ô Name: không chiếm quá nhiều chiều ngang.
-  flex: '1 1 180px',
-  minWidth: { xs: '100%', sm: 170 },
-  maxWidth: { xs: '100%', md: 240 },
+  flex: '1.15 1 0',
+  minWidth: 165,
 };
 
 const actionButtonSx = {
@@ -226,10 +231,14 @@ export default function RoomBookingSearch({
       <Box
         sx={{
           display: 'flex',
-          flexWrap: 'wrap',
-          gap: 2,
-          alignItems: 'flex-end',
+          flexWrap: 'nowrap',
+          gap: 1,
+          alignItems: 'center',
           width: '100%',
+          overflowX: 'auto',
+          pb: 0.5,
+          // Tránh input bị co nhỏ làm label ngày bị che, nhưng vẫn fill hết hàng ngang.
+          '& > .MuiFormControl-root': { minWidth: 0 },
         }}
       >
         <TextField
@@ -276,7 +285,7 @@ export default function RoomBookingSearch({
           disabled={disabled}
           sx={{
             ...inputSx,
-            ...filterItemSx,
+            ...locationItemSx,
           }}
         >
           <InputLabel>Based Location</InputLabel>
@@ -294,32 +303,26 @@ export default function RoomBookingSearch({
           </Select>
         </FormControl>
 
-        <TextField
+        <EnglishDateField
           label="From Date"
-          type="date"
-          size="small"
+          labelAsPlaceholder
           value={fromDate || ''}
-          onChange={(e) => setFromDate?.(e.target.value)}
+          onChange={(nextValue) => setFromDate?.(nextValue)}
           onKeyDown={handleKeyDown}
           disabled={disabled}
-          fullWidth
-          InputLabelProps={{ shrink: true }}
           sx={{
             ...inputSx,
             ...dateItemSx,
           }}
         />
 
-        <TextField
+        <EnglishDateField
           label="To Date"
-          type="date"
-          size="small"
+          labelAsPlaceholder
           value={toDate || ''}
-          onChange={(e) => setToDate?.(e.target.value)}
+          onChange={(nextValue) => setToDate?.(nextValue)}
           onKeyDown={handleKeyDown}
           disabled={disabled}
-          fullWidth
-          InputLabelProps={{ shrink: true }}
           sx={{
             ...inputSx,
             ...dateItemSx,
@@ -330,14 +333,11 @@ export default function RoomBookingSearch({
           direction="row"
           spacing={1}
           sx={{
-            flex: {
-              xs: '1 1 100%',
-              sm: '0 0 auto',
-            },
-            minWidth: { xs: '100%', sm: 205 },
-            ml: { xs: 0, lg: 'auto' },
+            flex: '0 0 auto',
+            minWidth: 205,
+            ml: 0,
             flexWrap: 'nowrap',
-            justifyContent: { xs: 'stretch', sm: 'flex-end' },
+            justifyContent: 'flex-end',
           }}
         >
           <Button

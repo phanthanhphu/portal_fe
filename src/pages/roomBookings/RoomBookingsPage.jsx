@@ -26,6 +26,7 @@ import {
   Pagination,
   Checkbox,
   TextField,
+  Chip,
 } from '@mui/material';
 
 import {
@@ -130,12 +131,10 @@ const formatDateOnly = (value) => {
   const parts = toDateParts(value);
   if (!parts) return '-';
 
-  return `${pad2(parts.day)}/${pad2(parts.month)}/${parts.year}`;
+  return `${pad2(parts.month)}/${pad2(parts.day)}/${parts.year}`;
 };
 
 const formatTimeOnly = (value) => {
-  if (!value) return '--:--';
-
   const { hour, minute } = toTimeParts(value);
   return `${pad2(hour)}:${pad2(minute)}`;
 };
@@ -144,8 +143,7 @@ const formatBookingDateTime = (dateValue, timeValue) => {
   const dateText = formatDateOnly(dateValue);
   const timeText = formatTimeOnly(timeValue);
 
-  if (dateText === '-' && timeText === '--:--') return '-';
-  if (timeText === '--:--') return dateText;
+  if (dateText === '-') return '-';
 
   return `${dateText} ${timeText}`;
 };
@@ -155,13 +153,13 @@ const formatDateTime = (value) => {
 
   if (Array.isArray(value) && value.length >= 5) {
     const [year, month, day, hour, minute, second = 0] = value;
-    return `${pad2(day)}/${pad2(month)}/${year} ${pad2(hour)}:${pad2(minute)}:${pad2(second)}`;
+    return `${pad2(month)}/${pad2(day)}/${year} ${pad2(hour)}:${pad2(minute)}:${pad2(second)}`;
   }
 
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '-';
 
-  return `${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}/${date.getFullYear()} ${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`;
+  return `${pad2(date.getMonth() + 1)}/${pad2(date.getDate())}/${date.getFullYear()} ${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`;
 };
 
 const getBookingDateTimeMs = (dateValue, timeValue) => {
@@ -207,10 +205,11 @@ const formatMoney = (value) => {
   const num = Number(value);
   if (Number.isNaN(num)) return String(value);
 
-  return new Intl.NumberFormat('vi-VN', {
+  return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'VND',
-    maximumFractionDigits: 0,
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(num);
 };
 
@@ -419,7 +418,7 @@ export default function RoomBookingsPage() {
     { label: 'People in Charge', key: 'peopleInCharge', align: 'left', sortable: true },
     { label: 'Based Location', key: 'basedLocation', align: 'left', sortable: true },
     { label: 'Index Room', key: 'showOnIndexRoom', align: 'center', sortable: true },
-    { label: 'Room Charged (VND)', key: 'roomCharged', align: 'right', sortable: true },
+    { label: 'Room Charged (USD)', key: 'roomCharged', align: 'right', sortable: true },
     { label: 'Created By', key: 'createdBy', align: 'left', sortable: true, hideOnSmall: true },
     { label: 'Created At', key: 'createdAt', align: 'left', sortable: true, hideOnSmall: true },
     { label: 'Updated At', key: 'updatedAt', align: 'left', sortable: true, hideOnSmall: true },
@@ -432,7 +431,7 @@ export default function RoomBookingsPage() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [sortConfig, setSortConfig] = useState({ key: 'createdAt', direction: 'desc' });
+  const [sortConfig, setSortConfig] = useState({ key: 'updatedAt', direction: 'desc' });
 
   const [searchNameInput, setSearchNameInput] = useState('');
   const [searchNameFilter, setSearchNameFilter] = useState('');
@@ -446,6 +445,7 @@ export default function RoomBookingsPage() {
   const [toDateFilter, setToDateFilter] = useState('');
   const [roomOptions, setRoomOptions] = useState([]);
   const [locationOptions, setLocationOptions] = useState([]);
+  const [indexRoomOrderMap, setIndexRoomOrderMap] = useState({});
 
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'info' });
 
@@ -504,6 +504,27 @@ export default function RoomBookingsPage() {
     } catch (error) {
       console.error('Cannot load location options for filter/export:', error);
       setLocationOptions([]);
+    }
+  }, []);
+
+  const fetchIndexRoomOrderMap = useCallback(async () => {
+    try {
+      const response = await axios.get(`${BOOKING_API}/index-room`, {
+        headers: getAuthHeaders('*/*'),
+      });
+
+      const content = Array.isArray(response?.data?.content) ? response.data.content : [];
+      const nextMap = content.reduce((acc, item, index) => {
+        if (item?.id) acc[item.id] = index + 1;
+        return acc;
+      }, {});
+
+      setIndexRoomOrderMap(nextMap);
+      return nextMap;
+    } catch (error) {
+      console.error('Cannot load Index Room display order:', error);
+      setIndexRoomOrderMap({});
+      return {};
     }
   }, []);
 
@@ -605,8 +626,11 @@ export default function RoomBookingsPage() {
 
     if (!shouldRefresh) return;
 
-    await fetchData({ silent: true });
-  }, [fetchData]);
+    await Promise.all([
+      fetchData({ silent: true }),
+      fetchIndexRoomOrderMap(),
+    ]);
+  }, [fetchData, fetchIndexRoomOrderMap]);
 
   useEffect(() => {
     realtimeRefreshRef.current = refreshBySocket;
@@ -658,7 +682,8 @@ export default function RoomBookingsPage() {
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+    fetchIndexRoomOrderMap();
+  }, [fetchData, fetchIndexRoomOrderMap]);
 
   const handleSearch = useCallback(() => {
     const nextName = searchNameInput.trim();
@@ -839,6 +864,8 @@ export default function RoomBookingsPage() {
         prev.map((row) => (row.id === item.id ? normalizeIndexRoomFlag({ ...row, ...updatedItem }) : row))
       ));
 
+      await fetchIndexRoomOrderMap();
+
       setNotification({
         open: true,
         message: checked ? 'This booking is now shown on Index Room' : 'This booking is hidden from Index Room',
@@ -854,7 +881,7 @@ export default function RoomBookingsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [fetchIndexRoomOrderMap]);
 
   const fetchDisplayConfig = useCallback(async () => {
     setLoadingDisplayConfig(true);
@@ -1155,6 +1182,7 @@ export default function RoomBookingsPage() {
                   const zebra = idx % 2 === 0 ? '#ffffff' : '#fafafa';
                   const pastIndexRoomBooking = isPastIndexRoomBooking(item);
                   const indexRoomChecked = pastIndexRoomBooking ? false : Boolean(item.showOnIndexRoom);
+                  const indexRoomOrder = indexRoomOrderMap[item.id];
 
                   return (
                     <TableRow
@@ -1193,27 +1221,43 @@ export default function RoomBookingsPage() {
                         {item.basedLocation || '-'}
                       </TableCell>
 
-                      <TableCell align="center" sx={{ fontSize: '0.75rem', py: 0.35, px: 0.7, minWidth: 100 }}>
-                        <Tooltip
-                          title={
-                            pastIndexRoomBooking
-                              ? 'Past check-out time. Index Room is automatically unchecked.'
-                              : indexRoomChecked
-                                ? 'Hide from Index Room'
-                                : 'Show on Index Room'
-                          }
-                          arrow
-                        >
-                          <span>
-                            <Checkbox
+                      <TableCell align="center" sx={{ fontSize: '0.75rem', py: 0.35, px: 0.7, minWidth: 120 }}>
+                        <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="center">
+                          <Tooltip
+                            title={
+                              pastIndexRoomBooking
+                                ? 'Past check-out time. Index Room is automatically unchecked.'
+                                : indexRoomChecked
+                                  ? `Hide from Index Room. Display order: ${indexRoomOrder || '-'}`
+                                  : 'Show on Index Room. It will be added to the last display position.'
+                            }
+                            arrow
+                          >
+                            <span>
+                              <Checkbox
+                                size="small"
+                                checked={indexRoomChecked}
+                                disabled={loading || pastIndexRoomBooking}
+                                onChange={(e) => handleToggleIndexRoomDisplay(item, e.target.checked)}
+                                sx={{ p: 0.25 }}
+                              />
+                            </span>
+                          </Tooltip>
+
+                          {indexRoomChecked && (
+                            <Chip
                               size="small"
-                              checked={indexRoomChecked}
-                              disabled={loading || pastIndexRoomBooking}
-                              onChange={(e) => handleToggleIndexRoomDisplay(item, e.target.checked)}
-                              sx={{ p: 0.25 }}
+                              label={`No. ${indexRoomOrder || '-'}`}
+                              sx={{
+                                height: 20,
+                                fontSize: '0.68rem',
+                                fontWeight: 700,
+                                backgroundColor: '#ecfdf5',
+                                color: '#047857',
+                              }}
                             />
-                          </span>
-                        </Tooltip>
+                          )}
+                        </Stack>
                       </TableCell>
 
                       <TableCell align="right" sx={{ fontSize: '0.75rem', py: 0.45, px: 0.7, minWidth: 130 }}>

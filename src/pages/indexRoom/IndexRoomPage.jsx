@@ -54,7 +54,7 @@ const formatDateOnly = (value) => {
 
   if (Array.isArray(value) && value.length >= 3) {
     const [year, month, day] = value;
-    return `${pad2(day)}/${pad2(month)}/${year}`;
+    return `${pad2(month)}/${pad2(day)}/${year}`;
   }
 
   if (typeof value === 'string') {
@@ -63,7 +63,7 @@ const formatDateOnly = (value) => {
 
     if (parts.length === 3) {
       const [year, month, day] = parts;
-      return `${pad2(day)}/${pad2(month)}/${year}`;
+      return `${pad2(month)}/${pad2(day)}/${year}`;
     }
 
     return value;
@@ -72,7 +72,7 @@ const formatDateOnly = (value) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '-';
 
-  return `${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}/${date.getFullYear()}`;
+  return `${pad2(date.getMonth() + 1)}/${pad2(date.getDate())}/${date.getFullYear()}`;
 };
 
 const toDateTimeValue = (value) => {
@@ -97,28 +97,18 @@ const displayValue = (value) => {
 const normalizeBookingRows = (items = []) => {
   if (!Array.isArray(items)) return [];
 
-  return items
-    .map((item) => ({
-      id: item.id,
-      name: displayValue(item.title || item.peopleInCharge),
-      checkInDateRaw: item.checkInDate,
-      checkOutDateRaw: item.checkOutDate,
-      checkInDate: formatDateOnly(item.checkInDate),
-      checkOutDate: formatDateOnly(item.checkOutDate),
-      basedLocation: displayValue(item.basedLocation),
-      roomNo: displayValue(item.roomName || item.roomNo || item.roomId),
-    }))
-    .sort((a, b) => {
-      const dateA = toDateTimeValue(a.checkInDateRaw);
-      const dateB = toDateTimeValue(b.checkInDateRaw);
-
-      if (dateA !== dateB) return dateA - dateB;
-
-      return String(a.roomNo || '').localeCompare(String(b.roomNo || ''), undefined, {
-        numeric: true,
-        sensitivity: 'base',
-      });
-    });
+  // Backend already returns rows in user-selected Index Room display order.
+  // Keep that order here so No. 1, No. 2, ... matches the order selected by user.
+  return items.map((item) => ({
+    id: item.id,
+    name: displayValue(item.title || item.peopleInCharge),
+    checkInDateRaw: item.checkInDate,
+    checkOutDateRaw: item.checkOutDate,
+    checkInDate: formatDateOnly(item.checkInDate),
+    checkOutDate: formatDateOnly(item.checkOutDate),
+    basedLocation: displayValue(item.basedLocation),
+    roomNo: displayValue(item.roomName || item.roomNo || item.roomId),
+  }));
 };
 
 const getTimePartsByTimeZone = (timeZone) => {
@@ -439,7 +429,7 @@ export default function IndexRoomPage() {
                 <th>Check In</th>
                 <th>Check Out</th>
                 <th>Based Location</th>
-                <th>Room</th>
+                <th>Room No.</th>
               </tr>
             </thead>
 

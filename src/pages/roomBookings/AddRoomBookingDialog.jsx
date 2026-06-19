@@ -26,6 +26,7 @@ import { alpha, useTheme } from '@mui/material/styles';
 import CloseIcon from '@mui/icons-material/Close';
 import EventAvailableRoundedIcon from '@mui/icons-material/EventAvailableRounded';
 import InfoRoundedIcon from '@mui/icons-material/InfoRounded';
+import EnglishDateField from './EnglishDateField';
 import axios from 'axios';
 import { API_BASE_URL } from '../../config';
 
@@ -43,13 +44,15 @@ const getAuthHeaders = (contentType = true) => {
   };
 };
 
+const DEFAULT_TIME = '00:00';
+
 const initialForm = {
   title: '',
   roomId: '',
   checkInDate: '',
-  checkInTime: '14:00',
+  checkInTime: DEFAULT_TIME,
   checkOutDate: '',
-  checkOutTime: '12:00',
+  checkOutTime: DEFAULT_TIME,
   peopleInCharge: '',
   locationId: '',
   basedLocation: '',
@@ -57,8 +60,9 @@ const initialForm = {
 };
 
 const toDateTime = (date, time) => {
-  if (!date || !time) return null;
-  const value = new Date(`${date}T${time}:00`);
+  if (!date) return null;
+  const safeTime = time || DEFAULT_TIME;
+  const value = new Date(`${date}T${safeTime}:00`);
   return Number.isNaN(value.getTime()) ? null : value;
 };
 
@@ -71,9 +75,50 @@ const getTodayDateInput = () => {
   return `${year}-${month}-${day}`;
 };
 
+const normalizeIsoDateValue = (value) => {
+  if (!value) return '';
+
+  const text = String(value).trim();
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    const [year, month, day] = text.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+
+    if (
+      date.getFullYear() === year &&
+      date.getMonth() === month - 1 &&
+      date.getDate() === day
+    ) {
+      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+
+    return '';
+  }
+
+  const match = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+
+  if (!match) return '';
+
+  const month = Number(match[1]);
+  const day = Number(match[2]);
+  const year = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return '';
+  }
+
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+};
+
 const isPastDateInput = (dateValue) => {
-  if (!dateValue) return false;
-  return String(dateValue).slice(0, 10) < getTodayDateInput();
+  const isoDate = normalizeIsoDateValue(dateValue);
+  if (!isoDate) return false;
+  return isoDate < getTodayDateInput();
 };
 
 export default function AddRoomBookingDialog({
@@ -185,9 +230,7 @@ export default function AddRoomBookingDialog({
     if (!form.title.trim()) return 'Name is required';
     if (!form.roomId) return 'Room is required';
     if (!form.checkInDate) return 'Check-in date is required';
-    if (!form.checkInTime) return 'Check-in time is required';
     if (!form.checkOutDate) return 'Check-out date is required';
-    if (!form.checkOutTime) return 'Check-out time is required';
     if (!form.peopleInCharge.trim()) return 'People in charge is required';
     if (!form.locationId) return 'Location is required';
 
@@ -199,8 +242,15 @@ export default function AddRoomBookingDialog({
       return 'Check-out date cannot be in the past';
     }
 
-    const checkInAt = toDateTime(form.checkInDate, form.checkInTime);
-    const checkOutAt = toDateTime(form.checkOutDate, form.checkOutTime);
+    const checkInDate = normalizeIsoDateValue(form.checkInDate);
+    const checkOutDate = normalizeIsoDateValue(form.checkOutDate);
+
+    if (!checkInDate || !checkOutDate) {
+      return 'Please enter date as MM/DD/YYYY';
+    }
+
+    const checkInAt = toDateTime(checkInDate, form.checkInTime || DEFAULT_TIME);
+    const checkOutAt = toDateTime(checkOutDate, form.checkOutTime || DEFAULT_TIME);
 
     if (!checkInAt || !checkOutAt) {
       return 'Check-in/check-out date time is invalid';
@@ -211,18 +261,19 @@ export default function AddRoomBookingDialog({
     }
 
     if (form.roomCharged !== '') {
-      const charged = Number(form.roomCharged);
+      const chargedText = String(form.roomCharged).trim();
+      const charged = Number(chargedText);
 
       if (Number.isNaN(charged)) {
-        return 'Room charged must be a valid VND amount';
+        return 'Room charged must be a valid USD amount';
       }
 
       if (charged < 0) {
-        return 'Room charged must be greater than or equal to 0 VND';
+        return 'Room charged must be greater than or equal to 0 USD';
       }
 
-      if (!Number.isInteger(charged)) {
-        return 'Room charged must be a whole number in VND';
+      if (!/^\d+(\.\d{1,2})?$/.test(chargedText)) {
+        return 'Room charged supports up to 2 decimal places in USD';
       }
     }
 
@@ -233,10 +284,10 @@ export default function AddRoomBookingDialog({
     title: form.title.trim(),
     roomId: form.roomId,
     locationId: form.locationId,
-    checkInDate: form.checkInDate,
-    checkInTime: form.checkInTime,
-    checkOutDate: form.checkOutDate,
-    checkOutTime: form.checkOutTime,
+    checkInDate: normalizeIsoDateValue(form.checkInDate),
+    checkInTime: form.checkInTime || DEFAULT_TIME,
+    checkOutDate: normalizeIsoDateValue(form.checkOutDate),
+    checkOutTime: form.checkOutTime || DEFAULT_TIME,
     peopleInCharge: form.peopleInCharge.trim(),
     // Backend sẽ lấy tên location theo locationId. Giữ basedLocation để tương thích dữ liệu cũ.
     basedLocation: selectedLocationName || form.basedLocation || '',
@@ -400,17 +451,13 @@ export default function AddRoomBookingDialog({
                   gap: 1,
                 }}
               >
-                <TextField
+                <EnglishDateField
                   label="Check-in Date"
-                  type="date"
                   value={form.checkInDate}
-                  onChange={(e) => setValue('checkInDate', e.target.value)}
+                  onChange={(nextValue) => setValue('checkInDate', nextValue)}
                   disabled={locked}
-                  size="small"
-                  fullWidth
                   required
-                  InputLabelProps={{ shrink: true }}
-                  inputProps={{ min: todayDateValue }}
+                  min={todayDateValue}
                   sx={fieldSx}
                 />
 
@@ -422,9 +469,9 @@ export default function AddRoomBookingDialog({
                   disabled={locked}
                   size="small"
                   fullWidth
-                  required
                   InputLabelProps={{ shrink: true }}
                   inputProps={{ step: 60 }}
+                  helperText="Default 00:00"
                   sx={fieldSx}
                 />
               </Box>
@@ -436,17 +483,13 @@ export default function AddRoomBookingDialog({
                   gap: 1,
                 }}
               >
-                <TextField
+                <EnglishDateField
                   label="Check-out Date"
-                  type="date"
                   value={form.checkOutDate}
-                  onChange={(e) => setValue('checkOutDate', e.target.value)}
+                  onChange={(nextValue) => setValue('checkOutDate', nextValue)}
                   disabled={locked}
-                  size="small"
-                  fullWidth
                   required
-                  InputLabelProps={{ shrink: true }}
-                  inputProps={{ min: todayDateValue }}
+                  min={todayDateValue}
                   sx={fieldSx}
                 />
 
@@ -458,9 +501,9 @@ export default function AddRoomBookingDialog({
                   disabled={locked}
                   size="small"
                   fullWidth
-                  required
                   InputLabelProps={{ shrink: true }}
                   inputProps={{ step: 60 }}
+                  helperText="Default 00:00"
                   sx={fieldSx}
                 />
               </Box>
@@ -513,7 +556,7 @@ export default function AddRoomBookingDialog({
               </FormControl>
 
               <TextField
-                label="Room Charged (VND)"
+                label="Room Charged (USD)"
                 type="number"
                 value={form.roomCharged}
                 onChange={(e) => setValue('roomCharged', e.target.value)}
@@ -522,7 +565,7 @@ export default function AddRoomBookingDialog({
                 fullWidth
                 inputProps={{
                   min: 0,
-                  step: 1000,
+                  step: 0.01,
                 }}
                 sx={fieldSx}
               />
@@ -558,9 +601,7 @@ export default function AddRoomBookingDialog({
               || !form.title.trim()
               || !form.roomId
               || !form.checkInDate
-              || !form.checkInTime
               || !form.checkOutDate
-              || !form.checkOutTime
               || !form.peopleInCharge.trim()
               || !form.locationId
             }
@@ -579,7 +620,7 @@ export default function AddRoomBookingDialog({
             Create room booking <b>{form.title}</b> ?
           </Typography>
           <Typography fontSize={12} color="text.secondary" sx={{ mt: 1 }}>
-            {form.checkInDate} {form.checkInTime} → {form.checkOutDate} {form.checkOutTime}
+            {form.checkInDate} {form.checkInTime || DEFAULT_TIME} → {form.checkOutDate} {form.checkOutTime || DEFAULT_TIME}
           </Typography>
           <Typography fontSize={12} color="text.secondary" sx={{ mt: 0.5 }}>
             Location: {selectedLocationName || '-'}

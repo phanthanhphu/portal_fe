@@ -35,7 +35,7 @@ const toDateParts = (value) => {
 };
 
 const toTimeParts = (value) => {
-  if (!value) return null;
+  if (!value) return { hour: 0, minute: 0, second: 0 };
 
   if (Array.isArray(value) && value.length >= 2) {
     const [hour, minute, second = 0] = value;
@@ -51,7 +51,7 @@ const toTimeParts = (value) => {
     };
   }
 
-  return null;
+  return { hour: 0, minute: 0, second: 0 };
 };
 
 const toExcelDate = (dateValue, timeValue) => {
@@ -73,12 +73,11 @@ const toExcelDate = (dateValue, timeValue) => {
 const formatDateInput = (value) => {
   const parts = toDateParts(value);
   if (!parts) return '-';
-  return `${pad2(parts.day)}/${pad2(parts.month)}/${parts.year}`;
+  return `${pad2(parts.month)}/${pad2(parts.day)}/${parts.year}`;
 };
 
 const formatTimeInput = (value) => {
   const parts = toTimeParts(value);
-  if (!parts) return '--:--';
   return `${pad2(parts.hour)}:${pad2(parts.minute)}`;
 };
 
@@ -86,8 +85,7 @@ const formatDateTimeText = (dateValue, timeValue) => {
   const dateText = formatDateInput(dateValue);
   const timeText = formatTimeInput(timeValue);
 
-  if (dateText === '-' && timeText === '--:--') return '-';
-  if (timeText === '--:--') return dateText;
+  if (dateText === '-') return '-';
   return `${dateText} ${timeText}`;
 };
 
@@ -96,17 +94,17 @@ const formatLocalDateTime = (value) => {
 
   if (Array.isArray(value) && value.length >= 5) {
     const [year, month, day, hour, minute, second = 0] = value;
-    return `${pad2(day)}/${pad2(month)}/${year} ${pad2(hour)}:${pad2(minute)}:${pad2(second)}`;
+    return `${pad2(month)}/${pad2(day)}/${year} ${pad2(hour)}:${pad2(minute)}:${pad2(second)}`;
   }
 
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
 
-  return `${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}/${date.getFullYear()} ${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`;
+  return `${pad2(date.getMonth() + 1)}/${pad2(date.getDate())}/${date.getFullYear()} ${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`;
 };
 
 const formatGeneratedAt = (value = new Date()) => {
-  return `${pad2(value.getDate())}/${pad2(value.getMonth() + 1)}/${value.getFullYear()} ${pad2(value.getHours())}:${pad2(value.getMinutes())}`;
+  return `${pad2(value.getMonth() + 1)}/${pad2(value.getDate())}/${value.getFullYear()} ${pad2(value.getHours())}:${pad2(value.getMinutes())}`;
 };
 
 const buildFileName = () => {
@@ -148,7 +146,7 @@ const columns = [
   { header: 'People in Charge', key: 'peopleInCharge', width: 24 },
   { header: 'Based Location', key: 'basedLocation', width: 24 },
   { header: 'Index Room', key: 'indexRoom', width: 14 },
-  { header: 'Room Charged (VND)', key: 'roomCharged', width: 20 },
+  { header: 'Room Charged (USD)', key: 'roomCharged', width: 20 },
   { header: 'Created By', key: 'createdBy', width: 20 },
   { header: 'Created At', key: 'createdAt', width: 20 },
   { header: 'Updated At', key: 'updatedAt', width: 20 },
@@ -235,7 +233,7 @@ export const exportRoomBookingReport = async ({ rows = [], filters = {} }) => {
     },
   ]);
 
-  sheet.getCell('B6').numFmt = '#,##0';
+  sheet.getCell('B6').numFmt = '$#,##0.00';
 
   const tableHeaderRowNumber = 8;
   const headerRow = sheet.getRow(tableHeaderRowNumber);
@@ -280,9 +278,9 @@ export const exportRoomBookingReport = async ({ rows = [], filters = {} }) => {
       }
     });
 
-    row.getCell(4).numFmt = 'dd/mm/yyyy';
-    row.getCell(6).numFmt = 'dd/mm/yyyy';
-    row.getCell(11).numFmt = '#,##0';
+    row.getCell(4).numFmt = 'mm/dd/yyyy';
+    row.getCell(6).numFmt = 'mm/dd/yyyy';
+    row.getCell(11).numFmt = '$#,##0.00';
 
     if (item?.showOnIndexRoom) {
       row.getCell(10).fill = successFill;
@@ -296,7 +294,7 @@ export const exportRoomBookingReport = async ({ rows = [], filters = {} }) => {
   };
 
   sheet.getColumn(1).alignment = { horizontal: 'center' };
-  sheet.getColumn(11).numFmt = '#,##0';
+  sheet.getColumn(11).numFmt = '$#,##0.00';
 
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], {
