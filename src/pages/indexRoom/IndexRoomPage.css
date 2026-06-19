@@ -941,3 +941,32 @@
     max-height: 32px !important;
   }
 }
+
+
+/* =========================================================
+   Empty state: no selected booking data
+   - Keep only the animated background slideshow.
+   - Hide header, logo, clocks, table, footer through JSX.
+   - Make the background brighter by removing the dark layout overlay.
+   ========================================================= */
+.index-room-page.ir-empty {
+  background: #061b2f;
+}
+
+.index-room-page.ir-empty .ir-bg {
+  /* Empty mode: keep background visible, but avoid being too bright/washed out. */
+  filter: brightness(1.08) contrast(1.06) saturate(1.04);
+  transform: scale(1.02);
+}
+
+.index-room-page.ir-empty .ir-overlay {
+  /* Softer overlay than normal layout; enough to prevent the image from looking too white. */
+  background:
+    linear-gradient(180deg, rgba(5, 22, 40, 0.26) 0%, rgba(5, 22, 40, 0.10) 46%, rgba(5, 22, 40, 0.24) 100%),
+    radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.08), transparent 36%);
+}
+
+.index-room-page.ir-empty .ir-scanline,
+.index-room-page.ir-empty .ir-content {
+  display: none !important;
+}

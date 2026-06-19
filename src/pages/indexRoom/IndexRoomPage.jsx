@@ -189,6 +189,7 @@ export default function IndexRoomPage() {
   const [displayConfig, setDisplayConfig] = useState(DEFAULT_DISPLAY_CONFIG);
   const [loadingBookings, setLoadingBookings] = useState(false);
   const [bookingError, setBookingError] = useState('');
+  const [hasLoadedBookings, setHasLoadedBookings] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
 
   const realtimeRefreshRef = useRef(null);
@@ -246,6 +247,7 @@ export default function IndexRoomPage() {
       setReservationRows([]);
       setBookingError(error?.message || 'Fetch Index Room bookings failed');
     } finally {
+      setHasLoadedBookings(true);
       setLoadingBookings(false);
     }
   }, []);
@@ -369,8 +371,12 @@ export default function IndexRoomPage() {
       }));
   }, [reservationRows, currentPage]);
 
+  const hasReservationData = reservationRows.length > 0;
+  const isEmptyDisplay = hasLoadedBookings && !loadingBookings && !bookingError && !hasReservationData;
+  const shouldShowDisplayLayout = !isEmptyDisplay;
+
   return (
-    <main className="index-room-page">
+    <main className={`index-room-page ${isEmptyDisplay ? 'ir-empty' : 'ir-has-data'}`}>
       <div
         className="ir-bg ir-bg-one"
         style={{ backgroundImage: `url(${backgroundA})` }}
@@ -384,8 +390,9 @@ export default function IndexRoomPage() {
         style={{ backgroundImage: `url(${backgroundC})` }}
       />
       <div className="ir-overlay" />
-      <div className="ir-scanline" />
+      {shouldShowDisplayLayout && <div className="ir-scanline" />}
 
+      {shouldShowDisplayLayout && (
       <section className="ir-content">
         <header className="ir-header">
           <div className="ir-header-inner">
@@ -482,6 +489,7 @@ export default function IndexRoomPage() {
         </footer>
 
       </section>
+      )}
     </main>
   );
 }
