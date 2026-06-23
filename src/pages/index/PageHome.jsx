@@ -7,6 +7,7 @@ import companyLogo from "../../assets/images/background/youngone-logo.png";
 import backgroundA from "../../assets/images/background/background1.JPG";
 import backgroundB from "../../assets/images/background/background2.JPG";
 import backgroundC from "../../assets/images/background/background3.JPG";
+import coreValuesImage from "../../assets/images/background/Core_Values_ENG.jpg";
 
 import "./PageHome.css";
 import { LinksHoverMenu, DocumentHoverMenu, NoticeHoverMenu } from "./HeaderHoverMenus";
@@ -59,7 +60,7 @@ function normalizeExternalUrl(value) {
   if (rawUrl.startsWith("//")) return `${window.location.protocol}${rawUrl}`;
   if (rawUrl.startsWith("/") || rawUrl.startsWith("#")) return rawUrl;
 
-  // Browser address bar auto-fixes values like "10.232.132.45:8081" or "intranet.local".
+  // Browser address bar auto-fixes values like "10.232.132.51:8081" or "intranet.local".
   // React <a href> does not, so the portal accidentally routes them through the current app.
   const looksLikeHost =
     /^(\d{1,3}\.){3}\d{1,3}(:\d+)?([/?#].*)?$/i.test(rawUrl) ||
@@ -2130,6 +2131,7 @@ function OverviewCard({ icon, title, value, subtitle }) {
 export default function PageHome() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null);
+  const [coreValuesPopupOpen, setCoreValuesPopupOpen] = useState(true);
 
   const [appNameSearch, setAppNameSearch] = useState("");
   const [documentTypeSearch, setDocumentTypeSearch] = useState("");
@@ -2219,6 +2221,16 @@ export default function PageHome() {
     if (formsPopupOpen || noticePopupOpen || previewState.open || menuHoverPaused) return;
     setOpenDropdown(null);
   });
+
+  useEffect(() => {
+    if (!coreValuesPopupOpen) return undefined;
+
+    const timerId = window.setTimeout(() => {
+      setCoreValuesPopupOpen(false);
+    }, 10000);
+
+    return () => window.clearTimeout(timerId);
+  }, [coreValuesPopupOpen]);
 
   const fetchApps = async (nameKeyword = "") => {
     setLoadingApps(true);
@@ -2880,6 +2892,11 @@ export default function PageHome() {
     const handleKeyDown = (event) => {
       if (event.key !== "Escape") return;
 
+      if (coreValuesPopupOpen) {
+        setCoreValuesPopupOpen(false);
+        return;
+      }
+
       if (previewState.open) {
         closePreview();
         return;
@@ -2903,7 +2920,7 @@ export default function PageHome() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [previewState.open, formsPopupOpen, noticePopupOpen]);
+  }, [coreValuesPopupOpen, previewState.open, formsPopupOpen, noticePopupOpen]);
 
   const closePreview = () => {
     setPreviewState((prev) => {
@@ -3975,6 +3992,31 @@ const visibleNotices = useMemo(() => {
       >
         {isScrollAtTopZone ? <IconChevronDown /> : <IconChevronUp />}
       </button>
+
+      {coreValuesPopupOpen ? (
+        <div
+          className="portal-core-values-popup"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Core Values"
+        >
+          <div className="portal-core-values-popup__card">
+            <button
+              type="button"
+              className="portal-core-values-popup__close"
+              aria-label="Close Core Values popup"
+              onClick={() => setCoreValuesPopupOpen(false)}
+            >
+              ×
+            </button>
+            <img
+              src={coreValuesImage}
+              alt="Core Values"
+              className="portal-core-values-popup__image"
+            />
+          </div>
+        </div>
+      ) : null}
 
       <PreviewModal previewState={previewState} onClose={closePreview} onDownload={handleDownloadFile} onSelectSheet={handlePreviewSheetChange} />
     </>
