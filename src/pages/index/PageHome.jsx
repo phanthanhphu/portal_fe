@@ -60,7 +60,7 @@ function normalizeExternalUrl(value) {
   if (rawUrl.startsWith("//")) return `${window.location.protocol}${rawUrl}`;
   if (rawUrl.startsWith("/") || rawUrl.startsWith("#")) return rawUrl;
 
-  // Browser address bar auto-fixes values like "10.232.132.51:8081" or "intranet.local".
+  // Browser address bar auto-fixes values like "10.232.132.47:8081" or "intranet.local".
   // React <a href> does not, so the portal accidentally routes them through the current app.
   const looksLikeHost =
     /^(\d{1,3}\.){3}\d{1,3}(:\d+)?([/?#].*)?$/i.test(rawUrl) ||
@@ -2222,16 +2222,6 @@ export default function PageHome() {
     setOpenDropdown(null);
   });
 
-  useEffect(() => {
-    if (!coreValuesPopupOpen) return undefined;
-
-    const timerId = window.setTimeout(() => {
-      setCoreValuesPopupOpen(false);
-    }, 10000);
-
-    return () => window.clearTimeout(timerId);
-  }, [coreValuesPopupOpen]);
-
   const fetchApps = async (nameKeyword = "") => {
     setLoadingApps(true);
     setErrorApps(null);
@@ -2892,11 +2882,6 @@ export default function PageHome() {
     const handleKeyDown = (event) => {
       if (event.key !== "Escape") return;
 
-      if (coreValuesPopupOpen) {
-        setCoreValuesPopupOpen(false);
-        return;
-      }
-
       if (previewState.open) {
         closePreview();
         return;
@@ -2920,7 +2905,7 @@ export default function PageHome() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [coreValuesPopupOpen, previewState.open, formsPopupOpen, noticePopupOpen]);
+  }, [previewState.open, formsPopupOpen, noticePopupOpen]);
 
   const closePreview = () => {
     setPreviewState((prev) => {
@@ -3993,30 +3978,34 @@ const visibleNotices = useMemo(() => {
         {isScrollAtTopZone ? <IconChevronDown /> : <IconChevronUp />}
       </button>
 
-      {coreValuesPopupOpen ? (
-        <div
-          className="portal-core-values-popup"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Core Values"
-        >
-          <div className="portal-core-values-popup__card">
-            <button
-              type="button"
-              className="portal-core-values-popup__close"
-              aria-label="Close Core Values popup"
-              onClick={() => setCoreValuesPopupOpen(false)}
+      {coreValuesPopupOpen && typeof document !== "undefined"
+        ? createPortal(
+            <div
+              className="portal-core-popup-backdrop"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Core Values"
             >
-              ×
-            </button>
-            <img
-              src={coreValuesImage}
-              alt="Core Values"
-              className="portal-core-values-popup__image"
-            />
-          </div>
-        </div>
-      ) : null}
+              <div className="portal-core-popup-card">
+                <button
+                  type="button"
+                  className="portal-core-popup-close"
+                  onClick={() => setCoreValuesPopupOpen(false)}
+                  aria-label="Close popup"
+                  title="Close"
+                >
+                  ×
+                </button>
+                <img
+                  src={coreValuesImage}
+                  alt="Core Values"
+                  className="portal-core-popup-image"
+                />
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
 
       <PreviewModal previewState={previewState} onClose={closePreview} onDownload={handleDownloadFile} onSelectSheet={handlePreviewSheetChange} />
     </>
