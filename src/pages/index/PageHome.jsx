@@ -3962,7 +3962,7 @@ const visibleNotices = useMemo(() => {
             </div>
 
             <div className="portal-footer__credit">
-              Developed by IT BSL
+              Developed by BSL IT
             </div>
           </div>
         </footer>
