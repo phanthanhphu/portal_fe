@@ -104,28 +104,62 @@ const emptyPreviewState = {
   previewKind: '',
 };
 
-const normalizeApprovePermission = (value) => {
-  const permission = String(value || APPROVE_PERMISSION.NONE).trim().toUpperCase();
-
-  if (
-    permission === APPROVE_PERMISSION.NOTICE ||
-    permission === APPROVE_PERMISSION.DOCUMENT ||
-    permission === APPROVE_PERMISSION.BOTH ||
-    permission === APPROVE_PERMISSION.NONE
-  ) {
-    return permission;
+const parseApprovePermissionItems = (value) => {
+  if (Array.isArray(value)) {
+    return value
+      .flatMap((item) => parseApprovePermissionItems(item))
+      .filter((item, index, arr) => arr.indexOf(item) === index);
   }
+
+  const raw = String(value || APPROVE_PERMISSION.NONE).trim().toUpperCase();
+
+  if (!raw || raw === APPROVE_PERMISSION.NONE) return [];
+
+  if (raw === APPROVE_PERMISSION.BOTH || raw === 'ALL') {
+    return [APPROVE_PERMISSION.NOTICE, APPROVE_PERMISSION.DOCUMENT];
+  }
+
+  return raw
+    .split(/[\s,;|]+/)
+    .map((item) => item.trim())
+    .filter((item) => item === APPROVE_PERMISSION.NOTICE || item === APPROVE_PERMISSION.DOCUMENT)
+    .filter((item, index, arr) => arr.indexOf(item) === index);
+};
+
+const normalizeApprovePermission = (value) => {
+  const permissions = parseApprovePermissionItems(value);
+
+  const hasNotice = permissions.includes(APPROVE_PERMISSION.NOTICE);
+  const hasDocument = permissions.includes(APPROVE_PERMISSION.DOCUMENT);
+
+  if (hasNotice && hasDocument) return APPROVE_PERMISSION.BOTH;
+  if (hasNotice) return APPROVE_PERMISSION.NOTICE;
+  if (hasDocument) return APPROVE_PERMISSION.DOCUMENT;
 
   return APPROVE_PERMISSION.NONE;
 };
 
-const canUserApproveDocument = (user = {}) => {
-  const permission = normalizeApprovePermission(user?.approvePermission);
+const hasApprovePermission = (value, target) => {
+  const permission = normalizeApprovePermission(value);
 
-  // IMPORTANT:
-  // Role Admin alone does NOT grant approval action.
-  // User must have approvePermission = DOCUMENT or BOTH.
-  return permission === APPROVE_PERMISSION.DOCUMENT || permission === APPROVE_PERMISSION.BOTH;
+  if (target === APPROVE_PERMISSION.NOTICE) {
+    return permission === APPROVE_PERMISSION.NOTICE || permission === APPROVE_PERMISSION.BOTH;
+  }
+
+  if (target === APPROVE_PERMISSION.DOCUMENT) {
+    return permission === APPROVE_PERMISSION.DOCUMENT || permission === APPROVE_PERMISSION.BOTH;
+  }
+
+  return false;
+};
+
+const canUserApproveDocument = (user = {}) => {
+  if (!user) return false;
+
+  // Prefer the explicit flag from the backend, but keep approvePermission as fallback.
+  return user.canApproveDocument === true
+    || hasApprovePermission(user.approvePermission, APPROVE_PERMISSION.DOCUMENT)
+    || hasApprovePermission(user.approvePermissions, APPROVE_PERMISSION.DOCUMENT);
 };
 
 const parseJsonSafely = (value) => {
@@ -209,7 +243,7 @@ const syncCurrentUserPermissionToStorage = (latestUser = {}) => {
       JSON.stringify({
         ...currentValue,
         ...latestUser,
-        approvePermission: normalizeApprovePermission(latestUser.approvePermission),
+        approvePermission: normalizeApprovePermission(latestUser.approvePermission || latestUser.approvePermissions),
         canApproveNotice: latestUser.canApproveNotice === true,
         canApproveDocument: canUserApproveDocument(latestUser),
       }),
@@ -1131,8 +1165,11 @@ export default function DocumentApprovalPage() {
       ...latestUser,
     };
 
-    const permission = normalizeApprovePermission(mergedUser.approvePermission);
-    const canApprove = permission === APPROVE_PERMISSION.DOCUMENT || permission === APPROVE_PERMISSION.BOTH;
+    const permission = normalizeApprovePermission(mergedUser.approvePermission || mergedUser.approvePermissions);
+    const canApprove = canUserApproveDocument({
+      ...mergedUser,
+      approvePermission: permission,
+    });
 
     const normalizedMergedUser = {
       ...mergedUser,
@@ -1287,14 +1324,14 @@ export default function DocumentApprovalPage() {
       const result = response?.data || {};
       const normalizedRows = (result.content || []).map((item) => normalizeDocumentRow(item));
 
-      const responseApprovePermission = normalizeApprovePermission(result.approvePermission);
-      const userApprovePermission = normalizeApprovePermission(latestUser?.approvePermission);
+      const responseApprovePermission = normalizeApprovePermission(result.approvePermission || result.approvePermissions);
+      const userApprovePermission = normalizeApprovePermission(latestUser?.approvePermission || latestUser?.approvePermissions);
       const canApproveFromResponse =
-        responseApprovePermission === APPROVE_PERMISSION.DOCUMENT ||
-        responseApprovePermission === APPROVE_PERMISSION.BOTH;
+        result.canApproveDocument === true ||
+        hasApprovePermission(responseApprovePermission, APPROVE_PERMISSION.DOCUMENT);
       const canApproveFromLatestUser =
-        userApprovePermission === APPROVE_PERMISSION.DOCUMENT ||
-        userApprovePermission === APPROVE_PERMISSION.BOTH;
+        latestUser?.canApproveDocument === true ||
+        hasApprovePermission(userApprovePermission, APPROVE_PERMISSION.DOCUMENT);
 
       setRows(normalizedRows);
       setTotalElements(Number(result.totalElements || 0));

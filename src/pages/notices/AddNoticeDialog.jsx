@@ -297,8 +297,12 @@ export default function AddNoticeDialog({
         fullScreen={fullScreen}
         maxWidth="md"
         fullWidth
+        keepMounted
+        disableAutoFocus
         disableEnforceFocus
         disableRestoreFocus
+        className="notranslate"
+        translate="no"
         PaperProps={{ sx: paperSx }}
       >
         <DialogTitle sx={headerSx}>
@@ -320,7 +324,13 @@ export default function AddNoticeDialog({
         <DialogContent sx={{ p: 3 }}>
           <Stack spacing={2}>
             <TextField label="Title" value={title} onChange={(e) => setTitle(e.target.value)} disabled={locked} size="small" fullWidth sx={fieldSx} />
-            <NoticeContentEditor label="Content" value={content} onChange={setContent} disabled={locked} />
+            <NoticeContentEditor
+              key="add-notice-content-editor"
+              label="Content"
+              value={content}
+              onChange={setContent}
+              disabled={locked}
+            />
 
             {isAdmin && (
               <TextField select label="Department *" value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} disabled={locked || loadingDept} size="small" fullWidth sx={fieldSx}>

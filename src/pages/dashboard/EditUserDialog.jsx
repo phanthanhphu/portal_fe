@@ -20,6 +20,10 @@ import {
   Tooltip,
   Chip,
   Switch,
+  Checkbox,
+  FormControlLabel,
+  FormGroup,
+  FormHelperText,
   useMediaQuery,
   Slide,
 } from '@mui/material';
@@ -51,36 +55,161 @@ const stripToServerPath = (absoluteUrl) => {
   return clean.replace(`${API_BASE_URL}/`, '/').replace(API_BASE_URL, '');
 };
 
+const NOTICE_DOCUMENT_VALUES = ['NOTICE', 'DOCUMENT'];
+const BOOKING_VALUES = ['BOOKING'];
+
 const APPROVE_PERMISSION_OPTIONS = [
-  { value: 'NONE', label: 'No approve permission' },
-  { value: 'NOTICE', label: 'Approve Notice' },
-  { value: 'DOCUMENT', label: 'Approve Document' },
-  { value: 'BOTH', label: 'Approve Notice & Document' },
+  { value: 'NONE', label: 'None' },
+  { value: 'NOTICE', label: 'Notice' },
+  { value: 'DOCUMENT', label: 'Document' },
 ];
 
 const BOOKING_PERMISSION_OPTIONS = [
-  { value: 'NONE', label: 'No booking permission' },
-  { value: 'BOOKING', label: 'Can manage booking' },
+  { value: 'NONE', label: 'None' },
+  { value: 'BOOKING', label: 'Booking' },
 ];
 
-const normalizeApprovePermission = (value) => {
-  const normalized = String(value || 'NONE').trim().toUpperCase();
-  return APPROVE_PERMISSION_OPTIONS.some((item) => item.value === normalized) ? normalized : 'NONE';
+const MODULE_PERMISSION_OPTIONS = [
+  { value: 'NONE', label: 'None' },
+  { value: 'NOTICE', label: 'Notice' },
+  { value: 'DOCUMENT', label: 'Document' },
+];
+
+const parsePermissionValues = (value, allowedValues = NOTICE_DOCUMENT_VALUES) => {
+  const rawValues = Array.isArray(value)
+    ? value
+    : String(value || 'NONE')
+        .split(',')
+        .map((item) => item.trim());
+
+  const normalizedValues = rawValues
+    .map((item) => String(item || '').trim().toUpperCase())
+    .filter(Boolean);
+
+  if (
+    normalizedValues.length === 0 ||
+    normalizedValues.includes('NONE')
+  ) {
+    return ['NONE'];
+  }
+
+  if (normalizedValues.includes('BOTH') || normalizedValues.includes('ALL')) {
+    return [...allowedValues];
+  }
+
+  const permissions = normalizedValues.filter(
+    (item, index, arr) => allowedValues.includes(item) && arr.indexOf(item) === index
+  );
+
+  return permissions.length > 0 ? permissions : ['NONE'];
 };
 
-const getApprovePermissionLabel = (value) => {
-  const normalized = normalizeApprovePermission(value);
-  return APPROVE_PERMISSION_OPTIONS.find((item) => item.value === normalized)?.label || 'No approve permission';
+const serializePermissionValues = (values, allowedValues = NOTICE_DOCUMENT_VALUES) => {
+  const permissions = parsePermissionValues(values, allowedValues).filter((item) => item !== 'NONE');
+  return permissions.length > 0 ? permissions.join(',') : 'NONE';
 };
 
-const normalizeBookingPermission = (value) => {
-  const normalized = String(value || 'NONE').trim().toUpperCase();
-  return BOOKING_PERMISSION_OPTIONS.some((item) => item.value === normalized) ? normalized : 'NONE';
+const togglePermissionValue = (currentValue, optionValue, checked, allowedValues = NOTICE_DOCUMENT_VALUES) => {
+  const option = String(optionValue || '').trim().toUpperCase();
+
+  if (option === 'NONE') {
+    return 'NONE';
+  }
+
+  const current = parsePermissionValues(currentValue, allowedValues).filter((item) => item !== 'NONE');
+  const nextSet = new Set(current);
+
+  if (checked) {
+    nextSet.add(option);
+  } else {
+    nextSet.delete(option);
+  }
+
+  return serializePermissionValues(Array.from(nextSet), allowedValues);
 };
 
-const getBookingPermissionLabel = (value) => {
-  const normalized = normalizeBookingPermission(value);
-  return BOOKING_PERMISSION_OPTIONS.find((item) => item.value === normalized)?.label || 'No booking permission';
+const getPermissionLabel = (value, options, allowedValues = NOTICE_DOCUMENT_VALUES) => {
+  const selected = parsePermissionValues(value, allowedValues).filter((item) => item !== 'NONE');
+
+  if (selected.length === 0) {
+    return 'None';
+  }
+
+  return selected
+    .map((item) => options.find((option) => option.value === item)?.label || item)
+    .join(' + ');
+};
+
+const normalizeApprovePermission = (value) => serializePermissionValues(value, NOTICE_DOCUMENT_VALUES);
+const getApprovePermissionLabel = (value) => getPermissionLabel(value, APPROVE_PERMISSION_OPTIONS, NOTICE_DOCUMENT_VALUES);
+
+const normalizeBookingPermission = (value) => serializePermissionValues(value, BOOKING_VALUES);
+const getBookingPermissionLabel = (value) => getPermissionLabel(value, BOOKING_PERMISSION_OPTIONS, BOOKING_VALUES);
+
+const normalizeModulePermission = (value) => serializePermissionValues(value, NOTICE_DOCUMENT_VALUES);
+const getModulePermissionLabel = (value) => getPermissionLabel(value, MODULE_PERMISSION_OPTIONS, NOTICE_DOCUMENT_VALUES);
+
+const PermissionCheckboxGroup = ({
+  title,
+  value,
+  options,
+  allowedValues = NOTICE_DOCUMENT_VALUES,
+  disabled,
+  helperText,
+  onChange,
+  sx,
+}) => {
+  const selected = parsePermissionValues(value, allowedValues);
+
+  return (
+    <Box
+      sx={{
+        p: 1.2,
+        borderRadius: 3,
+        border: '1px solid',
+        borderColor: 'divider',
+        bgcolor: 'background.paper',
+        minHeight: '100%',
+        ...sx,
+      }}
+    >
+      <Typography sx={{ fontWeight: 900, fontSize: 13.5, mb: 0.5 }}>
+        {title}
+      </Typography>
+
+      <FormGroup row sx={{ gap: 0.4 }}>
+        {options.map((option) => (
+          <FormControlLabel
+            key={option.value}
+            sx={{
+              mr: 0.5,
+              '& .MuiFormControlLabel-label': {
+                fontSize: 12.5,
+                fontWeight: 700,
+              },
+            }}
+            control={
+              <Checkbox
+                size="small"
+                checked={selected.includes(option.value)}
+                disabled={disabled}
+                onChange={(e) => {
+                  onChange?.(
+                    togglePermissionValue(value, option.value, e.target.checked, allowedValues)
+                  );
+                }}
+              />
+            }
+            label={option.label}
+          />
+        ))}
+      </FormGroup>
+
+      <FormHelperText sx={{ ml: 0, mt: 0.2 }}>
+        {helperText}
+      </FormHelperText>
+    </Box>
+  );
 };
 
 
@@ -96,6 +225,7 @@ export default function EditUserDialog({ open, onClose, onUpdate, user, disabled
     role: 'User',
     approvePermission: 'NONE',
     bookingPermission: 'NONE',
+    modulePermission: 'NONE',
     isEnabled: true,
     departmentId: '',
   });
@@ -232,6 +362,7 @@ export default function EditUserDialog({ open, onClose, onUpdate, user, disabled
       role: user.role || 'User',
       approvePermission: normalizeApprovePermission(user.approvePermission),
       bookingPermission: normalizeBookingPermission(user.bookingPermission),
+      modulePermission: normalizeModulePermission(user.modulePermission),
       isEnabled: user.isEnabled !== undefined ? user.isEnabled : true,
       departmentId: user.department?.id || user.departmentId || '',
     });
@@ -302,6 +433,10 @@ export default function EditUserDialog({ open, onClose, onUpdate, user, disabled
     setFormData((prev) => ({ ...prev, [field]: e.target.value }));
   };
 
+  const handlePermissionChange = (field) => (nextValue) => {
+    setFormData((prev) => ({ ...prev, [field]: nextValue }));
+  };
+
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return toast('Aucun fichier sélectionné.', 'warning');
@@ -359,6 +494,8 @@ export default function EditUserDialog({ open, onClose, onUpdate, user, disabled
     const payload = {
       ...formData,
       approvePermission: normalizeApprovePermission(formData.approvePermission),
+      bookingPermission: normalizeBookingPermission(formData.bookingPermission),
+      modulePermission: normalizeModulePermission(formData.modulePermission),
     };
 
     Object.entries(payload).forEach(([k, v]) => {
@@ -536,7 +673,8 @@ export default function EditUserDialog({ open, onClose, onUpdate, user, disabled
                     <Typography sx={{ fontSize: 12.5, color: 'text.secondary', mt: 0.4 }}>
                       Department: <b>{selectedDepartmentLabel}</b><br />
                       Approve: <b>{getApprovePermissionLabel(formData.approvePermission)}</b><br />
-                      Booking: <b>{getBookingPermissionLabel(formData.bookingPermission)}</b>
+                      Booking: <b>{getBookingPermissionLabel(formData.bookingPermission)}</b><br />
+                      Module: <b>{getModulePermissionLabel(formData.modulePermission)}</b>
                     </Typography>
                     <Typography sx={{ fontSize: 12.5, color: 'text.secondary', mt: 0.4 }}>
                       Image: <b>{imageStatusLabel}</b>
@@ -688,43 +826,39 @@ export default function EditUserDialog({ open, onClose, onUpdate, user, disabled
                 </Grid>
 
                 <Grid item xs={12} sm={6}>
-                  <TextField
-                    select
-                    label="Approve Permission"
-                    value={normalizeApprovePermission(formData.approvePermission)}
-                    onChange={handleChange('approvePermission')}
-                    fullWidth
+                  <PermissionCheckboxGroup
+                    title="Approve Permission"
+                    value={formData.approvePermission}
+                    options={APPROVE_PERMISSION_OPTIONS}
+                    allowedValues={NOTICE_DOCUMENT_VALUES}
                     disabled={locked}
-                    size="small"
-                    sx={fieldSx}
-                    helperText="Allow user to approve Notice, Document, both, or none."
-                  >
-                    {APPROVE_PERMISSION_OPTIONS.map((option) => (
-                      <MenuItem key={option.value} value={option.value}>
-                        {option.label}
-                      </MenuItem>
-                    ))}
-                  </TextField>
+                    helperText="Tick NONE, NOTICE or DOCUMENT. You can select Notice and Document together."
+                    onChange={handlePermissionChange('approvePermission')}
+                  />
                 </Grid>
 
                 <Grid item xs={12} sm={6}>
-                  <TextField
-                    select
-                    label="Booking Permission"
-                    value={normalizeBookingPermission(formData.bookingPermission)}
-                    onChange={handleChange('bookingPermission')}
-                    fullWidth
+                  <PermissionCheckboxGroup
+                    title="Booking Permission"
+                    value={formData.bookingPermission}
+                    options={BOOKING_PERMISSION_OPTIONS}
+                    allowedValues={BOOKING_VALUES}
                     disabled={locked}
-                    size="small"
-                    sx={fieldSx}
-                    helperText="Allow user to add, edit, delete and show room bookings on Index Room."
-                  >
-                    {BOOKING_PERMISSION_OPTIONS.map((option) => (
-                      <MenuItem key={option.value} value={option.value}>
-                        {option.label}
-                      </MenuItem>
-                    ))}
-                  </TextField>
+                    helperText="Tick Booking if this user can manage room bookings."
+                    onChange={handlePermissionChange('bookingPermission')}
+                  />
+                </Grid>
+
+                <Grid item xs={12}>
+                  <PermissionCheckboxGroup
+                    title="Module Permission"
+                    value={formData.modulePermission}
+                    options={MODULE_PERMISSION_OPTIONS}
+                    allowedValues={NOTICE_DOCUMENT_VALUES}
+                    disabled={locked}
+                    helperText="Controls menu/actions for Notice and Document modules."
+                    onChange={handlePermissionChange('modulePermission')}
+                  />
                 </Grid>
 
                 <Grid item xs={12}>
@@ -833,7 +967,9 @@ export default function EditUserDialog({ open, onClose, onUpdate, user, disabled
               </Typography>
               <Typography sx={{ fontSize: 12.5, color: 'text.secondary' }}>
                 • Department: <b>{selectedDepartmentLabel}</b><br />
-                      Approve: <b>{getApprovePermissionLabel(formData.approvePermission)}</b>
+                • Approve: <b>{getApprovePermissionLabel(formData.approvePermission)}</b><br />
+                • Booking: <b>{getBookingPermissionLabel(formData.bookingPermission)}</b><br />
+                • Module: <b>{getModulePermissionLabel(formData.modulePermission)}</b>
               </Typography>
               <Typography sx={{ fontSize: 12.5, color: 'text.secondary' }}>
                 • Status: <b>{formData.isEnabled ? 'Enabled' : 'Disabled'}</b>

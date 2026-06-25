@@ -54,7 +54,8 @@ const APPROVE_PERMISSION_META = {
   NONE: { label: 'None', bg: '#f3f4f6', color: '#374151' },
   NOTICE: { label: 'Notice', bg: '#dbeafe', color: '#1d4ed8' },
   DOCUMENT: { label: 'Document', bg: '#fef3c7', color: '#92400e' },
-  BOTH: { label: 'Both', bg: '#dcfce7', color: '#166534' },
+  'NOTICE,DOCUMENT': { label: 'Notice + Document', bg: '#dcfce7', color: '#166534' },
+  BOTH: { label: 'Notice + Document', bg: '#dcfce7', color: '#166534' },
 };
 
 const BOOKING_PERMISSION_META = {
@@ -62,15 +63,50 @@ const BOOKING_PERMISSION_META = {
   BOOKING: { label: 'Booking', bg: '#e0f2fe', color: '#075985' },
 };
 
-const normalizeApprovePermission = (value) => {
-  const normalized = String(value || 'NONE').trim().toUpperCase();
-  return Object.prototype.hasOwnProperty.call(APPROVE_PERMISSION_META, normalized) ? normalized : 'NONE';
+const MODULE_PERMISSION_META = {
+  NONE: { label: 'None', bg: '#f3f4f6', color: '#374151' },
+  NOTICE: { label: 'Notice', bg: '#dbeafe', color: '#1d4ed8' },
+  DOCUMENT: { label: 'Document', bg: '#fef3c7', color: '#92400e' },
+  'NOTICE,DOCUMENT': { label: 'Notice + Document', bg: '#dcfce7', color: '#166534' },
+
+  // Keep these aliases only to display old records safely.
+  ALL: { label: 'Notice + Document', bg: '#dcfce7', color: '#166534' },
+  DEPARTMENT: { label: 'Department', bg: '#ede9fe', color: '#5b21b6' },
+  'NOTICE,DEPARTMENT': { label: 'Notice + Department', bg: '#fae8ff', color: '#86198f' },
+  'DOCUMENT,DEPARTMENT': { label: 'Document + Department', bg: '#fef9c3', color: '#854d0e' },
+  'NOTICE,DOCUMENT,DEPARTMENT': { label: 'Notice + Document', bg: '#dcfce7', color: '#166534' },
 };
+
+const normalizeNoticeDocumentPermission = (value, meta) => {
+  const normalized = String(value || 'NONE').trim().toUpperCase();
+
+  if (!normalized || normalized === 'NONE') {
+    return 'NONE';
+  }
+
+  if (normalized === 'BOTH' || normalized === 'ALL') {
+    return 'NOTICE,DOCUMENT';
+  }
+
+  const permissions = normalized
+    .split(',')
+    .map((item) => item.trim())
+    .filter((item, index, arr) => ['NOTICE', 'DOCUMENT'].includes(item) && arr.indexOf(item) === index);
+
+  const serialized = permissions.length > 0 ? permissions.join(',') : 'NONE';
+
+  return Object.prototype.hasOwnProperty.call(meta, serialized) ? serialized : 'NONE';
+};
+
+const normalizeApprovePermission = (value) => normalizeNoticeDocumentPermission(value, APPROVE_PERMISSION_META);
 
 const normalizeBookingPermission = (value) => {
   const normalized = String(value || 'NONE').trim().toUpperCase();
   return Object.prototype.hasOwnProperty.call(BOOKING_PERMISSION_META, normalized) ? normalized : 'NONE';
 };
+
+const normalizeModulePermission = (value) => normalizeNoticeDocumentPermission(value, MODULE_PERMISSION_META);
+
 
 /* =========================
    Headers (giống Group: có backendKey)
@@ -84,6 +120,7 @@ const headers = [
   { label: 'Role', key: 'role', sortable: true, backendKey: 'role' },
   { label: 'Approve', key: 'approvePermission', sortable: true, backendKey: 'approvePermission' },
   { label: 'Booking', key: 'bookingPermission', sortable: true, backendKey: 'bookingPermission' },
+  { label: 'Module', key: 'modulePermission', sortable: true, backendKey: 'modulePermission' },
   // ✅ backend thường là enabled, không phải isEnabled
   { label: 'Status', key: 'isEnabled', sortable: true, backendKey: 'enabled' },
   { label: 'Profile Image', key: 'profileImage', sortable: false, backendKey: 'profileImage' },
@@ -361,9 +398,13 @@ export default function UserManagementPage() {
         profileImageUrl: imageUrl,
         displayImageUrl: finalImageUrl,
         isEnabled: user.enabled,
-        approvePermission: normalizeApprovePermission(user.approvePermission),
+        approvePermission: normalizeApprovePermission(user.approvePermission || user.approvePermissions),
         bookingPermission: normalizeBookingPermission(user.bookingPermission),
         canManageBooking: Boolean(user.canManageBooking),
+        modulePermission: normalizeModulePermission(user.modulePermission || user.modulePermissions),
+        canManageNotice: Boolean(user.canManageNotice),
+        canManageDocument: Boolean(user.canManageDocument),
+        canManageDepartment: Boolean(user.canManageDepartment),
       };
     });
   }, [users, normalizeImageUrl, DEFAULT_IMAGE_URL]);
@@ -731,6 +772,35 @@ export default function UserManagementPage() {
     );
   };
 
+  const modulePermissionBadge = (value) => {
+    const normalized = normalizeModulePermission(value);
+    const meta = MODULE_PERMISSION_META[normalized] || MODULE_PERMISSION_META.NONE;
+
+    return (
+      <Box
+        sx={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          px: 1,
+          py: 0.3,
+          borderRadius: 999,
+          border: '1px solid #e5e7eb',
+          backgroundColor: meta.bg,
+          color: meta.color,
+          fontSize: '0.72rem',
+          fontWeight: 800,
+          width: '100%',
+          maxWidth: 160,
+          mx: 'auto',
+        }}
+        title={meta.label}
+      >
+        {meta.label}
+      </Box>
+    );
+  };
+
   const enabledBadge = (enabled) => {
     const bg = enabled ? '#dcfce7' : '#fee2e2';
     const color = enabled ? '#166534' : '#991b1b';
@@ -871,29 +941,30 @@ export default function UserManagementPage() {
             borderRadius: 1.5,
             border: '1px solid #e5e7eb',
             maxHeight: 560,
-            overflowX: 'hidden',
+            overflowX: 'auto',
             backgroundColor: '#fff',
           }}
         >
           <Table stickyHeader size="small" sx={{ width: '100%', tableLayout: 'fixed' }}>
             <colgroup>
               <col style={{ width: '4%' }} />
-              <col style={{ width: '10%' }} />
-              <col style={{ width: '16%' }} />
-              <col style={{ width: '14%' }} />
+              <col style={{ width: '9%' }} />
+              <col style={{ width: '15%' }} />
+              <col style={{ width: '12%' }} />
+              <col style={{ width: '7%' }} />
+              <col style={{ width: '7%' }} />
               <col style={{ width: '8%' }} />
               <col style={{ width: '8%' }} />
               <col style={{ width: '9%' }} />
+              <col style={{ width: '7%' }} />
+              <col style={{ width: '5%' }} />
               <col style={{ width: '9%' }} />
-              <col style={{ width: '8%' }} />
-              <col style={{ width: '6%' }} />
-              <col style={{ width: '8%' }} />
             </colgroup>
 
             <TableHead>
               <TableRow>
                 {headers.map(({ label, key, sortable }) => {
-                  const align = ['no', 'profileImage', 'actions', 'isEnabled', 'role', 'approvePermission', 'bookingPermission'].includes(key) ? 'center' : 'left';
+                  const align = ['no', 'profileImage', 'actions', 'isEnabled', 'role', 'approvePermission', 'bookingPermission', 'modulePermission'].includes(key) ? 'center' : 'left';
                   const active = sortConfig.key === key && !!sortConfig.direction;
 
                   return (
@@ -955,7 +1026,7 @@ export default function UserManagementPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={11} sx={{ py: 3 }}>
+                  <TableCell colSpan={12} sx={{ py: 3 }}>
                     <Stack direction="row" spacing={1} alignItems="center" justifyContent="center">
                       <CircularProgress size={18} />
                       <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>Loading data...</Typography>
@@ -1008,6 +1079,10 @@ export default function UserManagementPage() {
                       </TableCell>
 
                       <TableCell align="center" sx={{ py: 0.4, px: 0.6 }}>
+                        {modulePermissionBadge(u.modulePermission)}
+                      </TableCell>
+
+                      <TableCell align="center" sx={{ py: 0.4, px: 0.6 }}>
                         {enabledBadge(Boolean(u.isEnabled))}
                       </TableCell>
 
@@ -1052,7 +1127,7 @@ export default function UserManagementPage() {
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={11} align="center" sx={{ py: 3 }}>
+                  <TableCell colSpan={12} align="center" sx={{ py: 3 }}>
                     <Stack direction="column" alignItems="center" spacing={0.5} sx={{ color: 'text.secondary' }}>
                       <InboxIcon fontSize="small" />
                       <Typography sx={{ fontSize: '0.85rem' }}>

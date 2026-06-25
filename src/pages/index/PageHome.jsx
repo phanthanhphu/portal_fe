@@ -924,7 +924,12 @@ function getPreviewKind(item, mimeType = "") {
 }
 
 function shouldUsePdfPreview(item) {
-  return Boolean(item?.fileUrl || getItemFileUrls(item)[0]);
+  const fileUrl = item?.fileUrl || item?.previewUrl || getItemFileUrls(item)[0] || "";
+  const fileType = String(item?.fileType || inferFileType(fileUrl) || "").toUpperCase();
+
+  // Only Office-like files need backend conversion to PDF.
+  // Images/PDF/TXT must be fetched directly, otherwise /api/files/preview-pdf can fail on the Index page.
+  return OFFICE_PREVIEW_TYPES.has(fileType);
 }
 
 function isPreviewPublicUrl(url = "") {
@@ -955,6 +960,62 @@ async function fetchPreviewBlob(fileUrl, accept = "*/*") {
   const blob = await response.blob();
   const mimeType = blob.type || response.headers.get("content-type") || "";
   return { blob, mimeType };
+}
+
+async function buildDirectFilePreview(item) {
+  const directFileUrl = item?.previewUrl || item?.fileUrl || getItemFileUrls(item)[0] || "";
+
+  if (!directFileUrl) {
+    throw new Error("Missing file URL for direct preview.");
+  }
+
+  const directItem = {
+    ...item,
+    fileUrl: directFileUrl,
+    previewUrl: item?.previewUrl || directFileUrl,
+    fileType: item?.fileType || inferFileType(directFileUrl),
+  };
+
+  const { blob, mimeType } = await fetchPreviewBlob(directFileUrl, "*/*");
+  const previewKind = getPreviewKind(directItem, mimeType);
+  const originalFileType = String(directItem.fileType || inferFileType(directFileUrl) || "").toUpperCase();
+
+  if (previewKind === "image" || previewKind === "pdf") {
+    return {
+      previewKind,
+      blobUrl: URL.createObjectURL(blob),
+      mimeType,
+      docHtml: "",
+      workbookSheets: [],
+      activeSheetName: "",
+      textContent: "",
+      originalFileType,
+    };
+  }
+
+  if (previewKind === "text") {
+    return {
+      previewKind,
+      blobUrl: "",
+      mimeType,
+      docHtml: "",
+      workbookSheets: [],
+      activeSheetName: "",
+      textContent: await blob.text(),
+      originalFileType,
+    };
+  }
+
+  return {
+    previewKind: "other",
+    blobUrl: "",
+    mimeType,
+    docHtml: "",
+    workbookSheets: [],
+    activeSheetName: "",
+    textContent: "",
+    originalFileType,
+  };
 }
 
 async function buildFilePreviewAsPdf(item) {
@@ -2971,50 +3032,48 @@ export default function PageHome() {
     });
 
     try {
-      const originalFileType = String(item?.fileType || inferFileType(item?.fileUrl) || "").toUpperCase();
+      const fileUrl = item?.fileUrl || getItemFileUrls(item)[0] || item?.previewUrl || "";
+      const previewUrl = item?.previewUrl || fileUrl;
+      const originalFileType = String(item?.fileType || inferFileType(fileUrl || previewUrl) || "").toUpperCase();
+      const previewItem = {
+        ...item,
+        fileUrl,
+        previewUrl,
+        fileType: originalFileType || inferFileType(fileUrl || previewUrl),
+      };
 
-      // All preview files should go through backend PDF preview.
-      // This keeps DOC/DOCX/XLS/XLSX/CSV/PPT/PPTX/PDF/IMG/TXT and other files
-      // in one preview flow instead of mixing direct image/text/Office preview paths.
-      if (shouldUsePdfPreview(item)) {
-        try {
-          const previewData = await buildFilePreviewAsPdf(item);
+      try {
+        const previewData = shouldUsePdfPreview(previewItem)
+          ? await buildFilePreviewAsPdf(previewItem)
+          : await buildDirectFilePreview(previewItem);
 
-          setPreviewState({
-            open: true,
-            loading: false,
-            error: "",
-            item,
-            mimeType: "application/pdf",
-            fileName: getDownloadFileName(item),
-            originalFileType,
-            ...previewData,
-          });
-          return;
-        } catch (pdfError) {
-          console.warn("PDF preview conversion failed:", pdfError);
-          setPreviewState({
-            ...EMPTY_PREVIEW_STATE,
-            open: true,
-            loading: false,
-            error: "Unable to convert this file to PDF preview. Please check the backend preview-pdf service or download the original file.",
-            item,
-            fileName: getDownloadFileName(item),
-            originalFileType,
-          });
-          return;
-        }
+        setPreviewState({
+          ...EMPTY_PREVIEW_STATE,
+          open: true,
+          loading: false,
+          error: "",
+          item: previewItem,
+          fileName: getDownloadFileName(previewItem),
+          originalFileType,
+          mimeType: previewData.mimeType || (previewData.previewKind === "pdf" ? "application/pdf" : ""),
+          ...previewData,
+        });
+        return;
+      } catch (previewError) {
+        console.warn("File preview failed:", previewError);
+        setPreviewState({
+          ...EMPTY_PREVIEW_STATE,
+          open: true,
+          loading: false,
+          error: shouldUsePdfPreview(previewItem)
+            ? "Unable to convert this file to PDF preview. Please check the backend preview-pdf service or download the original file."
+            : "Unable to preview this file on the Index page. Please try downloading it.",
+          item: previewItem,
+          fileName: getDownloadFileName(previewItem),
+          originalFileType,
+        });
+        return;
       }
-
-      setPreviewState({
-        ...EMPTY_PREVIEW_STATE,
-        open: true,
-        loading: false,
-        error: "This item has no attached file.",
-        item,
-        fileName: getDownloadFileName(item),
-        originalFileType,
-      });
     } catch (error) {
       setPreviewState({
         ...EMPTY_PREVIEW_STATE,

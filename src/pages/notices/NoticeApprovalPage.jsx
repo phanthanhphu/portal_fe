@@ -96,19 +96,53 @@ const APPROVE_PERMISSION = {
 
 const DEPT_API = `${API_BASE_URL}/api/departments`;
 
-const normalizeApprovePermission = (value) => {
-  const permission = String(value || APPROVE_PERMISSION.NONE).trim().toUpperCase();
-
-  if (
-    permission === APPROVE_PERMISSION.NOTICE ||
-    permission === APPROVE_PERMISSION.DOCUMENT ||
-    permission === APPROVE_PERMISSION.BOTH ||
-    permission === APPROVE_PERMISSION.NONE
-  ) {
-    return permission;
+const parseApprovePermissionItems = (value) => {
+  if (Array.isArray(value)) {
+    return value
+      .flatMap((item) => parseApprovePermissionItems(item))
+      .filter((item, index, arr) => arr.indexOf(item) === index);
   }
 
+  const raw = String(value || APPROVE_PERMISSION.NONE).trim().toUpperCase();
+
+  if (!raw || raw === APPROVE_PERMISSION.NONE) return [];
+
+  if (raw === APPROVE_PERMISSION.BOTH || raw === 'ALL') {
+    return [APPROVE_PERMISSION.NOTICE, APPROVE_PERMISSION.DOCUMENT];
+  }
+
+  return raw
+    .split(/[\s,;|]+/)
+    .map((item) => item.trim())
+    .filter((item) => item === APPROVE_PERMISSION.NOTICE || item === APPROVE_PERMISSION.DOCUMENT)
+    .filter((item, index, arr) => arr.indexOf(item) === index);
+};
+
+const normalizeApprovePermission = (value) => {
+  const permissions = parseApprovePermissionItems(value);
+
+  const hasNotice = permissions.includes(APPROVE_PERMISSION.NOTICE);
+  const hasDocument = permissions.includes(APPROVE_PERMISSION.DOCUMENT);
+
+  if (hasNotice && hasDocument) return APPROVE_PERMISSION.BOTH;
+  if (hasNotice) return APPROVE_PERMISSION.NOTICE;
+  if (hasDocument) return APPROVE_PERMISSION.DOCUMENT;
+
   return APPROVE_PERMISSION.NONE;
+};
+
+const hasApprovePermission = (value, target) => {
+  const permission = normalizeApprovePermission(value);
+
+  if (target === APPROVE_PERMISSION.NOTICE) {
+    return permission === APPROVE_PERMISSION.NOTICE || permission === APPROVE_PERMISSION.BOTH;
+  }
+
+  if (target === APPROVE_PERMISSION.DOCUMENT) {
+    return permission === APPROVE_PERMISSION.DOCUMENT || permission === APPROVE_PERMISSION.BOTH;
+  }
+
+  return false;
 };
 
 const isAdminRole = (role) => {
@@ -121,10 +155,9 @@ const canUserApproveNotice = (user = {}) => {
 
   // IMPORTANT:
   // Approval action is controlled ONLY by approvePermission.
-  // Role Admin alone must NOT grant Notice approval action.
-  const permission = normalizeApprovePermission(user.approvePermission);
-
-  return permission === APPROVE_PERMISSION.NOTICE || permission === APPROVE_PERMISSION.BOTH;
+  // Do not trust old cached canApproveNotice from localStorage because older code
+  // could set it true for Admin even when approvePermission is NONE.
+  return hasApprovePermission(user.approvePermission, APPROVE_PERMISSION.NOTICE);
 };
 
 const getCurrentUserForPermission = () => {
@@ -151,14 +184,20 @@ const syncCurrentUserPermissionToStorage = (latestUser = {}) => {
 
     if (currentId && latestId && currentId !== latestId) return;
 
+    const normalizedPermission = normalizeApprovePermission(latestUser.approvePermission);
+
     localStorage.setItem(
       key,
       JSON.stringify({
         ...currentValue,
         ...latestUser,
-        approvePermission: normalizeApprovePermission(latestUser.approvePermission),
-        canApproveNotice: latestUser.canApproveNotice === true,
-        canApproveDocument: latestUser.canApproveDocument === true,
+        approvePermission: normalizedPermission,
+        canApproveNotice:
+          latestUser.canApproveNotice === true ||
+          hasApprovePermission(normalizedPermission, APPROVE_PERMISSION.NOTICE),
+        canApproveDocument:
+          latestUser.canApproveDocument === true ||
+          hasApprovePermission(normalizedPermission, APPROVE_PERMISSION.DOCUMENT),
       }),
     );
   });
@@ -1084,22 +1123,55 @@ export default function NoticeApprovalPage() {
   }, [userId, searchKeywordParams, departmentFilter]);
 
   const fetchCounts = useCallback(async () => {
+    if (!userId) {
+      setCounts({ PENDING: 0, APPROVED: 0, REJECTED: 0 });
+      return;
+    }
+
     try {
-      const [pending, approved, rejected] = await Promise.all([
-        fetchCountByStatus(APPROVAL_STATUS.PENDING),
-        fetchCountByStatus(APPROVAL_STATUS.APPROVED),
-        fetchCountByStatus(APPROVAL_STATUS.REJECTED),
-      ]);
+      // Preferred API: one request returns exact counts for all statuses.
+      // This avoids the old /search + size=1 issue where totalElements could be wrong.
+      const response = await axios.get(`${API_BASE_URL}/api/notices/status-counts`, {
+        params: {
+          userId,
+          skipDepartmentFilter: true,
+          title: searchKeywordParams.title,
+          content: searchKeywordParams.content,
+          departmentName: departmentFilter,
+        },
+        headers: getAuthHeaders('*/*'),
+      });
+
+      const data = response?.data || {};
+      const countData = data.counts || data;
 
       setCounts({
-        PENDING: pending,
-        APPROVED: approved,
-        REJECTED: rejected,
+        PENDING: Number(countData.PENDING ?? countData.pending ?? 0),
+        APPROVED: Number(countData.APPROVED ?? countData.approved ?? 0),
+        REJECTED: Number(countData.REJECTED ?? countData.rejected ?? 0),
       });
     } catch (err) {
-      console.error('Cannot load notice status counts', err);
+      console.error('Cannot load notice status counts from status-counts API', err);
+
+      try {
+        // Backward compatibility if BE has not been updated yet.
+        const [pending, approved, rejected] = await Promise.all([
+          fetchCountByStatus(APPROVAL_STATUS.PENDING),
+          fetchCountByStatus(APPROVAL_STATUS.APPROVED),
+          fetchCountByStatus(APPROVAL_STATUS.REJECTED),
+        ]);
+
+        setCounts({
+          PENDING: pending,
+          APPROVED: approved,
+          REJECTED: rejected,
+        });
+      } catch (fallbackErr) {
+        console.error('Cannot load notice status counts', fallbackErr);
+        setCounts({ PENDING: 0, APPROVED: 0, REJECTED: 0 });
+      }
     }
-  }, [fetchCountByStatus]);
+  }, [userId, searchKeywordParams, departmentFilter, fetchCountByStatus]);
 
   const applyCurrentUserPermission = useCallback((latestUser = {}) => {
     const mergedUser = {
@@ -1108,12 +1180,18 @@ export default function NoticeApprovalPage() {
     };
 
     const permission = normalizeApprovePermission(mergedUser.approvePermission);
-    const canApproveNotice = permission === APPROVE_PERMISSION.NOTICE || permission === APPROVE_PERMISSION.BOTH;
+    const canApproveNotice =
+      mergedUser.canApproveNotice === true ||
+      hasApprovePermission(permission, APPROVE_PERMISSION.NOTICE);
+    const canApproveDocument =
+      mergedUser.canApproveDocument === true ||
+      hasApprovePermission(permission, APPROVE_PERMISSION.DOCUMENT);
 
     const normalizedMergedUser = {
       ...mergedUser,
       approvePermission: permission,
       canApproveNotice,
+      canApproveDocument,
     };
 
     currentUserPermissionRef.current = normalizedMergedUser;
@@ -1219,11 +1297,11 @@ export default function NoticeApprovalPage() {
       const responseApprovePermission = normalizeApprovePermission(result.approvePermission);
       const userApprovePermission = normalizeApprovePermission(latestUserForPermission.approvePermission);
       const canApproveFromResponse =
-        responseApprovePermission === APPROVE_PERMISSION.NOTICE ||
-        responseApprovePermission === APPROVE_PERMISSION.BOTH;
+        result.canApproveNotice === true ||
+        hasApprovePermission(responseApprovePermission, APPROVE_PERMISSION.NOTICE);
       const canApproveFromLatestUser =
-        userApprovePermission === APPROVE_PERMISSION.NOTICE ||
-        userApprovePermission === APPROVE_PERMISSION.BOTH;
+        latestUserForPermission?.canApproveNotice === true ||
+        hasApprovePermission(userApprovePermission, APPROVE_PERMISSION.NOTICE);
 
       setIsAdmin(Boolean(result.isAdmin) || isAdminRole(latestUserForPermission?.role));
       setCanApproveNoticePermission(canApproveFromResponse || canApproveFromLatestUser);

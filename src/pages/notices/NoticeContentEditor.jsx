@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { Box, Typography, GlobalStyles } from '@mui/material';
 import { Editor } from '@tinymce/tinymce-react';
 
@@ -21,8 +21,6 @@ import 'tinymce/plugins/code';
 import 'tinymce/plugins/fullscreen';
 import 'tinymce/plugins/insertdatetime';
 import 'tinymce/plugins/table';
-import 'tinymce/plugins/help';
-import 'tinymce/plugins/wordcount';
 
 import 'tinymce/skins/ui/oxide/skin.min.css';
 import 'tinymce/skins/ui/oxide/content.min.css';
@@ -62,10 +60,40 @@ export default function NoticeContentEditor({
   disabled = false,
   height = 360,
 }) {
+  const editorRef = useRef(null);
+  const editorId = useMemo(
+    () => `notice-content-editor-${Math.random().toString(36).slice(2)}`,
+    []
+  );
+
+  useEffect(() => {
+    // Prevent Chrome/Edge automatic translation from changing React-owned DOM nodes.
+    // This avoids NotFoundError: Failed to execute 'removeChild' on 'Node'.
+    try {
+      document.documentElement.setAttribute('translate', 'no');
+      document.body?.setAttribute('translate', 'no');
+      document.body?.classList.add('notranslate');
+
+      let googleMeta = document.querySelector('meta[name="google"]');
+      if (!googleMeta) {
+        googleMeta = document.createElement('meta');
+        googleMeta.setAttribute('name', 'google');
+        document.head.appendChild(googleMeta);
+      }
+      googleMeta.setAttribute('content', 'notranslate');
+    } catch {
+      // Ignore if document is not available.
+    }
+  }, []);
+
+  useEffect(() => () => {
+    editorRef.current = null;
+  }, []);
+
   const showHelper = !toPlainText(value);
 
   return (
-    <Box>
+    <Box className="notranslate" translate="no">
       <GlobalStyles
         styles={{
           '.tox-tinymce-aux, .tox-silver-sink, .tox-dialog-wrap, .tox-notifications-container': {
@@ -98,19 +126,26 @@ export default function NoticeContentEditor({
           '& .tox .tox-toolbar, & .tox .tox-toolbar__primary, & .tox .tox-menubar': {
             backgroundColor: '#f9fafb',
           },
+          '& .tox .tox-statusbar': {
+            display: 'none !important',
+          },
         }}
       >
         <Editor
+          id={editorId}
+          key={editorId}
           value={value || ''}
           disabled={disabled}
+          onInit={(_, editor) => { editorRef.current = editor; }}
           onEditorChange={(newValue) => onChange?.(newValue)}
           init={{
             license_key: 'gpl',
             height,
-            menubar: 'file edit view insert format table help',
+            auto_focus: false,
+            menubar: 'file edit view insert format table',
             branding: false,
             promotion: false,
-            statusbar: true,
+            statusbar: false,
             skin: false,
             content_css: false,
             plugins: [
@@ -127,8 +162,6 @@ export default function NoticeContentEditor({
               'fullscreen',
               'insertdatetime',
               'table',
-              'help',
-              'wordcount',
             ],
             toolbar:
               'undo redo | blocks fontfamily fontsize | bold italic underline strikethrough | ' +

@@ -131,7 +131,23 @@ const getCurrentUserContext = () => {
     canManageBooking:
       user?.canManageBooking ??
       user?.can_manage_booking ??
-      (localStorage.getItem('canManageBooking') === 'true')
+      (localStorage.getItem('canManageBooking') === 'true'),
+
+    // Quyền thao tác module thường:
+    // NONE / NOTICE / DOCUMENT / DEPARTMENT / ALL / NOTICE,DOCUMENT,DEPARTMENT
+    modulePermission: user?.modulePermission || localStorage.getItem('modulePermission') || 'NONE',
+    canManageNotice:
+      user?.canManageNotice ??
+      user?.can_manage_notice ??
+      (localStorage.getItem('canManageNotice') === 'true'),
+    canManageDocument:
+      user?.canManageDocument ??
+      user?.can_manage_document ??
+      (localStorage.getItem('canManageDocument') === 'true'),
+    canManageDepartment:
+      user?.canManageDepartment ??
+      user?.can_manage_department ??
+      (localStorage.getItem('canManageDepartment') === 'true')
   };
 };
 
@@ -192,6 +208,53 @@ const hasApproveDocumentPermission = (user) => {
     || approvePermission === 'BOTH';
 };
 
+const getModulePermissionList = (value) => {
+  const permission = normalizePermission(value);
+
+  if (!permission || permission === 'NONE') {
+    return [];
+  }
+
+  if (permission === 'ALL') {
+    return ['NOTICE', 'DOCUMENT', 'DEPARTMENT'];
+  }
+
+  return permission
+    .split(',')
+    .map((item) => item.trim().toUpperCase())
+    .filter(Boolean);
+};
+
+const hasModulePermission = (user, target) => {
+  if (isAdminRole(user?.role)) return true;
+
+  const targetPermission = normalizePermission(target);
+  const permissions = getModulePermissionList(user?.modulePermission);
+
+  return permissions.includes(targetPermission);
+};
+
+const hasNoticeManagePermission = (user) => {
+  if (isAdminRole(user?.role)) return true;
+
+  return Boolean(user?.canManageNotice)
+    || hasModulePermission(user, 'NOTICE');
+};
+
+const hasDocumentManagePermission = (user) => {
+  if (isAdminRole(user?.role)) return true;
+
+  return Boolean(user?.canManageDocument)
+    || hasModulePermission(user, 'DOCUMENT');
+};
+
+const hasDepartmentManagePermission = (user) => {
+  if (isAdminRole(user?.role)) return true;
+
+  return Boolean(user?.canManageDepartment)
+    || hasModulePermission(user, 'DEPARTMENT');
+};
+
 const pushUniqueMenu = (children, item) => {
   if (!item) return;
 
@@ -207,10 +270,13 @@ const getDashboardMenu = () => {
   const isIT = isItDepartment(currentUser);
   const canSeeAppLinks = isAdmin || isIT;
 
+  const canManageNotice = hasNoticeManagePermission(currentUser);
+  const canManageDocument = hasDocumentManagePermission(currentUser);
+  const canManageDepartment = hasDepartmentManagePermission(currentUser);
+
   const canManageBooking = hasBookingManagePermission(currentUser);
   const canApproveNotice = hasApproveNoticePermission(currentUser);
   const canApproveDocument = hasApproveDocumentPermission(currentUser);
-  const hasAnyApprovePermission = canApproveNotice || canApproveDocument;
 
   const appLinksItem = {
     id: 'app-links',
@@ -343,23 +409,16 @@ const getDashboardMenu = () => {
       }
     : null;
 
-  const baseChildren = [
-    canSeeAppLinks ? appLinksItem : null,
-    departmentsItem,
-    noticesItem,
-    documentTypesItem,
-    documentsItem
-  ].filter(Boolean);
-
   let children = [];
 
   if (isAdmin) {
-    // Admin thấy toàn bộ menu, bao gồm App Links.
-    // Thứ tự yêu cầu:
-    // Approve nằm trên Users.
-    // Locations, Rooms, Room Bookings, Index Room nằm dưới Users và ở cuối.
+    // Admin thấy toàn bộ menu.
     children = [
-      ...baseChildren,
+      appLinksItem,
+      departmentsItem,
+      noticesItem,
+      documentTypesItem,
+      documentsItem,
       approveItem,
       userManagementItem,
       locationsItem,
@@ -368,44 +427,38 @@ const getDashboardMenu = () => {
       indexRoomItem
     ].filter(Boolean);
   } else {
-    // App Links chỉ cho bộ phận IT.
+    // App Links chỉ cho Admin hoặc bộ phận IT.
     if (canSeeAppLinks) {
       pushUniqueMenu(children, appLinksItem);
     }
 
-    // User có bất kỳ quyền Approve nào thì luôn thấy menu thường:
-    // Notices + Documents.
-    if (hasAnyApprovePermission) {
+    // Quyền DEPARTMENT thì hiện Departments.
+    if (canManageDepartment) {
+      pushUniqueMenu(children, departmentsItem);
+    }
+
+    // Quyền NOTICE thì hiện Notices.
+    if (canManageNotice) {
       pushUniqueMenu(children, noticesItem);
+    }
+
+    // Quyền DOCUMENT thì hiện Document Types + Documents.
+    if (canManageDocument) {
+      pushUniqueMenu(children, documentTypesItem);
       pushUniqueMenu(children, documentsItem);
     }
 
-    // Trong nhóm Approve chỉ hiện đúng quyền:
-    // NOTICE -> Approve / Notice
-    // DOCUMENT -> Approve / Document
-    // BOTH -> cả 2
+    // Quyền duyệt thì hiện nhóm Approve đúng quyền.
     if (approveItem) {
       pushUniqueMenu(children, approveItem);
     }
 
-    // User có quyền canManageBooking thì luôn thấy Locations,
-    // sau đó mới đến Rooms, Room Bookings, Index Room ở cuối menu.
+    // Quyền BOOKING thì hiện menu phòng.
     if (canManageBooking) {
       pushUniqueMenu(children, locationsItem);
       pushUniqueMenu(children, roomsItem);
       pushUniqueMenu(children, roomBookingsItem);
       pushUniqueMenu(children, indexRoomItem);
-    }
-
-    // User không có quyền đặc biệt thì cho menu tối thiểu,
-    // nhưng App Links vẫn chỉ hiện nếu thuộc IT.
-    if (children.length === 0) {
-      if (canSeeAppLinks) {
-        pushUniqueMenu(children, appLinksItem);
-      }
-
-      pushUniqueMenu(children, noticesItem);
-      pushUniqueMenu(children, documentsItem);
     }
   }
 
