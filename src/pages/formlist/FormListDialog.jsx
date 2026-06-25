@@ -77,10 +77,45 @@ api.interceptors.response.use(
 );
 
 /* Helpers */
-const formatDate = (arr) => {
-  if (!arr) return '-';
-  const [y, m, d, hh = 0, mm = 0] = arr;
-  return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y} ${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+const formatDate = (value) => {
+  if (!value) return '-';
+
+  let date;
+
+  // Spring Boot LocalDateTime can be returned as an array:
+  // [year, month, day, hour, minute, second, nano]
+  if (Array.isArray(value)) {
+    const [year, month, day, hour = 0, minute = 0, second = 0] = value;
+
+    if (!year || !month || !day) return '-';
+
+    date = new Date(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      Number(hour),
+      Number(minute),
+      Number(second),
+    );
+  } else if (typeof value === 'string' || typeof value === 'number') {
+    // ISO string / timestamp from backend
+    date = new Date(value);
+  } else if (value instanceof Date) {
+    date = value;
+  } else {
+    return '-';
+  }
+
+  if (!date || Number.isNaN(date.getTime())) return '-';
+
+  const dd = String(date.getDate()).padStart(2, '0');
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const yyyy = date.getFullYear();
+  const hh = String(date.getHours()).padStart(2, '0');
+  const min = String(date.getMinutes()).padStart(2, '0');
+  const ss = String(date.getSeconds()).padStart(2, '0');
+
+  return `${dd}/${mm}/${yyyy} ${hh}:${min}:${ss}`;
 };
 
 const getFileTypeFromUrl = (url) => {
