@@ -40,6 +40,7 @@ import axios from 'axios';
 import SockJS from 'sockjs-client';
 import { Client } from '@stomp/stompjs';
 import { API_BASE_URL } from '../../config';
+import { isViewRole } from '../../utils/accessRole';
 
 import LocationSearch from './LocationSearch';
 import AddLocationDialog from './AddLocationDialog';
@@ -159,7 +160,7 @@ const isAdminRole = (role) => {
 };
 
 const canManageBookingByUser = (user) => {
-  if (!user) return false;
+  if (!user || isViewRole(user.role)) return false;
 
   return Boolean(user.canManageBooking)
     || String(user.bookingPermission || '').trim().toUpperCase() === 'BOOKING'

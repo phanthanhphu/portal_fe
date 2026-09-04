@@ -6,9 +6,10 @@ import { Typography, Box, Button } from '@mui/material';
 import LoginPage from './LoginPage';
 import { toast } from 'react-toastify';
 import PageHome from '../pages/index/PageHome';
+import { isViewRole } from '../utils/accessRole';
 
 const DepartmentPage = Loadable(lazy(() => import('pages/department/DepartmentManagement')));
-const UserManagementPage = Loadable(lazy(() => import('pages/dashboard/UserManagementPage')));
+const UserManagementPage = Loadable(lazy(() => import('pages/users/UserManagementPage')));
 const AppLinksPage = Loadable(lazy(() => import('pages/appLinks/AppLinksPage')));
 const DocumentTypesPage = Loadable(lazy(() => import('pages/documenttype/DocumentTypesPage')));
 const LocationsPage = Loadable(lazy(() => import('pages/locations/LocationsPage')));
@@ -70,7 +71,21 @@ const clearAuthSession = () => {
   localStorage.removeItem('userId');
   localStorage.removeItem('isAuthenticated');
   localStorage.removeItem('role');
+  localStorage.removeItem('approvePermission');
+  localStorage.removeItem('canApproveNotice');
+  localStorage.removeItem('canApproveDocument');
+  localStorage.removeItem('bookingPermission');
+  localStorage.removeItem('canManageBooking');
+  localStorage.removeItem('modulePermission');
+  localStorage.removeItem('canManageAppLinks');
+  localStorage.removeItem('canManageNotice');
+  localStorage.removeItem('canManageDocument');
+  localStorage.removeItem('canManageDepartment');
+  localStorage.removeItem('departmentId');
+  localStorage.removeItem('departmentName');
+  localStorage.removeItem('division');
   localStorage.removeItem('loginAt');
+  localStorage.removeItem('authenticationType');
 };
 
 const getStoredUser = () => {
@@ -98,7 +113,9 @@ const isAdminRole = (role) => {
 const canApproveNotice = () => {
   const user = getStoredUser();
 
-  if (isAdminRole(getStoredRole())) {
+  const role = getStoredRole();
+
+  if (isAdminRole(role) || isViewRole(role)) {
     return true;
   }
 
@@ -108,7 +125,9 @@ const canApproveNotice = () => {
 const canApproveDocument = () => {
   const user = getStoredUser();
 
-  if (isAdminRole(getStoredRole())) {
+  const role = getStoredRole();
+
+  if (isAdminRole(role) || isViewRole(role)) {
     return true;
   }
 
@@ -181,11 +200,12 @@ function ProtectedRoute() {
   return <Outlet />;
 }
 
-function AdminRoute({ children }) {
+function AdminOrViewRoute({ children }) {
   const location = useLocation();
   const token = localStorage.getItem('token');
   const expired = token ? isTokenExpired(token) : false;
-  const isAdmin = isAdminRole(getStoredRole());
+  const role = getStoredRole();
+  const allowed = isAdminRole(role) || isViewRole(role);
 
   useEffect(() => {
     if (expired) {
@@ -194,16 +214,16 @@ function AdminRoute({ children }) {
       return;
     }
 
-    if (token && !isAdmin) {
-      toast.error('Access denied. Admin only.');
+    if (token && !allowed) {
+      toast.error('Access denied. Admin or View role required.');
     }
-  }, [token, expired, isAdmin]);
+  }, [token, expired, allowed]);
 
   if (!token || expired) {
     return <Navigate to={LOGIN_PATH} replace state={{ from: location }} />;
   }
 
-  if (!isAdmin) {
+  if (!allowed) {
     return <Navigate to={DEFAULT_AFTER_LOGIN_PATH} replace />;
   }
 
@@ -320,9 +340,9 @@ const MainRoutes = {
             {
               path: 'user-management',
               element: (
-                <AdminRoute>
+                <AdminOrViewRoute>
                   <UserManagementPage />
-                </AdminRoute>
+                </AdminOrViewRoute>
               )
             },
             { path: 'typography', element: <TypographyPage /> },

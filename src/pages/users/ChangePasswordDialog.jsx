@@ -53,8 +53,9 @@ export default function ChangePasswordDialog({ open, onClose, onUpdate, user }) 
   // Initialize form with user email only
   useEffect(() => {
     if (user && open) {
+      const sourceUser = user?.data || user;
       setFormData({
-        email: user.email || '',
+        email: sourceUser.email || '',
         oldPassword: '',
         newPassword: '',
         confirmNewPassword: '',
@@ -70,7 +71,9 @@ export default function ChangePasswordDialog({ open, onClose, onUpdate, user }) 
     if (!formData.email?.trim()) return 'Email is required.';
     if (!formData.oldPassword) return 'Old password is required.';
     if (!formData.newPassword) return 'New password is required.';
-    if (formData.newPassword.length < 6) return 'New password must be at least 6 characters.';
+    if (formData.newPassword.length < 8) return 'New password must be at least 8 characters.';
+    if (formData.oldPassword === formData.newPassword)
+      return 'New password must be different from current password.';
     if (formData.newPassword !== formData.confirmNewPassword)
       return 'New password and confirmation do not match.';
     return null;
@@ -130,7 +133,7 @@ export default function ChangePasswordDialog({ open, onClose, onUpdate, user }) 
       localStorage.removeItem('user');
 
       setFormData({
-        email: user?.email || '',
+        email: user?.data?.email || user?.email || '',
         oldPassword: '',
         newPassword: '',
         confirmNewPassword: '',

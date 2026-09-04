@@ -46,6 +46,7 @@ import EditUserDialog from './EditUserDialog';
 import ResetPasswordDialog from './ResetPasswordDialog';
 import UserSearch from './UserSearch';
 import { API_BASE_URL } from '../../config';
+import { isStoredViewRole } from '../../utils/accessRole';
 
 const STATIC_ROOT = API_BASE_URL.replace(/\/$/, '');
 const API_ROOT = `${STATIC_ROOT}/api`;
@@ -68,9 +69,13 @@ const MODULE_PERMISSION_META = {
   NOTICE: { label: 'Notice', bg: '#dbeafe', color: '#1d4ed8' },
   DOCUMENT: { label: 'Document', bg: '#fef3c7', color: '#92400e' },
   'NOTICE,DOCUMENT': { label: 'Notice + Document', bg: '#dcfce7', color: '#166534' },
+  APP_LINK: { label: 'App Link', bg: '#e0e7ff', color: '#3730a3' },
+  'NOTICE,APP_LINK': { label: 'Notice + App Link', bg: '#ede9fe', color: '#5b21b6' },
+  'DOCUMENT,APP_LINK': { label: 'Document + App Link', bg: '#fce7f3', color: '#9d174d' },
+  'NOTICE,DOCUMENT,APP_LINK': { label: 'Notice + Document + App Link', bg: '#d1fae5', color: '#065f46' },
 
   // Keep these aliases only to display old records safely.
-  ALL: { label: 'Notice + Document', bg: '#dcfce7', color: '#166534' },
+  ALL: { label: 'Notice + Document + App Link', bg: '#dcfce7', color: '#166534' },
   DEPARTMENT: { label: 'Department', bg: '#ede9fe', color: '#5b21b6' },
   'NOTICE,DEPARTMENT': { label: 'Notice + Department', bg: '#fae8ff', color: '#86198f' },
   'DOCUMENT,DEPARTMENT': { label: 'Document + Department', bg: '#fef9c3', color: '#854d0e' },
@@ -105,7 +110,25 @@ const normalizeBookingPermission = (value) => {
   return Object.prototype.hasOwnProperty.call(BOOKING_PERMISSION_META, normalized) ? normalized : 'NONE';
 };
 
-const normalizeModulePermission = (value) => normalizeNoticeDocumentPermission(value, MODULE_PERMISSION_META);
+const normalizeModulePermission = (value) => {
+  const normalized = String(value || 'NONE').trim().toUpperCase();
+
+  if (!normalized || normalized === 'NONE') return 'NONE';
+
+  const expanded = normalized === 'ALL'
+    ? 'NOTICE,DOCUMENT,APP_LINK'
+    : normalized === 'BOTH'
+      ? 'NOTICE,DOCUMENT'
+      : normalized;
+
+  const permissions = expanded
+    .split(',')
+    .map((item) => item.trim())
+    .filter((item, index, arr) => ['NOTICE', 'DOCUMENT', 'APP_LINK'].includes(item) && arr.indexOf(item) === index);
+
+  const serialized = permissions.length > 0 ? permissions.join(',') : 'NONE';
+  return MODULE_PERMISSION_META[serialized] ? serialized : 'NONE';
+};
 
 
 /* =========================
@@ -296,6 +319,7 @@ function PaginationBar({ count, page, rowsPerPage, onPageChange, onRowsPerPageCh
 }
 
 export default function UserManagementPage() {
+  const readOnly = isStoredViewRole();
   const theme = useTheme();
   const btnSx = useMemo(() => ({ textTransform: 'none', fontWeight: 400 }), []);
   const addBtnSx = useMemo(
@@ -565,7 +589,7 @@ export default function UserManagementPage() {
   );
 
   const handleConfirmDelete = useCallback(async () => {
-    if (!selectedUser) return;
+    if (readOnly || !selectedUser) return;
     setLoading(true);
     try {
       const res = await fetch(`${API_ROOT}/users/${selectedUser.id}`, {
@@ -600,22 +624,25 @@ export default function UserManagementPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedUser, fetchData, page, rowsPerPage, totalRows]);
+  }, [readOnly, selectedUser, fetchData, page, rowsPerPage, totalRows]);
 
   const handleEdit = useCallback((user) => {
+    if (readOnly) return;
     setSelectedUser(user);
     setEditDialogOpen(true);
-  }, []);
+  }, [readOnly]);
 
   const handleDelete = useCallback((user) => {
+    if (readOnly) return;
     setSelectedUser(user);
     setDeleteDialogOpen(true);
-  }, []);
+  }, [readOnly]);
 
   const handleResetPassword = useCallback((user) => {
+    if (readOnly) return;
     setSelectedUser(user);
     setResetPasswordDialogOpen(true);
-  }, []);
+  }, [readOnly]);
 
   const handlePasswordUpdate = useCallback(
     (datadir) => {
@@ -686,6 +713,9 @@ export default function UserManagementPage() {
     } else if (up === 'LEADER' || role === 'Leader') {
       bg = '#ffedd5';
       color = '#9a3412';
+    } else if (up === 'VIEW' || up === 'ROLE_VIEW') {
+      bg = '#e0e7ff';
+      color = '#3730a3';
     }
 
     return (
@@ -903,8 +933,8 @@ export default function UserManagementPage() {
             <Button
               variant="contained"
               startIcon={<AddIcon fontSize="small" />}
-              onClick={() => setAddDialogOpen(true)}
-              disabled={loading}
+              onClick={() => !readOnly && setAddDialogOpen(true)}
+              disabled={loading || readOnly}
               sx={addBtnSx}
             >
               Add User
@@ -1092,27 +1122,28 @@ export default function UserManagementPage() {
 
                       <TableCell align="center" sx={{ py: 0.4, px: 0.6 }}>
                         <Stack direction="row" spacing={0.3} justifyContent="center">
-                          <Tooltip title="Edit">
+                          <Tooltip title={readOnly ? 'View role is read-only' : 'Edit'}>
                             <span>
-                              <IconButton color="primary" size="small" onClick={() => handleEdit(u)} sx={{ p: 0.25 }}>
+                              <IconButton color="primary" size="small" disabled={readOnly} onClick={() => handleEdit(u)} sx={{ p: 0.25 }}>
                                 <EditIcon fontSize="small" />
                               </IconButton>
                             </span>
                           </Tooltip>
 
-                          <Tooltip title="Delete">
+                          <Tooltip title={readOnly ? 'View role is read-only' : 'Delete'}>
                             <span>
-                              <IconButton color="error" size="small" onClick={() => handleDelete(u)} sx={{ p: 0.25 }}>
+                              <IconButton color="error" size="small" disabled={readOnly} onClick={() => handleDelete(u)} sx={{ p: 0.25 }}>
                                 <DeleteIcon fontSize="small" />
                               </IconButton>
                             </span>
                           </Tooltip>
 
-                          <Tooltip title="Reset password">
+                          <Tooltip title={readOnly ? 'View role is read-only' : 'Reset password'}>
                             <span>
                               <IconButton
                                 color="warning"
                                 size="small"
+                                disabled={readOnly}
                                 onClick={() => handleResetPassword(u)}
                                 sx={{ p: 0.25 }}
                               >
@@ -1155,13 +1186,13 @@ export default function UserManagementPage() {
 
         {/* dialogs */}
         <EditUserDialog
-          open={editDialogOpen}
+          open={editDialogOpen && !readOnly}
           onClose={() => setEditDialogOpen(false)}
           onUpdate={handleUpdate}
           user={selectedUser}
         />
 
-        <AddUserDialog open={addDialogOpen} onClose={() => setAddDialogOpen(false)} onAdd={handleAdd} />
+        <AddUserDialog open={addDialogOpen && !readOnly} onClose={() => setAddDialogOpen(false)} onAdd={handleAdd} />
 
         {/* Delete dialog giống style Group (đỡ thô) */}
         <Dialog
@@ -1198,14 +1229,14 @@ export default function UserManagementPage() {
             <Button onClick={() => setDeleteDialogOpen(false)} disabled={loading} sx={btnSx}>
               Cancel
             </Button>
-            <Button onClick={handleConfirmDelete} variant="contained" color="error" disabled={loading} sx={btnSx}>
+            <Button onClick={handleConfirmDelete} variant="contained" color="error" disabled={loading || readOnly} sx={btnSx}>
               {loading ? <CircularProgress size={18} /> : 'Delete'}
             </Button>
           </DialogActions>
         </Dialog>
 
         <ResetPasswordDialog
-          open={resetPasswordDialogOpen}
+          open={resetPasswordDialogOpen && !readOnly}
           onClose={() => setResetPasswordDialogOpen(false)}
           onUpdate={handlePasswordUpdate}
           user={selectedUser}

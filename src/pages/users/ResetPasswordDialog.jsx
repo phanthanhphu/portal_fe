@@ -69,8 +69,9 @@ export default function ResetPasswordDialog({ open, onClose, onUpdate, user }) {
 
   useEffect(() => {
     if (user && open) {
+      const sourceUser = user?.data || user;
       setFormData({
-        email: user.email || '',
+        email: sourceUser.email || '',
         newPassword: '',
         confirmNewPassword: ''
       });
@@ -84,7 +85,7 @@ export default function ResetPasswordDialog({ open, onClose, onUpdate, user }) {
   const validate = () => {
     if (!formData.email?.trim()) return toast('Email is required.', 'error'), false;
     if (!formData.newPassword) return toast('New password is required.', 'error'), false;
-    if (formData.newPassword.length < 6) return toast('Password must be at least 6 characters.', 'error'), false;
+    if (formData.newPassword.length < 8) return toast('Password must be at least 8 characters.', 'error'), false;
     if (formData.newPassword !== formData.confirmNewPassword)
       return toast('New password and confirmation do not match.', 'error'), false;
     return true;
@@ -130,7 +131,7 @@ export default function ResetPasswordDialog({ open, onClose, onUpdate, user }) {
       toast(data?.message || 'Password reset successfully', 'success');
 
       setFormData({
-        email: user?.email || '',
+        email: user?.data?.email || user?.email || '',
         newPassword: '',
         confirmNewPassword: ''
       });
@@ -243,7 +244,7 @@ export default function ResetPasswordDialog({ open, onClose, onUpdate, user }) {
               type="password"
               disabled={saving}
               sx={fieldSx}
-              helperText="Minimum 6 characters"
+              helperText="Minimum 8 characters and different from the current password"
             />
             <TextField
               label="Confirm New Password"

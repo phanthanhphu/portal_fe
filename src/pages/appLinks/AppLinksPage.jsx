@@ -152,46 +152,36 @@ const isUserAdmin = (user = {}) => {
   );
 };
 
-const isITDepartmentName = (value) => {
-  const department = normalizeAccessText(value);
-  if (!department) return false;
-
-  return (
-    department === 'IT' ||
-    department === 'IT DEPARTMENT' ||
-    department === 'INFORMATION TECHNOLOGY' ||
-    department === 'INFORMATION TECHNOLOGY DEPARTMENT'
-  );
+const isViewRole = (roleValue) => {
+  const role = normalizeAccessText(roleValue);
+  return role === 'VIEW' || role === 'ROLE_VIEW';
 };
 
-const isUserInITDepartment = (user = {}, accessInfo = {}) => {
-  const departmentObject = user?.department && typeof user.department === 'object' ? user.department : {};
+const getModulePermissionList = (value) => {
+  const normalized = normalizeAccessText(value);
 
-  const candidates = [
-    user?.departmentName,
-    user?.department,
-    user?.deptName,
-    user?.dept,
-    user?.departmentCode,
-    user?.departmentId,
-    user?.idDepartment,
-    departmentObject?.name,
-    departmentObject?.departmentName,
-    departmentObject?.code,
-    departmentObject?.id,
-    accessInfo?.currentDepartmentName,
-    accessInfo?.currentDepartmentCode,
-    accessInfo?.currentDepartmentId,
-  ];
+  if (!normalized || normalized === 'NONE') return [];
+  if (normalized === 'ALL') return ['NOTICE', 'DOCUMENT', 'APP_LINK'];
 
-  return candidates.some((candidate) => isITDepartmentName(candidate));
+  return normalized
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
 };
 
 const canUserManageAppLinks = (user = {}, accessInfo = {}) => {
-  return Boolean(accessInfo?.isAdmin) || isUserAdmin(user) || isUserInITDepartment(user, accessInfo);
+  if (isViewRole(user?.role)) return false;
+  if (Boolean(accessInfo?.isAdmin) || isUserAdmin(user)) return true;
+  if (typeof accessInfo?.canManageAppLinks === 'boolean') {
+    return accessInfo.canManageAppLinks;
+  }
+
+  return Boolean(user?.canManageAppLinks)
+    || getModulePermissionList(user?.modulePermission).includes('APP_LINK');
 };
 
-const APP_LINK_MANAGE_DENIED_MESSAGE = 'Only Admin or IT department users can add, edit, or delete App Links.';
+const APP_LINK_MANAGE_DENIED_MESSAGE =
+  'APP_LINK permission is required. View role can only view App Links.';
 
 /* =========================
    Headers
@@ -238,6 +228,8 @@ const fetchAppLinks = async (page = 0, size = 12, name = '', desc = '') => {
       totalElements,
       totalPages,
       isAdmin: Boolean(rawData?.isAdmin),
+      isView: Boolean(rawData?.isView),
+      canManageAppLinks: Boolean(rawData?.canManageAppLinks),
       currentDepartmentId: rawData?.currentDepartmentId || '',
       currentDepartmentName: rawData?.currentDepartmentName || rawData?.departmentName || '',
       currentDepartmentCode: rawData?.currentDepartmentCode || rawData?.departmentCode || '',
@@ -251,6 +243,8 @@ const fetchAppLinks = async (page = 0, size = 12, name = '', desc = '') => {
       totalElements: 0,
       totalPages: 1,
       isAdmin: false,
+      isView: false,
+      canManageAppLinks: false,
       currentDepartmentId: '',
       currentDepartmentName: '',
       currentDepartmentCode: '',
@@ -457,7 +451,7 @@ export default function AppLinksPage() {
   const [totalPages, setTotalPages] = useState(1);
 
   const [isAdmin, setIsAdmin] = useState(false);
-  const [isITDepartmentUser, setIsITDepartmentUser] = useState(false);
+  const [isView, setIsView] = useState(() => isViewRole(getStoredCurrentUser()?.role));
   const [canManageAppLinks, setCanManageAppLinks] = useState(() => canUserManageAppLinks(getStoredCurrentUser()));
   const [currentDepartmentId, setCurrentDepartmentId] = useState('');
   const [disableDepartmentSelect, setDisableDepartmentSelect] = useState(true);
@@ -511,19 +505,21 @@ export default function AppLinksPage() {
         const finalData = sortRowsClient(result.content, effSort);
         const accessInfo = {
           isAdmin: Boolean(result.isAdmin),
+          isView: Boolean(result.isView),
+          canManageAppLinks: Boolean(result.canManageAppLinks),
           currentDepartmentId: result.currentDepartmentId || '',
           currentDepartmentName: result.currentDepartmentName || '',
           currentDepartmentCode: result.currentDepartmentCode || '',
         };
         const roleIsAdmin = Boolean(result.isAdmin) || isUserAdmin(latestUser);
-        const userIsIT = isUserInITDepartment(latestUser, accessInfo);
+        const roleIsView = Boolean(result.isView) || isViewRole(latestUser?.role);
 
         setData(finalData);
         setTotalElements(result.totalElements);
         setTotalPages(result.totalPages);
         setIsAdmin(roleIsAdmin);
-        setIsITDepartmentUser(userIsIT);
-        setCanManageAppLinks(roleIsAdmin || userIsIT);
+        setIsView(roleIsView);
+        setCanManageAppLinks(!roleIsView && canUserManageAppLinks(latestUser, accessInfo));
         setCurrentDepartmentId(result.currentDepartmentId || '');
         setDisableDepartmentSelect(Boolean(result.disableDepartmentSelect));
       } finally {
@@ -673,10 +669,21 @@ export default function AppLinksPage() {
     navigate(`/app-links/${item.id}`);
   }, [navigate]);
 
-  const canModifyItem = useCallback((item) => {
-    if (!item?.id) return false;
-    return canManageAppLinks;
-  }, [canManageAppLinks]);
+  const canModifyItem = useCallback((item, action = 'edit') => {
+    if (!item?.id || !canManageAppLinks || isView) return false;
+
+    const permissionKey = action === 'delete' ? 'canDelete' : 'canEdit';
+
+    if (typeof item?.[permissionKey] === 'boolean') {
+      return item[permissionKey];
+    }
+
+    return isAdmin || (
+      currentDepartmentId
+      && item?.departmentId
+      && String(currentDepartmentId) === String(item.departmentId)
+    );
+  }, [canManageAppLinks, isView, isAdmin, currentDepartmentId]);
 
   const handleOpenEdit = useCallback((item) => {
     if (!canModifyItem(item, 'edit')) {
@@ -1168,7 +1175,7 @@ export default function AppLinksPage() {
       {/* Dialogs */}
       <AddAppLinkDialog
         open={openAddDialog}
-        isAdmin={isAdmin || isITDepartmentUser}
+        isAdmin={isAdmin}
         currentDepartmentId={currentDepartmentId}
         disableDepartmentSelect={disableDepartmentSelect}
         onCancel={() => setOpenAddDialog(false)}
@@ -1182,7 +1189,7 @@ export default function AppLinksPage() {
       <EditAppLinkDialog
         open={openEditDialog}
         currentItem={currentItem}
-        isAdmin={isAdmin || isITDepartmentUser}
+        isAdmin={isAdmin}
         currentDepartmentId={currentDepartmentId}
         disableDepartmentSelect={disableDepartmentSelect}
         onCancel={() => {

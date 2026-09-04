@@ -22,6 +22,7 @@ import SockJS from "sockjs-client";
 import { Client } from "@stomp/stompjs";
 import factoryImage from "../../assets/svg/logos/corporation.png";
 import { API_BASE_URL } from "../../config";
+import { isStoredViewRole } from "../../utils/accessRole";
 
 import AddDepartmentDialog from "./AddDepartmentDialog";
 import EditDepartmentDialog from "./EditDepartmentDialog";
@@ -155,9 +156,10 @@ const getDepartmentAccessFromApiResponse = (data = {}) => {
 };
 
 const NO_DEPARTMENT_MANAGE_PERMISSION_MESSAGE =
-  "Only Admin or IT department users can add, edit, or delete departments.";
+  "View role is read-only. Only Admin or authorized IT department users can add, edit, or delete departments.";
 
 export default function DepartmentManagement() {
+  const readOnly = isStoredViewRole();
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -185,7 +187,10 @@ export default function DepartmentManagement() {
   const closeNotification = () =>
     setNotification((prev) => ({ ...prev, open: false }));
 
-  const canManageDepartments = useMemo(() => isAdmin || isItDepartment, [isAdmin, isItDepartment]);
+  const canManageDepartments = useMemo(
+    () => !readOnly && (isAdmin || isItDepartment),
+    [readOnly, isAdmin, isItDepartment]
+  );
 
   const parseError = async (res, defaultMsg) => {
     try {

@@ -36,8 +36,10 @@ import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import InfoRoundedIcon from '@mui/icons-material/InfoRounded';
 
 import { API_BASE_URL } from '../../config';
+import { isViewRole } from '../../utils/accessRole';
 
 const NOTICE_DOCUMENT_VALUES = ['NOTICE', 'DOCUMENT'];
+const MODULE_VALUES = ['NOTICE', 'DOCUMENT', 'APP_LINK'];
 const BOOKING_VALUES = ['BOOKING'];
 
 const APPROVE_PERMISSION_OPTIONS = [
@@ -55,6 +57,7 @@ const MODULE_PERMISSION_OPTIONS = [
   { value: 'NONE', label: 'None' },
   { value: 'NOTICE', label: 'Notice' },
   { value: 'DOCUMENT', label: 'Document' },
+  { value: 'APP_LINK', label: 'App Link' },
 ];
 
 const parsePermissionValues = (value, allowedValues = NOTICE_DOCUMENT_VALUES) => {
@@ -128,8 +131,8 @@ const getApprovePermissionLabel = (value) => getPermissionLabel(value, APPROVE_P
 const normalizeBookingPermission = (value) => serializePermissionValues(value, BOOKING_VALUES);
 const getBookingPermissionLabel = (value) => getPermissionLabel(value, BOOKING_PERMISSION_OPTIONS, BOOKING_VALUES);
 
-const normalizeModulePermission = (value) => serializePermissionValues(value, NOTICE_DOCUMENT_VALUES);
-const getModulePermissionLabel = (value) => getPermissionLabel(value, MODULE_PERMISSION_OPTIONS, NOTICE_DOCUMENT_VALUES);
+const normalizeModulePermission = (value) => serializePermissionValues(value, MODULE_VALUES);
+const getModulePermissionLabel = (value) => getPermissionLabel(value, MODULE_PERMISSION_OPTIONS, MODULE_VALUES);
 
 const PermissionCheckboxGroup = ({
   title,
@@ -232,6 +235,7 @@ const AddUserDialog = ({ open, onClose, onAdd }) => {
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
   const locked = saving;
+  const selectedRoleIsView = isViewRole(formData.role);
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -394,7 +398,19 @@ const AddUserDialog = ({ open, onClose, onAdd }) => {
 
   const handleChange = (field) => (e) => {
     const value = e.target.value;
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev) => {
+      if (field === 'role' && isViewRole(value)) {
+        return {
+          ...prev,
+          role: value,
+          approvePermission: 'NONE',
+          bookingPermission: 'NONE',
+          modulePermission: 'NONE',
+        };
+      }
+
+      return { ...prev, [field]: value };
+    });
 
     if (field === 'email') {
       if (value && !emailRegex.test(value)) setEmailError('Invalid email format');
@@ -457,9 +473,9 @@ const AddUserDialog = ({ open, onClose, onAdd }) => {
     const formDataToSend = new FormData();
     const payload = {
       ...formData,
-      approvePermission: normalizeApprovePermission(formData.approvePermission),
-      bookingPermission: normalizeBookingPermission(formData.bookingPermission),
-      modulePermission: normalizeModulePermission(formData.modulePermission),
+      approvePermission: selectedRoleIsView ? 'NONE' : normalizeApprovePermission(formData.approvePermission),
+      bookingPermission: selectedRoleIsView ? 'NONE' : normalizeBookingPermission(formData.bookingPermission),
+      modulePermission: selectedRoleIsView ? 'NONE' : normalizeModulePermission(formData.modulePermission),
     };
 
     Object.entries(payload).forEach(([key, value]) => {
@@ -656,6 +672,7 @@ const AddUserDialog = ({ open, onClose, onAdd }) => {
                   <Select value={formData.role} label="Role" onChange={handleChange('role')}>
                     <MenuItem value="User">User</MenuItem>
                     <MenuItem value="Leader">Leader</MenuItem>
+                    <MenuItem value="View">View (read only)</MenuItem>
                     <MenuItem value="Admin">Admin</MenuItem>
                   </Select>
                 </FormControl>
@@ -665,8 +682,10 @@ const AddUserDialog = ({ open, onClose, onAdd }) => {
                   value={formData.approvePermission}
                   options={APPROVE_PERMISSION_OPTIONS}
                   allowedValues={NOTICE_DOCUMENT_VALUES}
-                  disabled={locked}
-                  helperText="Tick NONE, NOTICE or DOCUMENT. You can select Notice and Document together."
+                  disabled={locked || selectedRoleIsView}
+                  helperText={selectedRoleIsView
+                    ? 'View role cannot approve records.'
+                    : 'Tick NONE, NOTICE or DOCUMENT. You can select Notice and Document together.'}
                   onChange={handlePermissionChange('approvePermission')}
                 />
 
@@ -675,8 +694,10 @@ const AddUserDialog = ({ open, onClose, onAdd }) => {
                   value={formData.bookingPermission}
                   options={BOOKING_PERMISSION_OPTIONS}
                   allowedValues={BOOKING_VALUES}
-                  disabled={locked}
-                  helperText="Tick Booking if this user can manage room bookings."
+                  disabled={locked || selectedRoleIsView}
+                  helperText={selectedRoleIsView
+                    ? 'View role can see Portal and Booking pages but cannot manage bookings.'
+                    : 'Tick Booking if this user can manage room bookings.'}
                   onChange={handlePermissionChange('bookingPermission')}
                 />
 
@@ -684,9 +705,11 @@ const AddUserDialog = ({ open, onClose, onAdd }) => {
                   title="Module Permission"
                   value={formData.modulePermission}
                   options={MODULE_PERMISSION_OPTIONS}
-                  allowedValues={NOTICE_DOCUMENT_VALUES}
-                  disabled={locked}
-                  helperText="Controls menu/actions for Notice and Document modules."
+                  allowedValues={MODULE_VALUES}
+                  disabled={locked || selectedRoleIsView}
+                  helperText={selectedRoleIsView
+                    ? 'View role can view all Portal modules, including App Links, but every action is disabled.'
+                    : 'Controls actions for Notice, Document and App Link modules.'}
                   onChange={handlePermissionChange('modulePermission')}
                   sx={{ gridColumn: { xs: 'auto', sm: 'span 2' } }}
                 />

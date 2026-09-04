@@ -30,8 +30,9 @@ const companyStats = [
   { t: 'Lines', d: '240+' }
 ];
 
-const LOGIN_DRAFT_EMAIL_KEY = 'loginDraftEmail';
-const LOGIN_DRAFT_PASSWORD_KEY = 'loginDraftPassword';
+const LOGIN_DRAFT_IDENTIFIER_KEY = 'loginDraftIdentifier';
+const LEGACY_LOGIN_DRAFT_EMAIL_KEY = 'loginDraftEmail';
+const LOGIN_TYPE_KEY = 'loginType';
 
 const getSavedLoginDraft = (key) => {
   try {
@@ -49,10 +50,17 @@ const saveLoginDraft = (key, value) => {
   }
 };
 
+const getSavedLoginType = () => {
+  const value = getSavedLoginDraft(LOGIN_TYPE_KEY).toUpperCase();
+  return value === 'SYSTEM' ? 'SYSTEM' : 'DOMAIN';
+};
+
 const clearLoginDraft = () => {
   try {
-    sessionStorage.removeItem(LOGIN_DRAFT_EMAIL_KEY);
-    sessionStorage.removeItem(LOGIN_DRAFT_PASSWORD_KEY);
+    sessionStorage.removeItem(LOGIN_DRAFT_IDENTIFIER_KEY);
+    sessionStorage.removeItem(LEGACY_LOGIN_DRAFT_EMAIL_KEY);
+    sessionStorage.removeItem(LOGIN_TYPE_KEY);
+    sessionStorage.removeItem('loginDraftPassword');
   } catch {
     // Ignore storage errors.
   }
@@ -158,13 +166,19 @@ const clearAuthSession = () => {
   localStorage.removeItem('canApproveDocument');
   localStorage.removeItem('bookingPermission');
   localStorage.removeItem('canManageBooking');
+  localStorage.removeItem('modulePermission');
+  localStorage.removeItem('canManageAppLinks');
+  localStorage.removeItem('canManageNotice');
+  localStorage.removeItem('canManageDocument');
+  localStorage.removeItem('canManageDepartment');
   localStorage.removeItem('departmentId');
   localStorage.removeItem('departmentName');
   localStorage.removeItem('division');
   localStorage.removeItem('loginAt');
+  localStorage.removeItem('authenticationType');
 };
 
-const persistAuthSession = ({ token, user, role }) => {
+const persistAuthSession = ({ token, user, role, authenticationType }) => {
   const tokenPayload = decodeJwtPayload(token) || {};
   const safeUser = user && typeof user === 'object' ? user : {};
 
@@ -205,6 +219,30 @@ const persistAuthSession = ({ token, user, role }) => {
       || mergedUser.can_manage_booking
       || safeBookingPermission === 'BOOKING'
   );
+  const safeModulePermission = normalizePermission(mergedUser.modulePermission || 'NONE') || 'NONE';
+  const modulePermissions = safeModulePermission
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const safeCanManageAppLinks = Boolean(
+    mergedUser.canManageAppLinks
+      || mergedUser.can_manage_app_links
+      || modulePermissions.includes('APP_LINK')
+  );
+  const safeCanManageNotice = Boolean(
+    mergedUser.canManageNotice
+      || mergedUser.can_manage_notice
+      || modulePermissions.includes('NOTICE')
+  );
+  const safeCanManageDocument = Boolean(
+    mergedUser.canManageDocument
+      || mergedUser.can_manage_document
+      || modulePermissions.includes('DOCUMENT')
+  );
+  const safeCanManageDepartment = Boolean(
+    mergedUser.canManageDepartment
+      || mergedUser.can_manage_department
+  );
 
   localStorage.setItem('token', token);
   localStorage.setItem('accessToken', token);
@@ -222,9 +260,14 @@ const persistAuthSession = ({ token, user, role }) => {
     },
     approvePermission: safeApprovePermission,
     bookingPermission: safeBookingPermission,
+    modulePermission: safeModulePermission,
     canApproveNotice: safeCanApproveNotice,
     canApproveDocument: safeCanApproveDocument,
-    canManageBooking: safeCanManageBooking
+    canManageBooking: safeCanManageBooking,
+    canManageAppLinks: safeCanManageAppLinks,
+    canManageNotice: safeCanManageNotice,
+    canManageDocument: safeCanManageDocument,
+    canManageDepartment: safeCanManageDepartment
   }));
   localStorage.setItem('userId', userId);
   localStorage.setItem('isAuthenticated', 'true');
@@ -234,10 +277,16 @@ const persistAuthSession = ({ token, user, role }) => {
   localStorage.setItem('canApproveDocument', String(safeCanApproveDocument));
   localStorage.setItem('bookingPermission', safeBookingPermission);
   localStorage.setItem('canManageBooking', String(safeCanManageBooking));
+  localStorage.setItem('modulePermission', safeModulePermission);
+  localStorage.setItem('canManageAppLinks', String(safeCanManageAppLinks));
+  localStorage.setItem('canManageNotice', String(safeCanManageNotice));
+  localStorage.setItem('canManageDocument', String(safeCanManageDocument));
+  localStorage.setItem('canManageDepartment', String(safeCanManageDepartment));
   localStorage.setItem('departmentId', safeDepartmentId);
   localStorage.setItem('departmentName', safeDepartmentName);
   localStorage.setItem('division', safeDivision);
   localStorage.setItem('loginAt', new Date().toISOString());
+  localStorage.setItem('authenticationType', authenticationType || 'SYSTEM');
 };
 
 export default function LoginPage() {
@@ -245,8 +294,11 @@ export default function LoginPage() {
 
   const DEFAULT_PATH = useMemo(() => '/app-links', []);
 
-  const [email, setEmail] = useState(() => getSavedLoginDraft(LOGIN_DRAFT_EMAIL_KEY));
-  const [password, setPassword] = useState(() => getSavedLoginDraft(LOGIN_DRAFT_PASSWORD_KEY));
+  const [identifier, setIdentifier] = useState(() =>
+    getSavedLoginDraft(LOGIN_DRAFT_IDENTIFIER_KEY) || getSavedLoginDraft(LEGACY_LOGIN_DRAFT_EMAIL_KEY)
+  );
+  const [loginType, setLoginType] = useState(getSavedLoginType);
+  const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [loginError, setLoginError] = useState('');
@@ -270,10 +322,12 @@ export default function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const cleanEmail = email.trim();
+    const cleanIdentifier = identifier.trim();
 
-    if (!cleanEmail || !password) {
-      const message = 'Please enter both email and password.';
+    if (!cleanIdentifier || !password) {
+      const message = loginType === 'DOMAIN'
+        ? 'Please enter your Domain username/email and password.'
+        : 'Please enter your system username/email and password.';
       setLoginError(message);
       toast.error(message);
       return;
@@ -285,7 +339,12 @@ export default function LoginPage() {
     try {
       const res = await apiRawClient.post(
         '/api/users/login',
-        { email: cleanEmail, password },
+        {
+          loginType,
+          identifier: cleanIdentifier,
+          email: cleanIdentifier,
+          password
+        },
         {
           headers: { 'Content-Type': 'application/json' },
           validateStatus: () => true,
@@ -302,13 +361,14 @@ export default function LoginPage() {
         persistAuthSession({
           token,
           user: loggedInUser,
-          role: loggedInRole
+          role: loggedInRole,
+          authenticationType: data?.authenticationType || loginType
         });
         clearLoginDraft();
 
         const redirectPath = getPostLoginPath(loggedInUser, loggedInRole) || DEFAULT_PATH;
 
-        toast.success('Login successful! Redirecting...');
+        toast.success(`${data?.authenticationType || loginType} login successful! Redirecting...`);
 
         /*
          * IMPORTANT:
@@ -329,8 +389,10 @@ export default function LoginPage() {
         message = 'Login response does not include an authentication token. Please contact the administrator.';
       }
 
-      if (res.status === 401 || res.status === 404) {
-        message = 'The email or password you entered is incorrect. Please try again.';
+      if ((res.status === 401 || res.status === 404) && !data?.message) {
+        message = loginType === 'DOMAIN'
+          ? 'Domain username or password is incorrect.'
+          : 'System username/email or password is incorrect.';
       }
 
       if (res.status === 403) {
@@ -339,11 +401,11 @@ export default function LoginPage() {
 
       clearAuthSession();
 
-      // Keep both email and password so the user can correct only the wrong field.
-      setEmail(cleanEmail);
+      // Keep the identifier in sessionStorage, but never persist the entered password.
+      setIdentifier(cleanIdentifier);
       setPassword(password);
-      saveLoginDraft(LOGIN_DRAFT_EMAIL_KEY, cleanEmail);
-      saveLoginDraft(LOGIN_DRAFT_PASSWORD_KEY, password);
+      saveLoginDraft(LOGIN_DRAFT_IDENTIFIER_KEY, cleanIdentifier);
+      saveLoginDraft(LOGIN_TYPE_KEY, loginType);
       setLoginError(message);
       toast.error(message);
     } catch (err) {
@@ -615,22 +677,86 @@ export default function LoginPage() {
                   Sign in
                 </Typography>
                 <Typography sx={{ mt: 0.6, fontSize: '0.95rem', color: alpha('#0b1220', 0.65), lineHeight: 1.5 }}>
-                  If you don’t have an account, contact admin to request access.
+                  Domain login is recommended. Access rights are controlled by your Portal account.
                 </Typography>
 
                 <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 3 }}>
                   <Stack spacing={2}>
+                    <Box
+                      sx={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                        gap: 1.2
+                      }}
+                    >
+                      <Button
+                        type="button"
+                        variant={loginType === 'DOMAIN' ? 'contained' : 'outlined'}
+                        onClick={() => {
+                          setLoginType('DOMAIN');
+                          setPassword('');
+                          saveLoginDraft(LOGIN_TYPE_KEY, 'DOMAIN');
+                          if (loginError) setLoginError('');
+                        }}
+                        sx={{
+                          minHeight: 76,
+                          borderRadius: 3,
+                          textTransform: 'none',
+                          justifyContent: 'flex-start',
+                          px: 1.8,
+                          background: loginType === 'DOMAIN'
+                            ? 'linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%)'
+                            : alpha('#fff', 0.72)
+                        }}
+                      >
+                        <Box sx={{ textAlign: 'left' }}>
+                          <Typography sx={{ fontWeight: 950, fontSize: '0.92rem' }}>Domain Account</Typography>
+                          <Typography sx={{ mt: 0.25, fontSize: '0.72rem', opacity: 0.82 }}>Recommended · Windows password</Typography>
+                        </Box>
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant={loginType === 'SYSTEM' ? 'contained' : 'outlined'}
+                        onClick={() => {
+                          setLoginType('SYSTEM');
+                          setPassword('');
+                          saveLoginDraft(LOGIN_TYPE_KEY, 'SYSTEM');
+                          if (loginError) setLoginError('');
+                        }}
+                        sx={{
+                          minHeight: 76,
+                          borderRadius: 3,
+                          textTransform: 'none',
+                          justifyContent: 'flex-start',
+                          px: 1.8,
+                          background: loginType === 'SYSTEM'
+                            ? 'linear-gradient(135deg, #475569 0%, #334155 100%)'
+                            : alpha('#fff', 0.72)
+                        }}
+                      >
+                        <Box sx={{ textAlign: 'left' }}>
+                          <Typography sx={{ fontWeight: 950, fontSize: '0.92rem' }}>System Account</Typography>
+                          <Typography sx={{ mt: 0.25, fontSize: '0.72rem', opacity: 0.82 }}>Fallback · Portal password</Typography>
+                        </Box>
+                      </Button>
+                    </Box>
+
                     <TextField
-                      label="Email"
-                      placeholder="join.st@youngonevn.com"
-                      value={email}
+                      label={loginType === 'DOMAIN' ? 'Domain username or email' : 'System username or email'}
+                      placeholder={
+                        loginType === 'DOMAIN'
+                          ? 'phupt.st / phupt.st@youngonevn.com'
+                          : 'System username or email'
+                      }
+                      value={identifier}
                       onChange={(e) => {
-                        const nextEmail = e.target.value;
-                        setEmail(nextEmail);
-                        saveLoginDraft(LOGIN_DRAFT_EMAIL_KEY, nextEmail);
+                        const nextIdentifier = e.target.value;
+                        setIdentifier(nextIdentifier);
+                        saveLoginDraft(LOGIN_DRAFT_IDENTIFIER_KEY, nextIdentifier);
                         if (loginError) setLoginError('');
                       }}
-                      autoComplete="email"
+                      autoComplete="username"
                       fullWidth
                       InputLabelProps={{ sx: { fontWeight: 700 } }}
                       sx={{
@@ -642,13 +768,11 @@ export default function LoginPage() {
                     />
 
                     <TextField
-                      label="Password"
+                      label={loginType === 'DOMAIN' ? 'Windows / Domain password' : 'System password'}
                       placeholder="Enter password"
                       value={password}
                       onChange={(e) => {
-                        const nextPassword = e.target.value;
-                        setPassword(nextPassword);
-                        saveLoginDraft(LOGIN_DRAFT_PASSWORD_KEY, nextPassword);
+                        setPassword(e.target.value);
                         if (loginError) setLoginError('');
                       }}
                       type={showPw ? 'text' : 'password'}
@@ -658,7 +782,12 @@ export default function LoginPage() {
                       InputProps={{
                         endAdornment: (
                           <InputAdornment position="end">
-                            <IconButton onClick={() => setShowPw((p) => !p)} edge="end">
+                            <IconButton
+                              type="button"
+                              aria-label={showPw ? 'Hide password' : 'Show password'}
+                              onClick={() => setShowPw((p) => !p)}
+                              edge="end"
+                            >
                               {showPw ? <VisibilityOff /> : <Visibility />}
                             </IconButton>
                           </InputAdornment>
@@ -707,7 +836,11 @@ export default function LoginPage() {
                         transition: 'all .18s ease'
                       }}
                     >
-                      {submitting ? 'Signing in...' : 'Sign in'}
+                      {submitting
+                        ? 'Signing in...'
+                        : loginType === 'DOMAIN'
+                          ? 'Sign in with Domain'
+                          : 'Sign in with System Account'}
                     </Button>
 
                     <Box
@@ -721,7 +854,9 @@ export default function LoginPage() {
                     >
                       <Typography sx={{ fontWeight: 900, fontSize: '0.85rem', color: '#0b1220' }}>Tip</Typography>
                       <Typography sx={{ mt: 0.4, fontSize: '0.9rem', color: alpha('#0b1220', 0.65) }}>
-                        Use your company email. If login keeps failing, ask admin to verify your account.
+                        {loginType === 'DOMAIN'
+                          ? 'Use your Windows/Domain account. Your role and permissions still come from the Portal database.'
+                          : 'Use the username/email and password created directly in this Portal.'}
                       </Typography>
                     </Box>
 

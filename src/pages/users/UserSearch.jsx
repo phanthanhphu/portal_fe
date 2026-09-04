@@ -257,6 +257,7 @@ export default function UserSearch({
             <MenuItem value="">All</MenuItem>
             <MenuItem value="User">User</MenuItem>
             <MenuItem value="Leader">Leader</MenuItem>
+            <MenuItem value="View">View</MenuItem>
             <MenuItem value="Admin">Admin</MenuItem>
           </Select>
         </FormControl>

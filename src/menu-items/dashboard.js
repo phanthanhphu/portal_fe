@@ -64,7 +64,6 @@ const menuStyles = {
 
 const normalizeRole = (value) => String(value || '').trim().toUpperCase();
 const normalizePermission = (value) => String(value || '').trim().toUpperCase();
-const normalizeText = (value) => String(value || '').trim().toUpperCase();
 
 const parseStoredJson = (value) => {
   if (!value) return null;
@@ -134,8 +133,12 @@ const getCurrentUserContext = () => {
       (localStorage.getItem('canManageBooking') === 'true'),
 
     // Quyền thao tác module thường:
-    // NONE / NOTICE / DOCUMENT / DEPARTMENT / ALL / NOTICE,DOCUMENT,DEPARTMENT
+    // NONE / NOTICE / DOCUMENT / APP_LINK / ALL / NOTICE,DOCUMENT,APP_LINK
     modulePermission: user?.modulePermission || localStorage.getItem('modulePermission') || 'NONE',
+    canManageAppLinks:
+      user?.canManageAppLinks ??
+      user?.can_manage_app_links ??
+      (localStorage.getItem('canManageAppLinks') === 'true'),
     canManageNotice:
       user?.canManageNotice ??
       user?.can_manage_notice ??
@@ -156,29 +159,9 @@ const isAdminRole = (role) => {
   return normalized === 'ADMIN' || normalized === 'ROLE_ADMIN';
 };
 
-const isItDepartment = (user) => {
-  const values = [
-    user?.departmentName,
-    user?.division,
-    user?.department?.departmentName,
-    user?.department?.name,
-    user?.department?.division,
-    localStorage.getItem('departmentName'),
-    localStorage.getItem('division')
-  ]
-    .map(normalizeText)
-    .filter(Boolean);
-
-  return values.some((value) => (
-    value === 'IT' ||
-    value === 'I.T' ||
-    value === 'I.T.' ||
-    value.includes('IT CENTER') ||
-    value.includes('INFORMATION TECHNOLOGY') ||
-    value.includes('TECHNOLOGY') ||
-    value.includes('INFORMATION SYSTEM') ||
-    value.includes('SYSTEM')
-  ));
+const isViewRole = (role) => {
+  const normalized = normalizeRole(role);
+  return normalized === 'VIEW' || normalized === 'ROLE_VIEW';
 };
 
 const hasBookingManagePermission = (user) => {
@@ -189,7 +172,7 @@ const hasBookingManagePermission = (user) => {
 };
 
 const hasApproveNoticePermission = (user) => {
-  if (isAdminRole(user?.role)) return true;
+  if (isAdminRole(user?.role) || isViewRole(user?.role)) return true;
 
   const approvePermission = normalizePermission(user?.approvePermission);
 
@@ -199,7 +182,7 @@ const hasApproveNoticePermission = (user) => {
 };
 
 const hasApproveDocumentPermission = (user) => {
-  if (isAdminRole(user?.role)) return true;
+  if (isAdminRole(user?.role) || isViewRole(user?.role)) return true;
 
   const approvePermission = normalizePermission(user?.approvePermission);
 
@@ -216,7 +199,7 @@ const getModulePermissionList = (value) => {
   }
 
   if (permission === 'ALL') {
-    return ['NOTICE', 'DOCUMENT', 'DEPARTMENT'];
+    return ['NOTICE', 'DOCUMENT', 'APP_LINK'];
   }
 
   return permission
@@ -232,6 +215,13 @@ const hasModulePermission = (user, target) => {
   const permissions = getModulePermissionList(user?.modulePermission);
 
   return permissions.includes(targetPermission);
+};
+
+const hasAppLinkManagePermission = (user) => {
+  if (isAdminRole(user?.role)) return true;
+
+  return Boolean(user?.canManageAppLinks)
+    || hasModulePermission(user, 'APP_LINK');
 };
 
 const hasNoticeManagePermission = (user) => {
@@ -267,8 +257,8 @@ const getDashboardMenu = () => {
   const currentUser = getCurrentUserContext();
 
   const isAdmin = isAdminRole(currentUser.role);
-  const isIT = isItDepartment(currentUser);
-  const canSeeAppLinks = isAdmin || isIT;
+  const isView = isViewRole(currentUser.role);
+  const canSeeAppLinks = isAdmin || isView || hasAppLinkManagePermission(currentUser);
 
   const canManageNotice = hasNoticeManagePermission(currentUser);
   const canManageDocument = hasDocumentManagePermission(currentUser);
@@ -411,8 +401,8 @@ const getDashboardMenu = () => {
 
   let children = [];
 
-  if (isAdmin) {
-    // Admin thấy toàn bộ menu.
+  if (isAdmin || isView) {
+    // Admin có toàn quyền; View thấy toàn bộ menu nhưng chỉ được đọc.
     children = [
       appLinksItem,
       departmentsItem,
@@ -427,7 +417,7 @@ const getDashboardMenu = () => {
       indexRoomItem
     ].filter(Boolean);
   } else {
-    // App Links chỉ cho Admin hoặc bộ phận IT.
+    // App Links chỉ hiện khi có quyền APP_LINK.
     if (canSeeAppLinks) {
       pushUniqueMenu(children, appLinksItem);
     }

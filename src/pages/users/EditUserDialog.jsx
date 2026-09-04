@@ -36,6 +36,7 @@ import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import InfoRoundedIcon from '@mui/icons-material/InfoRounded';
 
 import { API_BASE_URL } from '../../config';
+import { isViewRole } from '../../utils/accessRole';
 
 const Transition = React.forwardRef(function Transition(props, ref) {
   return <Slide direction="up" ref={ref} {...props} />;
@@ -56,6 +57,7 @@ const stripToServerPath = (absoluteUrl) => {
 };
 
 const NOTICE_DOCUMENT_VALUES = ['NOTICE', 'DOCUMENT'];
+const MODULE_VALUES = ['NOTICE', 'DOCUMENT', 'APP_LINK'];
 const BOOKING_VALUES = ['BOOKING'];
 
 const APPROVE_PERMISSION_OPTIONS = [
@@ -73,6 +75,7 @@ const MODULE_PERMISSION_OPTIONS = [
   { value: 'NONE', label: 'None' },
   { value: 'NOTICE', label: 'Notice' },
   { value: 'DOCUMENT', label: 'Document' },
+  { value: 'APP_LINK', label: 'App Link' },
 ];
 
 const parsePermissionValues = (value, allowedValues = NOTICE_DOCUMENT_VALUES) => {
@@ -146,8 +149,8 @@ const getApprovePermissionLabel = (value) => getPermissionLabel(value, APPROVE_P
 const normalizeBookingPermission = (value) => serializePermissionValues(value, BOOKING_VALUES);
 const getBookingPermissionLabel = (value) => getPermissionLabel(value, BOOKING_PERMISSION_OPTIONS, BOOKING_VALUES);
 
-const normalizeModulePermission = (value) => serializePermissionValues(value, NOTICE_DOCUMENT_VALUES);
-const getModulePermissionLabel = (value) => getPermissionLabel(value, MODULE_PERMISSION_OPTIONS, NOTICE_DOCUMENT_VALUES);
+const normalizeModulePermission = (value) => serializePermissionValues(value, MODULE_VALUES);
+const getModulePermissionLabel = (value) => getPermissionLabel(value, MODULE_PERMISSION_OPTIONS, MODULE_VALUES);
 
 const PermissionCheckboxGroup = ({
   title,
@@ -247,6 +250,7 @@ export default function EditUserDialog({ open, onClose, onUpdate, user, disabled
   const [snackbarMessage, setSnackbarMessage] = useState('');
 
   const locked = saving || disabled;
+  const selectedRoleIsView = isViewRole(formData.role);
 
   const toast = (msg, severity = 'success') => {
     setSnackbarMessage(msg);
@@ -354,23 +358,26 @@ export default function EditUserDialog({ open, onClose, onUpdate, user, disabled
   useEffect(() => {
     if (!(open && user)) return;
 
+    // Support both a direct user object and API responses shaped as { data: user }.
+    const sourceUser = user?.data || user;
+
     setFormData({
-      username: user.username || '',
-      email: user.email || '',
-      address: user.address || '',
-      phone: user.phone || '',
-      role: user.role || 'User',
-      approvePermission: normalizeApprovePermission(user.approvePermission),
-      bookingPermission: normalizeBookingPermission(user.bookingPermission),
-      modulePermission: normalizeModulePermission(user.modulePermission),
-      isEnabled: user.isEnabled !== undefined ? user.isEnabled : true,
-      departmentId: user.department?.id || user.departmentId || '',
+      username: sourceUser.username || '',
+      email: sourceUser.email || '',
+      address: sourceUser.address || '',
+      phone: sourceUser.phone || '',
+      role: sourceUser.role || 'User',
+      approvePermission: normalizeApprovePermission(sourceUser.approvePermission),
+      bookingPermission: normalizeBookingPermission(sourceUser.bookingPermission),
+      modulePermission: normalizeModulePermission(sourceUser.modulePermission),
+      isEnabled: sourceUser.isEnabled !== undefined ? sourceUser.isEnabled : true,
+      departmentId: sourceUser.department?.id || sourceUser.departmentId || '',
     });
 
     setNewImage(null);
     setRemovedImageUrl('');
 
-    const abs = buildAbsoluteImageUrl(user.profileImageUrl);
+    const abs = buildAbsoluteImageUrl(sourceUser.profileImageUrl);
     setKeptImageUrl(abs);
     setNewImagePreview(abs || null);
 
@@ -430,7 +437,21 @@ export default function EditUserDialog({ open, onClose, onUpdate, user, disabled
   };
 
   const handleChange = (field) => (e) => {
-    setFormData((prev) => ({ ...prev, [field]: e.target.value }));
+    const value = e.target.value;
+
+    setFormData((prev) => {
+      if (field === 'role' && isViewRole(value)) {
+        return {
+          ...prev,
+          role: value,
+          approvePermission: 'NONE',
+          bookingPermission: 'NONE',
+          modulePermission: 'NONE',
+        };
+      }
+
+      return { ...prev, [field]: value };
+    });
   };
 
   const handlePermissionChange = (field) => (nextValue) => {
@@ -478,10 +499,14 @@ export default function EditUserDialog({ open, onClose, onUpdate, user, disabled
     }
   };
 
+  const getEffectiveEmail = () =>
+    String(formData.email || user?.email || user?.data?.email || '').trim();
+
   const handleSubmit = () => {
+    const effectiveEmail = getEffectiveEmail();
     if (!formData.username?.trim()) return toast('Username est requis.', 'error');
-    if (!formData.email?.trim()) return toast('Email est requis.', 'error');
-    if (!emailRegex.test(formData.email.trim())) return toast("Format d'email invalide.", 'error');
+    if (!effectiveEmail) return toast('Email est requis.', 'error');
+    if (!emailRegex.test(effectiveEmail)) return toast("Format d'email invalide.", 'error');
     if (!formData.departmentId?.trim()) return toast('Veuillez sélectionner un département.', 'error');
     setConfirmOpen(true);
   };
@@ -490,12 +515,22 @@ export default function EditUserDialog({ open, onClose, onUpdate, user, disabled
     setConfirmOpen(false);
     setSaving(true);
 
+    const effectiveEmail = getEffectiveEmail();
+    const userId = user?.id || user?._id || user?.data?.id || user?.data?._id;
+
+    if (!effectiveEmail || !userId) {
+      setSaving(false);
+      return toast(!effectiveEmail ? 'Email est requis.' : 'User ID is missing.', 'error');
+    }
+
     const formDataToSend = new FormData();
     const payload = {
       ...formData,
-      approvePermission: normalizeApprovePermission(formData.approvePermission),
-      bookingPermission: normalizeBookingPermission(formData.bookingPermission),
-      modulePermission: normalizeModulePermission(formData.modulePermission),
+      username: formData.username.trim(),
+      email: effectiveEmail,
+      approvePermission: selectedRoleIsView ? 'NONE' : normalizeApprovePermission(formData.approvePermission),
+      bookingPermission: selectedRoleIsView ? 'NONE' : normalizeBookingPermission(formData.bookingPermission),
+      modulePermission: selectedRoleIsView ? 'NONE' : normalizeModulePermission(formData.modulePermission),
     };
 
     Object.entries(payload).forEach(([k, v]) => {
@@ -506,7 +541,7 @@ export default function EditUserDialog({ open, onClose, onUpdate, user, disabled
     if (removedImageUrl) formDataToSend.append('imageToDelete', removedImageUrl);
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/users/${user.id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/users/${userId}`, {
         method: 'PUT',
         headers: { accept: '*/*' },
         body: formDataToSend,
@@ -750,7 +785,7 @@ export default function EditUserDialog({ open, onClose, onUpdate, user, disabled
                 <Stack direction="row" spacing={1} alignItems="flex-start">
                   <InfoRoundedIcon sx={{ fontSize: 18, mt: '2px', color: alpha(theme.palette.primary.main, 0.8) }} />
                   <Typography sx={{ fontSize: 12.5, color: 'text.secondary' }}>
-                    <b>Tip:</b> Keep role names consistent (User/Leader/Admin) to avoid filtering issues.
+                    <b>Tip:</b> Keep role names consistent (User/Leader/View/Admin) to avoid filtering issues.
                   </Typography>
                 </Stack>
               </Box>
@@ -821,6 +856,7 @@ export default function EditUserDialog({ open, onClose, onUpdate, user, disabled
                   >
                     <MenuItem value="User">User</MenuItem>
                     <MenuItem value="Leader">Leader</MenuItem>
+                    <MenuItem value="View">View (read only)</MenuItem>
                     <MenuItem value="Admin">Admin</MenuItem>
                   </TextField>
                 </Grid>
@@ -831,8 +867,10 @@ export default function EditUserDialog({ open, onClose, onUpdate, user, disabled
                     value={formData.approvePermission}
                     options={APPROVE_PERMISSION_OPTIONS}
                     allowedValues={NOTICE_DOCUMENT_VALUES}
-                    disabled={locked}
-                    helperText="Tick NONE, NOTICE or DOCUMENT. You can select Notice and Document together."
+                    disabled={locked || selectedRoleIsView}
+                    helperText={selectedRoleIsView
+                      ? 'View role cannot approve records.'
+                      : 'Tick NONE, NOTICE or DOCUMENT. You can select Notice and Document together.'}
                     onChange={handlePermissionChange('approvePermission')}
                   />
                 </Grid>
@@ -843,8 +881,10 @@ export default function EditUserDialog({ open, onClose, onUpdate, user, disabled
                     value={formData.bookingPermission}
                     options={BOOKING_PERMISSION_OPTIONS}
                     allowedValues={BOOKING_VALUES}
-                    disabled={locked}
-                    helperText="Tick Booking if this user can manage room bookings."
+                    disabled={locked || selectedRoleIsView}
+                    helperText={selectedRoleIsView
+                      ? 'View role can see Portal and Booking pages but cannot manage bookings.'
+                      : 'Tick Booking if this user can manage room bookings.'}
                     onChange={handlePermissionChange('bookingPermission')}
                   />
                 </Grid>
@@ -854,9 +894,11 @@ export default function EditUserDialog({ open, onClose, onUpdate, user, disabled
                     title="Module Permission"
                     value={formData.modulePermission}
                     options={MODULE_PERMISSION_OPTIONS}
-                    allowedValues={NOTICE_DOCUMENT_VALUES}
-                    disabled={locked}
-                    helperText="Controls menu/actions for Notice and Document modules."
+                    allowedValues={MODULE_VALUES}
+                    disabled={locked || selectedRoleIsView}
+                    helperText={selectedRoleIsView
+                      ? 'View role can view all Portal modules, including App Links, but every action is disabled.'
+                      : 'Controls actions for Notice, Document and App Link modules.'}
                     onChange={handlePermissionChange('modulePermission')}
                   />
                 </Grid>

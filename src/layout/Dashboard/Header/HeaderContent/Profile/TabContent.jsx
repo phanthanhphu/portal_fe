@@ -19,9 +19,9 @@ import VerifiedRoundedIcon from '@mui/icons-material/VerifiedRounded';
 import { useUser } from './useUser';
 import { User, Edit2, Lock, Logout } from 'iconsax-react';
 
-import ProfileEditDialog from '../../../../../pages/dashboard/ProfileEditDialog';
-import ChangePasswordDialog from '../../../../../pages/dashboard/ChangePasswordDialog';
-import ViewUserDialog from '../../../../../pages/dashboard/ViewUserDialog';
+import ProfileEditDialog from '../../../../../pages/users/ProfileEditDialog';
+import ChangePasswordDialog from '../../../../../pages/users/ChangePasswordDialog';
+import ViewUserDialog from '../../../../../pages/users/ViewUserDialog';
 import { API_BASE_URL } from '../../../../../config';
 
 export default function TabContent({ onRequestClose }) {

@@ -17,6 +17,7 @@ export default function DocumentTypeSearch({
   onReset,
   onAdd,
   disabled = false,
+  addDisabled = false,
 }) {
   const [localError, setLocalError] = useState(null);
 
@@ -63,7 +64,7 @@ export default function DocumentTypeSearch({
           variant="contained"
           startIcon={<Add fontSize="small" />}
           onClick={onAdd}
-          disabled={disabled}
+          disabled={disabled || addDisabled}
           sx={{
             borderRadius: 1.2,
             height: 34,

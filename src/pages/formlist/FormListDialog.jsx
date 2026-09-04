@@ -43,6 +43,7 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import axios from 'axios';
 import { API_BASE_URL } from '../../config';
+import { isStoredViewRole } from '../../utils/accessRole';
 import AddFormDialog from './AddFormDialog';
 import EditFormDialog from './EditFormDialog';
 import DocumentsSearchFilter from './FormsSearchFilter';
@@ -864,6 +865,7 @@ function PaginationBar({ count, page, rowsPerPage, onPageChange, onRowsPerPageCh
 
 /* Main Component */
 export default function FormListDialog() {
+  const readOnly = isStoredViewRole();
   const isLargeScreen = useMediaQuery((theme) => theme.breakpoints.up('lg'));
   const previewFullScreen = useMediaQuery((theme) => theme.breakpoints.down('md'));
 
@@ -1136,7 +1138,7 @@ export default function FormListDialog() {
   }, [previewState.blobUrl]);
 
   const canModifyItem = useCallback((item, action = 'edit') => {
-    if (!item?.id) return false;
+    if (readOnly || !item?.id) return false;
     if (isAdmin) return true;
 
     const key = action === 'delete' ? 'canDelete' : 'canEdit';
@@ -1150,7 +1152,7 @@ export default function FormListDialog() {
       item?.departmentId &&
       String(currentDepartmentId).trim() === String(item.departmentId).trim()
     );
-  }, [isAdmin, currentDepartmentId]);
+  }, [isAdmin, currentDepartmentId, readOnly]);
 
   const handleOpenEdit = useCallback((item) => {
     if (!canModifyItem(item, 'edit')) {
@@ -1428,8 +1430,8 @@ export default function FormListDialog() {
           <Button
             variant="contained"
             startIcon={<Add fontSize="small" />}
-            onClick={() => setOpenAdd(true)}
-            disabled={loading}
+            onClick={() => !readOnly && setOpenAdd(true)}
+            disabled={loading || readOnly}
             sx={{
               textTransform: 'none',
               fontWeight: 400,
@@ -1781,7 +1783,7 @@ export default function FormListDialog() {
 
       {/* Dialogs */}
       <AddFormDialog
-        open={openAdd}
+        open={openAdd && !readOnly}
         isAdmin={isAdmin}
         currentDepartmentId={currentDepartmentId}
         disableDepartmentSearch={disableDepartmentSearch}
@@ -1793,7 +1795,7 @@ export default function FormListDialog() {
         }}
       />
       <EditFormDialog
-        open={openEdit}
+        open={openEdit && !readOnly}
         form={currentItem}
         isAdmin={isAdmin}
         currentDepartmentId={currentDepartmentId}
@@ -1881,7 +1883,7 @@ export default function FormListDialog() {
             onClick={handleConfirmDelete}
             variant="contained"
             color="error"
-            disabled={loading || !canModifyItem(selectedDeleteItem, 'delete')}
+            disabled={loading || readOnly || !canModifyItem(selectedDeleteItem, 'delete')}
             sx={{ textTransform: 'none', fontWeight: 400 }}
           >
             {loading ? <CircularProgress size={18} /> : 'Delete'}

@@ -47,6 +47,7 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { apiRawClient as axios } from '../../routes/globalApi';
 import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../../config';
+import { isStoredViewRole } from '../../utils/accessRole';
 
 import AddNoticeDialog from './AddNoticeDialog';
 import EditNoticeDialog from './EditNoticeDialog';
@@ -744,6 +745,7 @@ function PaginationBar({ count, page, rowsPerPage, onPageChange, onRowsPerPageCh
 }
 
 export default function NoticesPage() {
+  const readOnly = isStoredViewRole();
   const navigate = useNavigate();
   const isLargeScreen = useMediaQuery((theme) => theme.breakpoints.up('lg'));
   const previewFullScreen = useMediaQuery((theme) => theme.breakpoints.down('md'));
@@ -1144,7 +1146,7 @@ export default function NoticesPage() {
   }, [previewState.blobUrl]);
 
   const canModifyItem = useCallback((item, action = 'edit') => {
-    if (!item?.id) return false;
+    if (readOnly || !item?.id) return false;
     if (isAdmin) return true;
 
     const key = action === 'delete' ? 'canDelete' : 'canEdit';
@@ -1158,7 +1160,7 @@ export default function NoticesPage() {
       item?.departmentId &&
       String(currentDepartmentId).trim() === String(item.departmentId).trim()
     );
-  }, [isAdmin, currentDepartmentId]);
+  }, [isAdmin, currentDepartmentId, readOnly]);
 
   // Search handler
   const handleSearch = useCallback(() => {
@@ -1438,8 +1440,9 @@ export default function NoticesPage() {
         setSearchContent={setSearchContentInput}
         onSearch={handleSearch}
         onReset={handleReset}
-        onAdd={() => setOpenAddDialog(true)}
+        onAdd={() => !readOnly && setOpenAddDialog(true)}
         disabled={loading}
+        addDisabled={readOnly}
         disableDepartmentSearch={disableDepartmentSearch}
       />
 
@@ -1735,7 +1738,7 @@ export default function NoticesPage() {
 
       {/* Add Notice Dialog */}
       <AddNoticeDialog
-        open={openAddDialog}
+        open={openAddDialog && !readOnly}
         isAdmin={isAdmin}
         currentDepartmentId={currentDepartmentId}
         disableDepartmentSearch={disableDepartmentSearch}
@@ -1752,7 +1755,7 @@ export default function NoticesPage() {
 
       {/* Edit Notice Dialog */}
       <EditNoticeDialog
-        open={openEditDialog}
+        open={openEditDialog && !readOnly}
         currentItem={currentItem}
         isAdmin={isAdmin}
         currentDepartmentId={currentDepartmentId}
@@ -1961,7 +1964,7 @@ export default function NoticesPage() {
             onClick={handleConfirmDelete}
             color="error"
             variant="contained"
-            disabled={loading || !canModifyItem(selectedItem, 'delete')}
+            disabled={loading || readOnly || !canModifyItem(selectedItem, 'delete')}
           >
             Delete
           </Button>

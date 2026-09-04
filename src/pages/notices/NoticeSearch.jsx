@@ -48,6 +48,7 @@ export default function NoticeSearch({
   onReset,
   onAdd,
   disabled = false,
+  addDisabled = false,
   disableDepartmentSearch = false,
   showAddButton = true,
 }) {
@@ -108,7 +109,7 @@ export default function NoticeSearch({
             variant="contained"
             startIcon={<Add fontSize="small" />}
             onClick={onAdd}
-            disabled={disabled}
+            disabled={disabled || addDisabled}
             sx={{
               borderRadius: 1.2,
               height: 34,

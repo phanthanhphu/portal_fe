@@ -12,7 +12,21 @@ const AUTH_KEYS = [
   'userId',
   'isAuthenticated',
   'role',
+  'approvePermission',
+  'canApproveNotice',
+  'canApproveDocument',
+  'bookingPermission',
+  'canManageBooking',
+  'modulePermission',
+  'canManageAppLinks',
+  'canManageNotice',
+  'canManageDocument',
+  'canManageDepartment',
+  'departmentId',
+  'departmentName',
+  'division',
   'loginAt',
+  'authenticationType',
 ];
 
 export const clearAuthSession = () => {
@@ -57,6 +71,42 @@ const getRawUrl = (input) => {
   return input?.url;
 };
 
+const isStoredViewRole = () => {
+  try {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const role = String(user?.role || localStorage.getItem('role') || '').trim().toUpperCase();
+    return role === 'VIEW' || role === 'ROLE_VIEW';
+  } catch {
+    const role = String(localStorage.getItem('role') || '').trim().toUpperCase();
+    return role === 'VIEW' || role === 'ROLE_VIEW';
+  }
+};
+
+const VIEW_ALLOWED_MUTATION_PATHS = [
+  '/api/users/login',
+  '/api/auth/login',
+  '/api/users/logout',
+  '/api/auth/logout',
+  '/api/users/change-password',
+];
+
+const assertViewMutationAllowed = (method, rawUrl) => {
+  const normalizedMethod = String(method || 'GET').toUpperCase();
+
+  if (!isStoredViewRole() || ['GET', 'HEAD', 'OPTIONS'].includes(normalizedMethod)) {
+    return;
+  }
+
+  const pathname = new URL(rawUrl, window.location.origin).pathname;
+  const allowed = VIEW_ALLOWED_MUTATION_PATHS.some((path) => pathname === path);
+
+  if (!allowed) {
+    const error = new Error('View role is read-only. This action is not allowed.');
+    error.code = 'VIEW_ROLE_READ_ONLY';
+    throw error;
+  }
+};
+
 export const normalizeApiUrl = (rawUrl) => {
   if (isBadUrl(rawUrl)) {
     console.error('❌ BAD API URL:', rawUrl);
@@ -93,6 +143,7 @@ const applyRequestAuth = (config = {}) => {
   const token = getStoredToken();
 
   config.url = normalizeApiUrl(config.url || '');
+  assertViewMutationAllowed(config.method, config.url);
 
   config.headers = config.headers || {};
 
@@ -177,6 +228,7 @@ if (!window.__BSL_FETCH_AUTH_INTERCEPTOR_INSTALLED__) {
     }
 
     const normalizedUrl = normalizeApiUrl(rawUrl);
+    assertViewMutationAllowed(init.method || 'GET', normalizedUrl);
 
     const token = getStoredToken();
     const hasFiles = init.body instanceof FormData;

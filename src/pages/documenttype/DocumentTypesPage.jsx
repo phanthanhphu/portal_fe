@@ -41,6 +41,7 @@ import axios from 'axios';
 import SockJS from 'sockjs-client';
 import { Client } from '@stomp/stompjs';
 import { API_BASE_URL } from '../../config';
+import { isStoredViewRole } from '../../utils/accessRole';
 
 import DocumentTypeSearch from './DocumentTypeSearch';
 import AddDocumentTypeDialog from './AddDocumentTypeDialog';
@@ -271,6 +272,7 @@ function PaginationBar({ count, page, rowsPerPage, onPageChange, onRowsPerPageCh
 }
 
 export default function DocumentTypesPage() {
+  const readOnly = isStoredViewRole();
   const pageWrapSx = useMemo(() => ({
     bgcolor: '#f7f7f7',
     minHeight: '100vh',
@@ -458,17 +460,19 @@ export default function DocumentTypesPage() {
   }, []);
 
   const handleOpenEdit = useCallback((item) => {
+    if (readOnly) return;
     setCurrentItem(item);
     setOpenEditDialog(true);
-  }, []);
+  }, [readOnly]);
 
   const handleDelete = useCallback((item) => {
+    if (readOnly) return;
     setSelectedItem(item);
     setDeleteDialogOpen(true);
-  }, []);
+  }, [readOnly]);
 
   const handleConfirmDelete = async () => {
-    if (!selectedItem?.id) return;
+    if (readOnly || !selectedItem?.id) return;
 
     setLoading(true);
 
@@ -544,8 +548,9 @@ export default function DocumentTypesPage() {
         setSearchName={setSearchNameInput}
         onSearch={handleSearch}
         onReset={handleReset}
-        onAdd={() => setOpenAddDialog(true)}
+        onAdd={() => !readOnly && setOpenAddDialog(true)}
         disabled={loading}
+        addDisabled={readOnly}
       />
 
       <Paper elevation={0} sx={{ borderRadius: 1.5, border: '1px solid #e5e7eb', backgroundColor: '#fff', overflow: 'hidden' }}>
@@ -680,7 +685,7 @@ export default function DocumentTypesPage() {
                                 color="primary"
                                 size="small"
                                 sx={{ p: 0.25 }}
-                                disabled={loading}
+                                disabled={loading || readOnly}
                                 onClick={() => handleOpenEdit(item)}
                               >
                                 <Edit fontSize="small" />
@@ -694,7 +699,7 @@ export default function DocumentTypesPage() {
                                 color="error"
                                 size="small"
                                 sx={{ p: 0.25 }}
-                                disabled={loading}
+                                disabled={loading || readOnly}
                                 onClick={() => handleDelete(item)}
                               >
                                 <Delete fontSize="small" />
@@ -734,7 +739,7 @@ export default function DocumentTypesPage() {
       </Paper>
 
       <AddDocumentTypeDialog
-        open={openAddDialog}
+        open={openAddDialog && !readOnly}
         disabled={loading}
         onCancel={() => setOpenAddDialog(false)}
         onOk={() => {
@@ -745,7 +750,7 @@ export default function DocumentTypesPage() {
       />
 
       <EditDocumentTypeDialog
-        open={openEditDialog}
+        open={openEditDialog && !readOnly}
         currentItem={currentItem}
         disabled={loading}
         onCancel={() => {
@@ -774,7 +779,7 @@ export default function DocumentTypesPage() {
         </DialogContent>
 
         <DialogActions>
-          <Button onClick={() => { setDeleteDialogOpen(false); setSelectedItem(null); }} disabled={loading}>
+          <Button onClick={() => { setDeleteDialogOpen(false); setSelectedItem(null); }} disabled={loading || readOnly}>
             No
           </Button>
 

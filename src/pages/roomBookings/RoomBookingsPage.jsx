@@ -45,6 +45,7 @@ import axios from 'axios';
 import SockJS from 'sockjs-client';
 import { Client } from '@stomp/stompjs';
 import { API_BASE_URL } from '../../config';
+import { isStoredViewRole } from '../../utils/accessRole';
 
 import RoomBookingSearch from './RoomBookingSearch';
 import AddRoomBookingDialog from './AddRoomBookingDialog';
@@ -402,6 +403,7 @@ function PaginationBar({ count, page, rowsPerPage, onPageChange, onRowsPerPageCh
 }
 
 export default function RoomBookingsPage() {
+  const readOnly = isStoredViewRole();
   const pageWrapSx = useMemo(() => ({
     bgcolor: '#f7f7f7',
     minHeight: '100vh',
@@ -830,7 +832,7 @@ export default function RoomBookingsPage() {
   }, [totalElements, fetchAllRowsForExport, sortConfig, searchNameFilter, roomIdFilter, selectedRoomName, locationIdFilter, selectedLocationName, fromDateFilter, toDateFilter]);
 
   const handleToggleIndexRoomDisplay = useCallback(async (item, checked) => {
-    if (!item?.id) return;
+    if (readOnly || !item?.id) return;
 
     if (checked && isPastIndexRoomBooking(item)) {
       setData((prev) => (
@@ -881,7 +883,7 @@ export default function RoomBookingsPage() {
     } finally {
       setLoading(false);
     }
-  }, [fetchIndexRoomOrderMap]);
+  }, [fetchIndexRoomOrderMap, readOnly]);
 
   const fetchDisplayConfig = useCallback(async () => {
     setLoadingDisplayConfig(true);
@@ -906,9 +908,10 @@ export default function RoomBookingsPage() {
   }, []);
 
   const handleOpenDisplayDialog = useCallback(async () => {
+    if (readOnly) return;
     setDisplayDialogOpen(true);
     await fetchDisplayConfig();
-  }, [fetchDisplayConfig]);
+  }, [fetchDisplayConfig, readOnly]);
 
   const handleCloseDisplayDialog = useCallback(() => {
     if (savingDisplayConfig) return;
@@ -923,6 +926,7 @@ export default function RoomBookingsPage() {
   }, []);
 
   const handleSaveDisplayConfig = useCallback(async () => {
+    if (readOnly) return;
     setSavingDisplayConfig(true);
 
     try {
@@ -957,20 +961,22 @@ export default function RoomBookingsPage() {
     } finally {
       setSavingDisplayConfig(false);
     }
-  }, [displayConfig]);
+  }, [displayConfig, readOnly]);
 
   const handleOpenEdit = useCallback((item) => {
+    if (readOnly) return;
     setCurrentItem(item);
     setOpenEditDialog(true);
-  }, []);
+  }, [readOnly]);
 
   const handleDelete = useCallback((item) => {
+    if (readOnly) return;
     setSelectedItem(item);
     setDeleteDialogOpen(true);
-  }, []);
+  }, [readOnly]);
 
   const handleConfirmDelete = async () => {
-    if (!selectedItem?.id) return;
+    if (readOnly || !selectedItem?.id) return;
 
     setLoading(true);
 
@@ -1061,7 +1067,7 @@ export default function RoomBookingsPage() {
             variant="outlined"
             startIcon={<Settings fontSize="small" />}
             onClick={handleOpenDisplayDialog}
-            disabled={loading || exporting}
+            disabled={loading || exporting || readOnly}
             sx={{
               height: 36,
               borderRadius: 1.2,
@@ -1094,11 +1100,12 @@ export default function RoomBookingsPage() {
         setToDate={setToDateInput}
         onSearch={handleSearch}
         onReset={handleReset}
-        onAdd={() => setOpenAddDialog(true)}
+        onAdd={() => !readOnly && setOpenAddDialog(true)}
         onExport={handleExportExcel}
         exporting={exporting}
         canExport={totalElements > 0}
         disabled={loading || exporting}
+        addDisabled={readOnly}
       />
 
       <Paper elevation={0} sx={{ borderRadius: 1.5, border: '1px solid #e5e7eb', backgroundColor: '#fff', overflow: 'hidden' }}>
@@ -1237,7 +1244,7 @@ export default function RoomBookingsPage() {
                               <Checkbox
                                 size="small"
                                 checked={indexRoomChecked}
-                                disabled={loading || pastIndexRoomBooking}
+                                disabled={loading || pastIndexRoomBooking || readOnly}
                                 onChange={(e) => handleToggleIndexRoomDisplay(item, e.target.checked)}
                                 sx={{ p: 0.25 }}
                               />
@@ -1284,7 +1291,7 @@ export default function RoomBookingsPage() {
                                 color="primary"
                                 size="small"
                                 sx={{ p: 0.25 }}
-                                disabled={loading}
+                                disabled={loading || readOnly}
                                 onClick={() => handleOpenEdit(item)}
                               >
                                 <Edit fontSize="small" />
@@ -1298,7 +1305,7 @@ export default function RoomBookingsPage() {
                                 color="error"
                                 size="small"
                                 sx={{ p: 0.25 }}
-                                disabled={loading}
+                                disabled={loading || readOnly}
                                 onClick={() => handleDelete(item)}
                               >
                                 <Delete fontSize="small" />
@@ -1341,8 +1348,8 @@ export default function RoomBookingsPage() {
       </Paper>
 
       <AddRoomBookingDialog
-        open={openAddDialog}
-        disabled={loading}
+        open={openAddDialog && !readOnly}
+        disabled={loading || readOnly}
         onCancel={() => setOpenAddDialog(false)}
         onOk={() => {
           setOpenAddDialog(false);
@@ -1352,9 +1359,9 @@ export default function RoomBookingsPage() {
       />
 
       <EditRoomBookingDialog
-        open={openEditDialog}
+        open={openEditDialog && !readOnly}
         currentItem={currentItem}
-        disabled={loading}
+        disabled={loading || readOnly}
         onCancel={() => {
           setOpenEditDialog(false);
           setCurrentItem(null);
@@ -1383,7 +1390,7 @@ export default function RoomBookingsPage() {
             No
           </Button>
 
-          <Button onClick={handleConfirmDelete} variant="contained" color="error" disabled={loading}>
+          <Button onClick={handleConfirmDelete} variant="contained" color="error" disabled={loading || readOnly}>
             {loading ? <CircularProgress size={20} /> : 'Yes'}
           </Button>
         </DialogActions>
@@ -1431,7 +1438,7 @@ export default function RoomBookingsPage() {
                       size="small"
                       value={displayConfig.eyebrowText}
                       onChange={(e) => handleChangeDisplayConfig('eyebrowText', e.target.value)}
-                      disabled={savingDisplayConfig}
+                      disabled={savingDisplayConfig || readOnly}
                       fullWidth
                       helperText="Example: Room Reservation Display"
                     />
@@ -1441,7 +1448,7 @@ export default function RoomBookingsPage() {
                       size="small"
                       value={displayConfig.welcomeText}
                       onChange={(e) => handleChangeDisplayConfig('welcomeText', e.target.value)}
-                      disabled={savingDisplayConfig}
+                      disabled={savingDisplayConfig || readOnly}
                       fullWidth
                       helperText="Example: Welcome to"
                     />
@@ -1451,7 +1458,7 @@ export default function RoomBookingsPage() {
                       size="small"
                       value={displayConfig.titleText}
                       onChange={(e) => handleChangeDisplayConfig('titleText', e.target.value)}
-                      disabled={savingDisplayConfig}
+                      disabled={savingDisplayConfig || readOnly}
                       fullWidth
                       helperText="Example: Broadpeak Soc Trang"
                     />
@@ -1461,7 +1468,7 @@ export default function RoomBookingsPage() {
                       size="small"
                       value={displayConfig.statusText}
                       onChange={(e) => handleChangeDisplayConfig('statusText', e.target.value)}
-                      disabled={savingDisplayConfig}
+                      disabled={savingDisplayConfig || readOnly}
                       fullWidth
                       helperText="Example: Reserved"
                     />
@@ -1568,7 +1575,7 @@ export default function RoomBookingsPage() {
         <DialogActions sx={{ px: 2, py: 1.5, borderTop: '1px solid #e5e7eb' }}>
           <Button
             onClick={handleCloseDisplayDialog}
-            disabled={savingDisplayConfig}
+            disabled={savingDisplayConfig || readOnly}
             sx={{ textTransform: 'none' }}
           >
             Cancel
@@ -1578,7 +1585,7 @@ export default function RoomBookingsPage() {
             variant="contained"
             startIcon={savingDisplayConfig ? <CircularProgress size={16} color="inherit" /> : <Save fontSize="small" />}
             onClick={handleSaveDisplayConfig}
-            disabled={loadingDisplayConfig || savingDisplayConfig}
+            disabled={loadingDisplayConfig || savingDisplayConfig || readOnly}
             sx={{ textTransform: 'none', fontWeight: 700 }}
           >
             Save

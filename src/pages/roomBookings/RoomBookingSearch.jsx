@@ -81,6 +81,7 @@ export default function RoomBookingSearch({
   exporting = false,
   canExport = true,
   disabled = false,
+  addDisabled = false,
 }) {
   const [rooms, setRooms] = useState([]);
   const [locations, setLocations] = useState([]);
@@ -214,7 +215,7 @@ export default function RoomBookingSearch({
             variant="contained"
             startIcon={<Add fontSize="small" />}
             onClick={onAdd}
-            disabled={disabled}
+            disabled={disabled || addDisabled}
             sx={{
               ...actionButtonSx,
               px: 1.25,
