@@ -11,6 +11,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TextField,
   Paper,
   Stack,
   IconButton,
@@ -782,6 +783,12 @@ export default function NoticesPage() {
       }
     }
 
+    if (!next.some((header) => header.key === 'displayPosition')) {
+      const pinnedIndex = next.findIndex((header) => header.key === 'pinned');
+      next.splice(pinnedIndex >= 0 ? pinnedIndex + 1 : next.length - 1, 0,
+        { label: 'Display Order', key: 'displayPosition', sortable: false });
+    }
+
     // Show updated date column right after created date.
     // The backend already returns updatedAt as a date array, so formatDateTime can render it directly.
     const hasUpdatedAt = next.some((header) => header.key === 'updatedAt');
@@ -820,6 +827,11 @@ export default function NoticesPage() {
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [loading, setLoading] = useState(false);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: null });
+  const [noticeListType, setNoticeListType] = useState('PINNED');
+  const [pinnedListCount, setPinnedListCount] = useState(0);
+  const [normalListCount, setNormalListCount] = useState(0);
+  const [orderDialog, setOrderDialog] = useState({ open: false, item: null, pinned: false, order: '1' });
+  const [orderSaving, setOrderSaving] = useState(false);
 
   const [searchDivisionInput, setSearchDivisionInput] = useState('');
   const [searchDepartmentInput, setSearchDepartmentInput] = useState('');
@@ -846,6 +858,7 @@ export default function NoticesPage() {
   // Keep the latest refresh function without reconnecting socket on every render.
   const noticeRealtimeRefreshRef = useRef(null);
   const socketRefreshingRef = useRef(false);
+  const pendingSocketNoticeRef = useRef(null);
 
   // Fetch data function
   const fetchData = useCallback(async (overrides = {}) => {
@@ -857,6 +870,7 @@ export default function NoticesPage() {
 
     const effPage = Number.isInteger(overrides.page) ? overrides.page : page;
     const effSize = Number.isInteger(overrides.size) ? overrides.size : rowsPerPage;
+    const effListType = overrides.listType || noticeListType;
     const effSearchDivision = overrides.searchDivision !== undefined ? overrides.searchDivision : searchDivisionFilter;
     const effSearchDepartment = overrides.searchDepartment !== undefined ? overrides.searchDepartment : searchDepartmentFilter;
     const effSearchTitle = overrides.searchTitle !== undefined ? overrides.searchTitle : searchTitleFilter;
@@ -888,21 +902,22 @@ export default function NoticesPage() {
           title: effSearchTitle,
           content: effSearchContent,
           status: 'APPROVED',
-          page: effPage,
+          includeFeaturedPinned: true,
+          page: effListType === 'PINNED' ? 0 : effPage,
           size: effSize,
         },
         headers: getAuthHeaders('*/*'),
       });
 
       const result = response?.data || {};
-      const normalizedContent = (result.content || [])
-        .map((item) => normalizeNoticeRowForTable(item))
-        .filter(isApprovedNotice);
-      const finalData = sortRowsClient(normalizedContent, sortConfig);
-
-      setData(finalData);
-      setTotalElements(result.totalElements || 0);
-      setTotalPages(result.totalPages || 1);
+      const pinnedItems = (result.pinnedNotices || []).map((item) => normalizeNoticeRowForTable(item)).filter(isApprovedNotice);
+      const normalItems = (result.content || []).map((item) => normalizeNoticeRowForTable(item)).filter(isApprovedNotice);
+      const sourceItems = effListType === 'PINNED' ? pinnedItems : normalItems;
+      setData(sortRowsClient(sourceItems, sortConfig));
+      setPinnedListCount(pinnedItems.length);
+      setNormalListCount(result.totalElements || 0);
+      setTotalElements(effListType === 'PINNED' ? pinnedItems.length : (result.totalElements || 0));
+      setTotalPages(effListType === 'PINNED' ? 1 : (result.totalPages || 1));
       setIsAdmin(Boolean(result.isAdmin));
       setCurrentDepartmentId(result.currentDepartmentId || '');
       setDisableDepartmentSearch(Boolean(result.disableDepartmentSearch));
@@ -924,7 +939,7 @@ export default function NoticesPage() {
         setLoading(false);
       }
     }
-  }, [page, rowsPerPage, searchDivisionFilter, searchDepartmentFilter, searchTitleFilter, searchContentFilter, sortConfig, navigate]);
+  }, [page, rowsPerPage, searchDivisionFilter, searchDepartmentFilter, searchTitleFilter, searchContentFilter, sortConfig, noticeListType, navigate]);
 
   const fetchNoticeByIdForSocket = useCallback(async (noticeId) => {
     if (!noticeId) return null;
@@ -951,71 +966,10 @@ export default function NoticesPage() {
 
     console.log('Notices realtime event received:', event);
 
-    /*
-     * Do not refetch the whole page for normal Notice CRUD.
-     * Update the visible table data in-place so the page does not flash, reset,
-     * or change layout when another account saves a notice.
-     */
-    if ((module === 'NOTICE' || module === 'NOTICES') && noticeId) {
-      if (action === 'DELETED') {
-        setData((prev) => prev.filter((item) => String(item?.id) !== noticeId));
-        setTotalElements((prev) => Math.max(Number(prev || 0) - 1, 0));
-        setTotalPages((prev) => Math.max(Number(prev || 1), 1));
-
-        setCurrentItem((prev) => (String(prev?.id || '') === noticeId ? null : prev));
-        setContentDialogItem((prev) => (String(prev?.id || '') === noticeId ? null : prev));
-        setOpenEditDialog((prev) => (String(currentItem?.id || '') === noticeId ? false : prev));
-        setContentDialogOpen((prev) => (String(contentDialogItem?.id || '') === noticeId ? false : prev));
-
-        console.log(`Notices data updated in-place by socket: ${module} ${action}`);
-        return;
-      }
-
-      const latestNotice = await fetchNoticeByIdForSocket(noticeId);
-
-      if (!latestNotice) return;
-
-      setData((prev) => {
-        const existingIndex = prev.findIndex((item) => String(item?.id) === noticeId);
-        const existingItem = existingIndex >= 0 ? prev[existingIndex] : null;
-        const normalizedNotice = normalizeNoticeRowForTable(latestNotice, existingItem || {});
-        const approvedForIndex = isApprovedNotice(normalizedNotice);
-
-        const filters = {
-          searchDivision: searchDivisionFilter,
-          searchDepartment: searchDepartmentFilter,
-          searchTitle: searchTitleFilter,
-          searchContent: searchContentFilter,
-        };
-
-        const matchesCurrentFilters = doesNoticeMatchCurrentFilters(normalizedNotice, filters);
-
-        if (existingIndex >= 0) {
-          if (!approvedForIndex || !matchesCurrentFilters) {
-            return prev.filter((item) => String(item?.id) !== noticeId);
-          }
-
-          const next = prev.map((item) => (String(item?.id) === noticeId ? normalizedNotice : item));
-          return sortRowsClient(next, sortConfig);
-        }
-
-        if (action === 'CREATED' && page === 0 && approvedForIndex && matchesCurrentFilters) {
-          const next = [normalizedNotice, ...prev].slice(0, rowsPerPage);
-          return sortRowsClient(next, sortConfig);
-        }
-
-        return prev;
-      });
-
-      if (action === 'CREATED' && isApprovedNotice(latestNotice)) {
-        setTotalElements((prev) => Number(prev || 0) + 1);
-        setTotalPages((prev) => Math.max(prev, Math.ceil((Number(totalElements || 0) + 1) / rowsPerPage)));
-      }
-
-      setCurrentItem((prev) => (String(prev?.id || '') === noticeId ? normalizeNoticeRowForTable(latestNotice, prev) : prev));
-      setContentDialogItem((prev) => (String(prev?.id || '') === noticeId ? normalizeNoticeRowForTable(latestNotice, prev) : prev));
-
-      console.log(`Notices data updated in-place by socket: ${module} ${action}`);
+    // Rank changes can shift many rows at once, even when only one notice was
+    // edited. Refresh the current page instead of updating a single row in-place.
+    if (module === 'NOTICE' || module === 'NOTICES') {
+      await fetchData({ page, silent: true });
       return;
     }
 
@@ -1085,14 +1039,21 @@ export default function NoticesPage() {
 
           console.log('Notices realtime event received:', event);
 
+          // Keep the latest event while a fetch is in progress. A new pin
+          // produces several socket events; never lose the final order update.
+          pendingSocketNoticeRef.current = event;
           if (socketRefreshingRef.current) return;
-
           socketRefreshingRef.current = true;
-
           try {
-            await noticeRealtimeRefreshRef.current?.(event);
-          } catch (error) {
-            console.error('Notices realtime refresh failed:', error);
+            while (pendingSocketNoticeRef.current) {
+              const nextEvent = pendingSocketNoticeRef.current;
+              pendingSocketNoticeRef.current = null;
+              try {
+                await noticeRealtimeRefreshRef.current?.(nextEvent);
+              } catch (error) {
+                console.error('Notices realtime refresh failed:', error);
+              }
+            }
           } finally {
             socketRefreshingRef.current = false;
           }
@@ -1161,6 +1122,50 @@ export default function NoticesPage() {
       String(currentDepartmentId).trim() === String(item.departmentId).trim()
     );
   }, [isAdmin, currentDepartmentId, readOnly]);
+
+  const handleSelectNoticeList = useCallback((listType) => {
+    setNoticeListType(listType);
+    setPage(0);
+    setSortConfig({ key: null, direction: null });
+  }, []);
+
+  const openOrderDialog = useCallback((item) => {
+    if (!isAdmin || readOnly) return;
+    setOrderDialog({
+      open: true,
+      item,
+      pinned: Boolean(item.pinned),
+      order: String(item.pinned ? (item.pinnedOrder || 1) : (item.displayOrder || 1)),
+    });
+  }, [isAdmin, readOnly]);
+
+  const saveOrder = useCallback(async (item, pinned, order, closeDialog = true) => {
+    const nextOrder = Number(order);
+    if (!item?.id || !isAdmin || readOnly || !Number.isInteger(nextOrder)
+        || nextOrder < 1 || (pinned && nextOrder > 2)) {
+      setNotification({ open: true, severity: 'warning', message: 'Choose a valid display order.' });
+      return;
+    }
+    setOrderSaving(true);
+    try {
+      await axios.patch(`${API_BASE_URL}/api/notices/${item.id}/display-order`,
+        { pinned: Boolean(pinned), order: nextOrder },
+        { headers: { ...getAuthHeaders('application/json'), 'Content-Type': 'application/json' } });
+      if (closeDialog) setOrderDialog({ open: false, item: null, pinned: false, order: '1' });
+      const targetType = pinned ? 'PINNED' : 'NORMAL';
+      if (targetType !== noticeListType) {
+        setPage(0);
+        setNoticeListType(targetType);
+      } else {
+        await fetchData({ silent: true, page });
+      }
+      setNotification({ open: true, severity: 'success', message: 'Notice display order saved.' });
+    } catch (error) {
+      setNotification({ open: true, severity: 'error', message: error?.response?.data?.message || 'Failed to save notice order.' });
+    } finally {
+      setOrderSaving(false);
+    }
+  }, [fetchData, isAdmin, readOnly, noticeListType, page]);
 
   // Search handler
   const handleSearch = useCallback(() => {
@@ -1448,12 +1453,28 @@ export default function NoticesPage() {
 
       {/* Main Table */}
       <Paper elevation={0} sx={{ borderRadius: 1.5, border: '1px solid #e5e7eb', backgroundColor: '#fff', overflow: 'hidden' }}>
+        <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}
+          sx={{ px: 1.5, py: 1, borderBottom: '1px solid #e5e7eb', flexWrap: 'wrap' }}>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Button size="small" variant={noticeListType === 'PINNED' ? 'contained' : 'outlined'}
+              onClick={() => handleSelectNoticeList('PINNED')} disabled={loading}>
+              Pinned ({pinnedListCount}/2)
+            </Button>
+            <Button size="small" variant={noticeListType === 'NORMAL' ? 'contained' : 'outlined'}
+              onClick={() => handleSelectNoticeList('NORMAL')} disabled={loading}>
+              Normal ({normalListCount})
+            </Button>
+          </Stack>
+          <Typography variant="caption" color="text.secondary">
+            {isAdmin ? 'Click Display Order to choose its list and position.' : 'Display order is managed by Admin.'}
+          </Typography>
+        </Stack>
         <TableContainer sx={{ overflowX: 'auto' }}>
           <Table stickyHeader size="small" sx={{ width: '100%' }}>
             <TableHead>
               <TableRow>
                 {tableHeaders.map(({ label, key, sortable, hideOnSmall }) => {
-                  const align = ['No', 'Pinned', 'Actions'].includes(label) ? 'center' : 'left';
+                  const align = ['No', 'Pinned', 'Display Order', 'Actions'].includes(label) ? 'center' : 'left';
                   const active = sortConfig.key === key && !!sortConfig.direction;
                   const stickyNo = key === 'no';
                   const hideXs = hideOnSmall ? { display: { xs: 'none', md: 'table-cell' } } : {};
@@ -1646,6 +1667,28 @@ export default function NoticesPage() {
                           {item.pinned ? 'Pinned' : 'Normal'}
                         </Box>
                       </TableCell>
+                      <TableCell align="center" sx={{ py: 0.45, px: 0.7, minWidth: 158 }}>
+                        <Stack direction="row" spacing={0.3} alignItems="center" justifyContent="center">
+                          <Button size="small" variant="outlined" disabled={!isAdmin || readOnly || orderSaving}
+                            onClick={() => openOrderDialog(item)} sx={{ fontSize: '0.72rem', minWidth: 65, py: 0.25 }}>
+                            {item.pinned ? `Pin ${item.pinnedOrder || '-'}` : `No. ${item.displayOrder || '-'}`}
+                          </Button>
+                          {!item.pinned && isAdmin && !readOnly && (
+                            <>
+                              <Tooltip title="Move up"><span><IconButton size="small"
+                                disabled={orderSaving || (item.displayOrder || 1) <= 1}
+                                onClick={() => saveOrder(item, false, item.displayOrder - 1, false)}>
+                                <ArrowUpward sx={{ fontSize: 16 }} />
+                              </IconButton></span></Tooltip>
+                              <Tooltip title="Move down"><span><IconButton size="small"
+                                disabled={orderSaving}
+                                onClick={() => saveOrder(item, false, item.displayOrder + 1, false)}>
+                                <ArrowDownward sx={{ fontSize: 16 }} />
+                              </IconButton></span></Tooltip>
+                            </>
+                          )}
+                        </Stack>
+                      </TableCell>
 
                       <TableCell sx={{ fontSize: '0.75rem', py: 0.45, px: 0.7, color: '#374151', display: { xs: 'none', md: 'table-cell' }, minWidth: 140 }}>
                         {formatDateTime(item.createdAt) || '-'}
@@ -1723,6 +1766,45 @@ export default function NoticesPage() {
           />
         </Box>
       </Paper>
+
+      <Dialog open={orderDialog.open} onClose={orderSaving ? undefined : () => setOrderDialog((prev) => ({ ...prev, open: false }))}
+        maxWidth="xs" fullWidth>
+        <DialogTitle>Change Notice Display Order</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <Typography variant="body2" fontWeight={600}>{orderDialog.item?.title || ''}</Typography>
+            <TextField select label="List" size="small" value={orderDialog.pinned ? 'PINNED' : 'NORMAL'}
+              disabled={orderSaving} onChange={(e) => setOrderDialog((prev) => ({
+                ...prev, pinned: e.target.value === 'PINNED', order: '1' }))}>
+              <MenuItem value="PINNED">Pinned (maximum 2)</MenuItem>
+              <MenuItem value="NORMAL">Normal</MenuItem>
+            </TextField>
+            {orderDialog.pinned ? (
+              <TextField select label="Pinned position" size="small" value={orderDialog.order}
+                disabled={orderSaving} onChange={(e) => setOrderDialog((prev) => ({ ...prev, order: e.target.value }))}>
+                <MenuItem value="1">Pinned 1 — First</MenuItem>
+                <MenuItem value="2">Pinned 2 — Second</MenuItem>
+              </TextField>
+            ) : (
+              <TextField label="Normal order" size="small" type="number" value={orderDialog.order}
+                disabled={orderSaving} inputProps={{ min: 1, step: 1 }}
+                onChange={(e) => setOrderDialog((prev) => ({ ...prev, order: e.target.value }))}
+                helperText="Normal positions start at 1. Other notices shift automatically." />
+            )}
+            <Typography variant="caption" color="text.secondary">
+              A new Pinned 1 pushes existing Pinned 1 to position 2; existing Pinned 2
+              becomes Normal 1. Switching pinned positions swaps their order.
+            </Typography>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button disabled={orderSaving} onClick={() => setOrderDialog((prev) => ({ ...prev, open: false }))}>Cancel</Button>
+          <Button variant="contained" disabled={orderSaving}
+            onClick={() => saveOrder(orderDialog.item, orderDialog.pinned, orderDialog.order)}>
+            {orderSaving ? <CircularProgress size={16} /> : 'Save Order'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Notification Snackbar */}
       <Snackbar

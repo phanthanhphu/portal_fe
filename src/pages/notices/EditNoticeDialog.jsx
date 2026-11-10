@@ -99,6 +99,7 @@ export default function EditNoticeDialog({
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [pinned, setPinned] = useState(false);
+  const [pinnedOrder, setPinnedOrder] = useState(1);
   const [departmentId, setDepartmentId] = useState('');
 
   const [keepFileUrls, setKeepFileUrls] = useState([]);
@@ -191,6 +192,7 @@ export default function EditNoticeDialog({
       setTitle('');
       setContent('');
       setPinned(false);
+      setPinnedOrder(1);
       setDepartmentId('');
       syncKeepFileUrls([]);
       syncRemovedFileUrls([]);
@@ -206,6 +208,7 @@ export default function EditNoticeDialog({
     setTitle(currentItem?.title || '');
     setContent(currentItem?.content || '');
     setPinned(!!currentItem?.pinned);
+    setPinnedOrder(currentItem?.pinnedOrder || 1);
     setDepartmentId(currentItem?.departmentId || '');
     syncKeepFileUrls(getNoticeFileUrls(currentItem));
     syncRemovedFileUrls([]);
@@ -314,6 +317,7 @@ export default function EditNoticeDialog({
       formData.append('userId', loggedInUserId);
       formData.append('departmentId', departmentId);
       formData.append('pinned', String(Boolean(pinned)));
+      if (pinned && isAdmin) formData.append('pinnedOrder', String(pinnedOrder));
 
       if (keepUrlsPayload.length > 0) {
         keepUrlsPayload.forEach((fileUrl) => {
@@ -506,6 +510,13 @@ export default function EditNoticeDialog({
             </Box>
 
             <FormControlLabel control={<Checkbox checked={pinned} onChange={(e) => setPinned(e.target.checked)} disabled={locked} />} label="Pinned notice" />
+            {pinned && isAdmin && (
+              <TextField select label="Pinned position" size="small" fullWidth value={pinnedOrder}
+                onChange={(e) => setPinnedOrder(Number(e.target.value))} disabled={locked} sx={fieldSx}>
+                <MenuItem value={1}>Pinned 1 — Highest priority</MenuItem>
+                <MenuItem value={2}>Pinned 2</MenuItem>
+              </TextField>
+            )}
           </Stack>
         </DialogContent>
 

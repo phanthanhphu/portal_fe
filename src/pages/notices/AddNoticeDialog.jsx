@@ -60,6 +60,7 @@ export default function AddNoticeDialog({
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [pinned, setPinned] = useState(false);
+  const [pinnedOrder, setPinnedOrder] = useState(1);
   const [files, setFiles] = useState([]);
   const [departmentId, setDepartmentId] = useState("");
 
@@ -136,6 +137,7 @@ export default function AddNoticeDialog({
       setTitle("");
       setContent("");
       setPinned(false);
+      setPinnedOrder(1);
       setFiles([]);
       setDepartmentId("");
       setDepartments([]);
@@ -224,6 +226,7 @@ export default function AddNoticeDialog({
       formData.append("userId", loggedInUserId);
       formData.append("departmentId", departmentId);
       formData.append("pinned", String(pinned));
+      if (pinned && isAdmin) formData.append("pinnedOrder", String(pinnedOrder));
       // Approval workflow: every new notice should wait for admin approval first.
       // Backend can ignore this field if it already sets PENDING by default.
       formData.append("status", "PENDING");
@@ -367,6 +370,13 @@ export default function AddNoticeDialog({
             </Box>
 
             <FormControlLabel control={<Checkbox checked={pinned} onChange={(e) => setPinned(e.target.checked)} disabled={locked} />} label="Pinned notice" />
+            {pinned && isAdmin && (
+              <TextField select label="Pinned position" size="small" fullWidth value={pinnedOrder}
+                onChange={(e) => setPinnedOrder(Number(e.target.value))} disabled={locked} sx={fieldSx}>
+                <MenuItem value={1}>Pinned 1 — Highest priority</MenuItem>
+                <MenuItem value={2}>Pinned 2</MenuItem>
+              </TextField>
+            )}
           </Stack>
         </DialogContent>
 

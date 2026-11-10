@@ -285,14 +285,125 @@ function getPreviewDisplayType(previewState) {
   return "Preview";
 }
 
-function formatDateTime(createdAtArray) {
-  if (!Array.isArray(createdAtArray) || createdAtArray.length < 6) return "";
-  const [year, month, day, hour, minute] = createdAtArray;
-  const dd = String(day).padStart(2, "0");
-  const mm = String(month).padStart(2, "0");
-  const hh = String(hour).padStart(2, "0");
-  const min = String(minute).padStart(2, "0");
-  return `${dd}/${mm}/${year} • ${hh}:${min}`;
+// Dates from Spring Boot/Jackson can be ISO-8601 strings (default) or
+// LocalDateTime arrays. Keep the time unchanged for zone-less LocalDateTime;
+// convert absolute timestamps into Vietnam time for consistent display.
+function formatDateTime(value) {
+  if (value === null || value === undefined || value === "") return "";
+
+  const formatParts = (year, month, day, hour, minute) => {
+    const values = [year, month, day, hour, minute].map(Number);
+    if (values.some((part) => !Number.isInteger(part))) return "";
+    const [y, m, d, h, min] = values;
+    if (y < 1900 || m < 1 || m > 12 || d < 1 || d > 31 || h < 0 || h > 23 || min < 0 || min > 59) return "";
+    return `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}/${y} • ${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+  };
+
+  const formatAbsoluteDate = (date) => {
+    if (Number.isNaN(date.getTime())) return "";
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Ho_Chi_Minh",
+      day: "2-digit", month: "2-digit", year: "numeric",
+      hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+    }).formatToParts(date);
+    const get = (type) => parts.find((part) => part.type === type)?.value;
+    return formatParts(get("year"), get("month"), get("day"), get("hour"), get("minute"));
+  };
+
+  if (Array.isArray(value)) {
+    if (value.length < 5) return "";
+    return formatParts(value[0], value[1], value[2], value[3], value[4]);
+  }
+
+  if (typeof value === "number" || (typeof value === "string" && /^\d{10,13}$/.test(value.trim()))) {
+    const numeric = Number(value);
+    return formatAbsoluteDate(new Date(numeric < 1e12 ? numeric * 1000 : numeric));
+  }
+
+  if (typeof value === "string") {
+    const text = value.trim();
+    // A timezone suffix indicates an absolute moment; render it in Vietnam time.
+    if (/[zZ]$|[+-]\d{2}:?\d{2}$/.test(text)) {
+      return formatAbsoluteDate(new Date(text));
+    }
+    const match = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})[T ](\d{1,2}):(\d{1,2})/);
+    return match ? formatParts(match[1], match[2], match[3], match[4], match[5]) : "";
+  }
+
+  if (typeof value === "object") {
+    return formatParts(value.year, value.monthValue ?? value.month,
+      value.dayOfMonth ?? value.day, value.hour, value.minute);
+  }
+  return "";
+}
+
+
+// The Index displays the timestamp of the actual notice, not the browser time.
+// Some old MongoDB notices have no createdAt; approvedAt is supplied by the
+// existing /api/notices/search response, and Mongo ObjectId embeds creation time.
+function formatNoticePostedTime(notice) {
+  if (!notice) return "";
+  const candidates = [
+    notice.createdAt,
+    notice.approvedAt,
+    notice.publishedAt,
+    notice.postedAt,
+  ];
+  for (const value of candidates) {
+    const formatted = formatDateTime(value);
+    if (formatted) return formatted;
+  }
+
+  // MongoDB-generated ObjectId: first 4 bytes are epoch seconds.
+  // Do NOT infer dates from arbitrary custom ids or document titles.
+  const id = String(notice.id || "").trim();
+  if (/^[a-f0-9]{24}$/i.test(id)) {
+    const seconds = Number.parseInt(id.slice(0, 8), 16);
+    const milliseconds = seconds * 1000;
+    if (milliseconds >= Date.UTC(2000, 0, 1) && milliseconds <= Date.now() + 86400000) {
+      const formatted = formatDateTime(milliseconds);
+      if (formatted) return formatted;
+    }
+  }
+
+  // An edited notice's updatedAt is not its original posting time.
+  // Only use it with an explicit label if all posting timestamps are missing.
+  const updated = formatDateTime(notice.updatedAt);
+  return updated ? `Updated ${updated}` : "";
+}
+
+// NEWEST is an actual date comparison between the two pinned notices.
+// A reordered Pinned #1 does not become "new" merely by changing its position.
+function getNoticeCreationMillis(notice) {
+  if (!notice) return null;
+
+  const toMillis = (value) => {
+    if (value === null || value === undefined || value === "") return null;
+    let millis = NaN;
+
+    if (Array.isArray(value) && value.length >= 3) {
+      const [year, month, day, hour = 0, minute = 0, second = 0, nano = 0] = value.map(Number);
+      millis = new Date(year, month - 1, day, hour, minute, second, Math.floor(nano / 1e6)).getTime();
+    } else if (typeof value === "number" || (typeof value === "string" && /^\d{10,13}$/.test(value.trim()))) {
+      const numeric = Number(value);
+      millis = numeric < 1e12 ? numeric * 1000 : numeric;
+    } else if (typeof value === "string") {
+      millis = Date.parse(value);
+    } else if (typeof value === "object" && (value.year !== undefined)) {
+      millis = new Date(
+        Number(value.year), Number(value.monthValue ?? value.month) - 1,
+        Number(value.dayOfMonth ?? value.day), Number(value.hour ?? 0),
+        Number(value.minute ?? 0), Number(value.second ?? 0),
+      ).getTime();
+    }
+    return Number.isFinite(millis) ? millis : null;
+  };
+
+  for (const field of ["createdAt", "approvedAt", "publishedAt", "postedAt"]) {
+    const result = toMillis(notice[field]);
+    if (result !== null) return result;
+  }
+  return null;
 }
 
 function getDepartmentDisplayName(item) {
@@ -2253,6 +2364,7 @@ export default function PageHome() {
   const keepHoverMenuAfterPreviewRef = useRef(false);
   const homeRealtimeRefreshRef = useRef(null);
   const socketRefreshingRef = useRef(false);
+  const pendingSocketHomeRef = useRef(null);
   const realtimeMessageTimerRef = useRef(null);
 
   const [realtimeConnected, setRealtimeConnected] = useState(false);
@@ -2645,8 +2757,13 @@ export default function PageHome() {
       fileType,
       departmentName: item.departmentName || "",
       division: item.division || "",
-      createdAt: item.createdAt || null,
-      updatedAt: item.updatedAt || null,
+      createdAt: item.createdAt ?? null,
+      approvedAt: item.approvedAt ?? null,
+      publishedAt: item.publishedAt ?? null,
+      postedAt: item.postedAt ?? null,
+      updatedAt: item.updatedAt ?? null,
+      pinnedOrder: item.pinnedOrder ?? null,
+      displayOrder: item.displayOrder ?? null,
     };
   };
 
@@ -2846,18 +2963,21 @@ export default function PageHome() {
 
           console.log("Portal realtime event received:", event);
 
-          if (socketRefreshingRef.current) {
-            return;
-          }
-
+          // Coalesce bursts of socket updates without dropping the final event.
+          pendingSocketHomeRef.current = event;
+          if (socketRefreshingRef.current) return;
           socketRefreshingRef.current = true;
-          showRealtimeMessage(`${String(event?.module || "ALL").toUpperCase()} ${String(event?.action || "UPDATED").toUpperCase()} - syncing...`);
-
           try {
-            await homeRealtimeRefreshRef.current?.(event);
-          } catch (error) {
-            console.error("Portal realtime refresh failed:", error);
-            showRealtimeMessage("Realtime received, but refresh failed");
+            while (pendingSocketHomeRef.current) {
+              const nextEvent = pendingSocketHomeRef.current;
+              pendingSocketHomeRef.current = null;
+              try {
+                await homeRealtimeRefreshRef.current?.(nextEvent);
+              } catch (error) {
+                console.error("Portal realtime refresh failed:", error);
+                showRealtimeMessage("Realtime received, but refresh failed");
+              }
+            }
           } finally {
             socketRefreshingRef.current = false;
           }
@@ -3391,8 +3511,8 @@ export default function PageHome() {
   };
 
   const heroPinnedNotice = useMemo(
-    () => featuredPinnedNotice || notices[0] || null,
-    [featuredPinnedNotice, notices],
+    () => featuredPinnedNotice || null,
+    [featuredPinnedNotice],
   );
 
   const priorityPinnedDisplayNotice = useMemo(
@@ -3407,6 +3527,20 @@ export default function PageHome() {
     },
     [priorityPinnedNotice, notices, heroPinnedNotice],
   );
+
+  // Exactly one NEWEST badge among the displayed pinned notices, determined
+  // by their creation dates, not by pinnedOrder 1/2. No guessed date badges.
+  const newestPinnedNoticeId = useMemo(() => {
+    const pinned = [heroPinnedNotice, priorityPinnedDisplayNotice]
+      .filter((notice) => notice?.pinned && notice?.id);
+    const dated = pinned
+      .map((notice) => ({ id: notice.id, millis: getNoticeCreationMillis(notice) }))
+      .filter((notice) => notice.millis !== null);
+
+    if (!dated.length) return null;
+    dated.sort((a, b) => b.millis - a.millis);
+    return dated[0].id;
+  }, [heroPinnedNotice, priorityPinnedDisplayNotice]);
 
   const searchableNotices = useMemo(
     () => notices.filter(
@@ -3425,13 +3559,18 @@ export default function PageHome() {
       (notice) =>
         notice.title.toLowerCase().includes(keyword) ||
         notice.content.toLowerCase().includes(keyword) ||
-        formatDateTime(notice.createdAt).toLowerCase().includes(keyword),
+        formatNoticePostedTime(notice).toLowerCase().includes(keyword),
     );
   }, [searchableNotices, noticeSearch]);
 
+  // A same-length reorder must restart from Normal #1, not resume mid-list.
+  const noticeSequenceKey = useMemo(
+    () => filteredNotices.map((item) => String(item.id || '')).join('|'),
+    [filteredNotices],
+  );
   useEffect(() => {
     setNoticeWindowStart(0);
-  }, [noticeSearch, filteredNotices.length]);
+  }, [noticeSearch, noticeSequenceKey]);
 
   const noticeAutoSlidePaused = noticeHoverPaused || noticeMoreFilesPopupOpen || previewState.open;
 
@@ -3439,27 +3578,22 @@ export default function PageHome() {
     if (filteredNotices.length <= 5 || noticeAutoSlidePaused) return undefined;
 
     const intervalId = window.setInterval(() => {
-      setNoticeWindowStart((prev) => (prev + 1) % filteredNotices.length);
+      // Move by complete groups of five. Never mix the end of the
+      // list with the beginning in the same visible window.
+      setNoticeWindowStart((prev) =>
+        prev + 5 >= filteredNotices.length ? 0 : prev + 5
+      );
     }, 3200);
 
     return () => window.clearInterval(intervalId);
   }, [filteredNotices.length, noticeAutoSlidePaused]);
 
 const visibleNotices = useMemo(() => {
-  if (filteredNotices.length <= 5) {
-    return filteredNotices.map((notice, index) => ({
-      notice,
-      displayIndex: index + 1,
-    }));
-  }
-
-  return Array.from({ length: 5 }, (_, offset) => {
-    const absoluteIndex = (noticeWindowStart + offset) % filteredNotices.length;
-    return {
-      notice: filteredNotices[absoluteIndex],
-      displayIndex: absoluteIndex + 1,
-    };
-  });
+  const start = noticeWindowStart >= filteredNotices.length ? 0 : noticeWindowStart;
+  return filteredNotices.slice(start, start + 5).map((notice, index) => ({
+    notice,
+    displayIndex: start + index + 1,
+  }));
 }, [filteredNotices, noticeWindowStart]);
 
   const noticeDisplayCount = (priorityPinnedDisplayNotice ? 1 : 0) + filteredNotices.length;
@@ -3484,9 +3618,7 @@ const visibleNotices = useMemo(() => {
   );
 
   const heroPinnedNoticeTime = useMemo(() => {
-    if (!heroPinnedNotice) return "No data yet";
-
-    return formatDateTime(heroPinnedNotice.updatedAt || heroPinnedNotice.createdAt) || "No data yet";
+    return formatNoticePostedTime(heroPinnedNotice);
   }, [heroPinnedNotice]);
 
   const mobileDropdownStyle = {
@@ -3754,12 +3886,17 @@ const visibleNotices = useMemo(() => {
                     <span className="portal-chip">Quick search</span>
                   </div>
 
-                  <div className="portal-hero-latest-notice">
-                    <div className="portal-hero-latest-notice__badge">
-                      <span className="portal-hero-latest-notice__badge-icon">
-                        <IconPin />
-                      </span>
-                      <span>Pinned notice</span>
+                  <div className={`portal-hero-latest-notice${heroPinnedNotice?.id === newestPinnedNoticeId ? " is-newest" : ""}`}>
+                    <div className="portal-pinned-notice__heading">
+                      <div className="portal-hero-latest-notice__badge">
+                        <span className="portal-hero-latest-notice__badge-icon">
+                          <IconPin />
+                        </span>
+                        <span>Pinned notice</span>
+                      </div>
+                      {heroPinnedNotice?.id && heroPinnedNotice.id === newestPinnedNoticeId ? (
+                        <span className="portal-pinned-notice__newest" aria-label="Newest pinned notice">NEWEST</span>
+                      ) : null}
                     </div>
 
                     {heroPinnedNotice ? (
@@ -3777,10 +3914,12 @@ const visibleNotices = useMemo(() => {
                           {getDepartmentDisplayName(heroPinnedNotice) ? (
                             <span className="portal-meta-pill">{getDepartmentDisplayName(heroPinnedNotice)}</span>
                           ) : null}
-                          <span className="portal-meta-pill">
-                            <IconClock />
-                            {heroPinnedNoticeTime}
-                          </span>
+                          {heroPinnedNoticeTime ? (
+                            <span className="portal-meta-pill">
+                              <IconClock />
+                              {heroPinnedNoticeTime}
+                            </span>
+                          ) : null}
                           <FileActions item={heroPinnedNotice} onPreview={handleOpenPreview} onDownload={handleDownloadFile} compact previewOpen={previewState.open} />
                         </div>
                       </>
@@ -3909,12 +4048,17 @@ const visibleNotices = useMemo(() => {
                   <div className="portal-notice-column">
                     {priorityPinnedDisplayNotice ? (
                       <div className="portal-featured-notice-wrap">
-                        <div className="portal-featured-notice">
-                          <div className="portal-featured-notice__badge">
-                            <span className="portal-featured-notice__badge-icon">
-                              <IconPin />
-                            </span>
-                            <span>Priority pinned</span>
+                        <div className={`portal-featured-notice${priorityPinnedDisplayNotice.id === newestPinnedNoticeId ? " is-newest" : ""}`}>
+                          <div className="portal-pinned-notice__heading">
+                            <div className="portal-featured-notice__badge">
+                              <span className="portal-featured-notice__badge-icon">
+                                <IconPin />
+                              </span>
+                              <span>Priority pinned</span>
+                            </div>
+                            {priorityPinnedDisplayNotice.id === newestPinnedNoticeId ? (
+                              <span className="portal-pinned-notice__newest" aria-label="Newest pinned notice">NEWEST</span>
+                            ) : null}
                           </div>
                           <h3>{priorityPinnedDisplayNotice.title}</h3>
                           <ExpandableText
@@ -3930,10 +4074,10 @@ const visibleNotices = useMemo(() => {
                               {getDepartmentDisplayName(priorityPinnedDisplayNotice) ? (
                                 <span className="portal-meta-pill">{getDepartmentDisplayName(priorityPinnedDisplayNotice)}</span>
                               ) : null}
-                              {priorityPinnedDisplayNotice.createdAt ? (
+                              {formatNoticePostedTime(priorityPinnedDisplayNotice) ? (
                                 <span className="portal-meta-pill">
                                   <IconClock />
-                                  {formatDateTime(priorityPinnedDisplayNotice.createdAt)}
+                                  {formatNoticePostedTime(priorityPinnedDisplayNotice)}
                                 </span>
                               ) : null}
                             </div>
@@ -3980,10 +4124,10 @@ const visibleNotices = useMemo(() => {
                                     {getDepartmentDisplayName(notice) ? (
                                       <span className="portal-meta-pill">{getDepartmentDisplayName(notice)}</span>
                                     ) : null}
-                                    {notice.createdAt ? (
+                                    {formatNoticePostedTime(notice) ? (
                                       <span className="portal-meta-pill">
                                         <IconClock />
-                                        {formatDateTime(notice.createdAt)}
+                                        {formatNoticePostedTime(notice)}
                                       </span>
                                     ) : null}
                                   </div>

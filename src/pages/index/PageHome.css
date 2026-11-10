@@ -14,10 +14,10 @@
   --portal-shadow-sm: 0 14px 30px rgba(21, 40, 74, 0.08);
   --portal-shadow-md: 0 24px 50px rgba(21, 40, 74, 0.12);
   --portal-shadow-lg: 0 34px 80px rgba(15, 29, 53, 0.16);
-  --portal-radius-xl: 34px;
-  --portal-radius-lg: 28px;
-  --portal-radius-md: 22px;
-  --portal-radius-sm: 18px;
+  --portal-radius-xl: 12px;
+  --portal-radius-lg: 10px;
+  --portal-radius-md: 8px;
+  --portal-radius-sm: 6px;
   --portal-shell: 1500px;
   --portal-gap: 22px;
   --portal-left-top: 580px;
@@ -39,7 +39,7 @@ body {
   background:
     radial-gradient(circle at top left, rgba(39, 73, 255, 0.18), transparent 22%),
     radial-gradient(circle at top right, rgba(94, 198, 255, 0.16), transparent 20%),
-    linear-gradient(180deg, #f8fbff 0%, #edf3fb 100%);
+    linear-gradient(180deg, #fbfdff 0%, #f4f8ff 100%);
 }
 
 body::before {
@@ -47,7 +47,7 @@ body::before {
   position: fixed;
   inset: 0;
   z-index: -2;
-  background: linear-gradient(180deg, rgba(248, 251, 255, 0.96), rgba(237, 243, 251, 0.98));
+  background: linear-gradient(180deg, rgba(251, 253, 255, 0.98), rgba(245, 249, 255, 0.98));
   opacity: 1;
 }
 
@@ -102,7 +102,7 @@ svg {
   position: sticky;
   top: 0;
   z-index: 120;
-  background: rgba(248, 251, 255, 0.74);
+  background: rgba(250, 252, 255, 0.88);
   border-bottom: 1px solid rgba(255, 255, 255, 0.88);
   backdrop-filter: blur(18px);
   box-shadow: 0 16px 36px rgba(18, 33, 61, 0.06);
@@ -128,7 +128,7 @@ svg {
   height: 52px;
   display: grid;
   place-items: center;
-  border-radius: 18px;
+  border-radius: 8px;
   color: #fff;
   background: linear-gradient(135deg, var(--portal-primary) 0%, var(--portal-sky) 100%);
   box-shadow: 0 20px 38px rgba(39, 73, 255, 0.28);
@@ -155,7 +155,7 @@ svg {
   align-items: center;
   gap: 10px;
   padding: 8px;
-  border-radius: 999px;
+  border-radius: 6px;
   background: rgba(255, 255, 255, 0.76);
   border: 1px solid rgba(133, 157, 199, 0.2);
   box-shadow: var(--portal-shadow-sm);
@@ -170,7 +170,7 @@ svg {
   gap: 10px;
   min-height: 46px;
   padding: 0 16px;
-  border-radius: 999px;
+  border-radius: 6px;
   color: var(--portal-text-soft);
   background: transparent;
   font-weight: 700;
@@ -226,7 +226,7 @@ svg {
   align-items: center;
   justify-content: center;
   padding: 0 8px;
-  border-radius: 999px;
+  border-radius: 6px;
   background: rgba(39, 73, 255, 0.1);
   color: var(--portal-primary);
   font-size: 0.72rem;
@@ -239,7 +239,7 @@ svg {
   right: 0;
   width: min(520px, 92vw);
   padding: 14px;
-  border-radius: 24px;
+  border-radius: 10px;
   background: rgba(255, 255, 255, 0.98);
   border: 1px solid rgba(133, 157, 199, 0.18);
   box-shadow: var(--portal-shadow-lg);
@@ -283,7 +283,7 @@ svg {
   gap: 14px;
   min-height: 58px;
   padding: 12px 14px;
-  border-radius: 18px;
+  border-radius: 8px;
   background: linear-gradient(180deg, rgba(248, 251, 255, 0.98), rgba(241, 247, 255, 0.94));
   border: 1px solid rgba(133, 157, 199, 0.16);
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
@@ -313,7 +313,7 @@ svg {
 .portal-dropdown-folder {
   width: 38px;
   height: 38px;
-  border-radius: 14px;
+  border-radius: 6px;
   overflow: hidden;
   font-weight: 800;
 }
@@ -342,7 +342,7 @@ svg {
   align-items: center;
   min-height: 30px;
   padding: 0 10px;
-  border-radius: 999px;
+  border-radius: 6px;
   background: rgba(39, 73, 255, 0.08);
   color: var(--portal-primary);
   font-size: 0.75rem;
@@ -369,7 +369,7 @@ svg {
 .portal-dropdown-empty,
 .portal-empty {
   padding: 18px;
-  border-radius: 18px;
+  border-radius: 8px;
   background: rgba(248, 251, 255, 0.9);
   border: 1px dashed rgba(131, 153, 191, 0.38);
   color: var(--portal-text-soft);
@@ -380,7 +380,7 @@ svg {
   display: none;
   width: 44px;
   height: 44px;
-  border-radius: 14px;
+  border-radius: 6px;
   background: rgba(255, 255, 255, 0.9);
   border: 1px solid var(--portal-line);
   align-items: center;
@@ -405,7 +405,7 @@ svg {
 
 .portal-mobile-group,
 .portal-mobile-link {
-  border-radius: 18px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.92);
   border: 1px solid rgba(133, 157, 199, 0.16);
 }
@@ -445,7 +445,7 @@ svg {
   display: flex;
   align-items: center;
   padding: 0 14px;
-  border-radius: 14px;
+  border-radius: 6px;
   background: rgba(246, 249, 255, 0.96);
   font-weight: 700;
 }
@@ -511,7 +511,7 @@ svg {
   min-height: 38px;
   padding: 0 14px;
   margin-bottom: 16px;
-  border-radius: 999px;
+  border-radius: 6px;
   background: rgba(255, 255, 255, 0.16);
   color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.18);
@@ -540,7 +540,7 @@ svg {
 
 .portal-hero__card {
   padding: 22px;
-  border-radius: 28px;
+  border-radius: 10px;
   background: rgba(255, 255, 255, 0.16);
   border: 1px solid rgba(255, 255, 255, 0.18);
   backdrop-filter: blur(16px);
@@ -551,7 +551,7 @@ svg {
 
 .portal-hero-stat {
   padding: 18px 16px;
-  border-radius: 22px;
+  border-radius: 10px;
   background: rgba(255, 255, 255, 0.94);
   color: var(--portal-text);
   box-shadow: var(--portal-shadow-sm);
@@ -577,7 +577,7 @@ svg {
   grid-column: 1 / -1;
   min-height: 54px;
   padding: 0 18px;
-  border-radius: 18px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -651,7 +651,7 @@ svg {
   min-width: 56px;
   height: 38px;
   padding: 0 14px;
-  border-radius: 999px;
+  border-radius: 6px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -666,7 +666,7 @@ svg {
 .portal-panel__title-icon {
   width: 44px;
   height: 44px;
-  border-radius: 16px;
+  border-radius: 8px;
   background: linear-gradient(135deg, rgba(39, 73, 255, 0.12), rgba(94, 198, 255, 0.16));
   color: var(--portal-primary);
 }
@@ -681,7 +681,7 @@ svg {
   min-width: 52px;
   height: 40px;
   padding: 0 14px;
-  border-radius: 999px;
+  border-radius: 6px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -699,7 +699,7 @@ svg {
   gap: 12px;
   padding: 0 16px;
   margin-bottom: 18px;
-  border-radius: 18px;
+  border-radius: 8px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 251, 255, 0.96));
   border: 1px solid rgba(133, 157, 199, 0.2);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92);
@@ -783,7 +783,7 @@ svg {
   justify-content: space-between;
   gap: 14px;
   padding: 18px;
-  border-radius: 22px;
+  border-radius: 10px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(242, 247, 255, 0.96));
   border: 1px solid rgba(133, 157, 199, 0.16);
   box-shadow: var(--portal-shadow-sm);
@@ -810,7 +810,7 @@ svg {
 .portal-link-card__icon {
   width: 54px;
   height: 54px;
-  border-radius: 18px;
+  border-radius: 8px;
   overflow: hidden;
   display: grid;
   place-items: center;
@@ -849,7 +849,7 @@ svg {
 .portal-link-card__arrow {
   width: 42px;
   height: 42px;
-  border-radius: 14px;
+  border-radius: 6px;
   background: rgba(39, 73, 255, 0.08);
   color: var(--portal-primary);
 }
@@ -862,7 +862,7 @@ svg {
 
 .portal-dept-card {
   padding: 16px;
-  border-radius: 22px;
+  border-radius: 10px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 248, 255, 0.94));
   border: 1px solid rgba(133, 157, 199, 0.16);
   box-shadow: var(--portal-shadow-sm);
@@ -887,7 +887,7 @@ svg {
 .portal-dept-card__icon {
   width: 42px;
   height: 42px;
-  border-radius: 14px;
+  border-radius: 6px;
   background: linear-gradient(180deg, rgba(248, 250, 253, 0.98), rgba(238, 243, 249, 0.98));
   color: #6f83a1;
   border: 1px solid rgba(149, 164, 189, 0.18);
@@ -918,7 +918,7 @@ svg {
   gap: 8px;
   min-height: 34px;
   padding: 0 12px;
-  border-radius: 999px;
+  border-radius: 6px;
   background: rgba(39, 73, 255, 0.08);
   color: var(--portal-primary);
   font-size: 0.82rem;
@@ -949,7 +949,7 @@ svg {
   justify-content: space-between;
   gap: 14px;
   padding: 14px;
-  border-radius: 18px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.94);
   border: 1px solid rgba(133, 157, 199, 0.14);
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
@@ -987,7 +987,7 @@ svg {
   align-items: center;
   gap: 6px;
   padding: 0 10px;
-  border-radius: 999px;
+  border-radius: 6px;
   background: rgba(39, 73, 255, 0.08);
   border: 1px solid rgba(39, 73, 255, 0.08);
   color: var(--portal-text-soft);
@@ -1013,7 +1013,7 @@ svg {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 14px;
+  border-radius: 6px;
   font-weight: 800;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
@@ -1045,16 +1045,16 @@ svg {
   min-height: 36px;
   padding: 0 12px;
   font-size: 0.78rem;
-  border-radius: 999px;
+  border-radius: 6px;
 }
 
 .portal-featured-notice {
   position: relative;
   padding: 24px;
-  border-radius: 28px;
+  border-radius: 10px;
   background:
     radial-gradient(circle at top right, rgba(94, 198, 255, 0.22), transparent 28%),
-    linear-gradient(135deg, rgba(19, 44, 116, 0.98), rgba(39, 73, 255, 0.96) 45%, rgba(94, 198, 255, 0.9));
+    linear-gradient(135deg, rgba(32, 70, 142, 0.98), rgba(50, 91, 235, 0.96) 45%, rgba(105, 198, 255, 0.9));
   color: #fff;
   box-shadow: 0 30px 58px rgba(27, 54, 125, 0.26);
   overflow: hidden;
@@ -1079,7 +1079,7 @@ svg {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  border-radius: 999px;
+  border-radius: 6px;
   background: rgba(255, 255, 255, 0.14);
   border: 1px solid rgba(255, 255, 255, 0.18);
   font-size: 0.82rem;
@@ -1140,7 +1140,7 @@ svg {
   align-items: flex-start;
   gap: 14px;
   padding: 18px;
-  border-radius: 22px;
+  border-radius: 10px;
   background: rgba(255, 255, 255, 0.96);
   border: 1px solid rgba(133, 157, 199, 0.14);
   box-shadow: var(--portal-shadow-sm);
@@ -1151,7 +1151,7 @@ svg {
   width: 46px;
   height: 46px;
   flex-shrink: 0;
-  border-radius: 16px;
+  border-radius: 8px;
   display: grid;
   place-items: center;
   background: linear-gradient(135deg, rgba(39, 73, 255, 0.12), rgba(94, 198, 255, 0.16));
@@ -1205,7 +1205,7 @@ svg {
 
 .portal-overview-card {
   padding: 20px;
-  border-radius: 24px;
+  border-radius: 10px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(244, 248, 255, 0.92));
   border: 1px solid rgba(133, 157, 199, 0.16);
   box-shadow: var(--portal-shadow-sm);
@@ -1219,7 +1219,7 @@ svg {
   width: 48px;
   height: 48px;
   flex-shrink: 0;
-  border-radius: 16px;
+  border-radius: 8px;
   background: linear-gradient(135deg, rgba(39, 73, 255, 0.12), rgba(94, 198, 255, 0.16));
   color: var(--portal-primary);
 }
@@ -1262,7 +1262,7 @@ svg {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  border-radius: 28px;
+  border-radius: 10px;
   background: #fff;
   box-shadow: 0 36px 90px rgba(17, 32, 58, 0.28);
 }
@@ -1289,7 +1289,7 @@ svg {
   width: 42px;
   height: 42px;
   flex-shrink: 0;
-  border-radius: 14px;
+  border-radius: 6px;
   background: rgba(39, 73, 255, 0.08);
   color: var(--portal-text);
   font-size: 1.6rem;
@@ -1413,7 +1413,7 @@ svg {
 
 .portal-document-type-select__note {
   padding: 12px;
-  border-radius: 12px;
+  border-radius: 6px;
   color: var(--portal-muted);
   background: rgba(248, 251, 255, 0.96);
   font-size: 0.78rem;
@@ -1444,7 +1444,7 @@ svg {
 
   .portal-hero__surface {
     padding: 26px 20px;
-    border-radius: 26px;
+    border-radius: 10px;
   }
 
   .portal-hero__copy h1 {
@@ -1458,7 +1458,7 @@ svg {
 
   .portal-panel {
     padding: 18px;
-    border-radius: 24px;
+    border-radius: 10px;
   }
 
   .portal-panel__head {
@@ -1504,7 +1504,7 @@ svg {
   }
 
   .portal-modal-card {
-    border-radius: 20px;
+    border-radius: 10px;
   }
 
   .portal-modal-head {
@@ -1522,7 +1522,7 @@ svg {
   width: auto;
   height: auto;
   padding: 10px 14px;
-  border-radius: 18px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.96);
   border: 1px solid rgba(133, 157, 199, 0.18);
   box-shadow: 0 16px 34px rgba(21, 40, 74, 0.08);
@@ -1578,7 +1578,7 @@ svg {
   display: inline-flex;
   align-items: center;
   padding: 0 14px;
-  border-radius: 999px;
+  border-radius: 6px;
   background: rgba(255, 255, 255, 0.16);
   color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.18);
@@ -1597,7 +1597,7 @@ svg {
   align-items: center;
   gap: 18px;
   padding: 18px;
-  border-radius: 24px;
+  border-radius: 10px;
   background: rgba(255, 255, 255, 0.88);
   box-shadow: var(--portal-shadow-sm);
 }
@@ -1740,7 +1740,7 @@ svg {
 
 .portal-document-type-select__note {
   padding: 12px;
-  border-radius: 12px;
+  border-radius: 6px;
   color: var(--portal-muted);
   background: rgba(248, 251, 255, 0.96);
   font-size: 0.78rem;
@@ -1939,7 +1939,7 @@ svg {
 
 .portal-document-type-select__note {
   padding: 12px;
-  border-radius: 12px;
+  border-radius: 6px;
   color: var(--portal-muted);
   background: rgba(248, 251, 255, 0.96);
   font-size: 0.78rem;
@@ -2091,7 +2091,7 @@ svg {
 
 .portal-document-type-select__note {
   padding: 12px;
-  border-radius: 12px;
+  border-radius: 6px;
   color: var(--portal-muted);
   background: rgba(248, 251, 255, 0.96);
   font-size: 0.78rem;
@@ -2174,7 +2174,7 @@ svg {
 
 .portal-document-type-select__note {
   padding: 12px;
-  border-radius: 12px;
+  border-radius: 6px;
   color: var(--portal-muted);
   background: rgba(248, 251, 255, 0.96);
   font-size: 0.78rem;
@@ -2209,7 +2209,7 @@ svg {
   padding: 48px;
   background: #fff;
   color: #111827;
-  border-radius: 18px;
+  border-radius: 8px;
   box-shadow: 0 20px 55px rgba(15, 29, 53, 0.13);
   line-height: 1.75;
 }
@@ -2236,7 +2236,7 @@ svg {
   max-width: 920px;
   margin: 16px auto 0;
   padding: 16px 18px;
-  border-radius: 14px;
+  border-radius: 6px;
   background: #fff7ed;
   color: #9a3412;
   border: 1px solid #fed7aa;
@@ -2263,7 +2263,7 @@ svg {
 .portal-sheet-preview__tab {
   min-height: 34px;
   padding: 0 14px;
-  border-radius: 999px;
+  border-radius: 6px;
   background: rgba(39, 73, 255, 0.08);
   color: var(--portal-text-soft);
   font-size: 0.78rem;
@@ -2331,9 +2331,9 @@ svg {
   max-width: 560px;
   margin-top: 16px;
   padding: 16px;
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.20);
+  border: 1px solid rgba(255, 255, 255, 0.26);
   color: #fff;
   box-shadow: 0 18px 36px rgba(14, 32, 76, 0.16);
   backdrop-filter: blur(14px);
@@ -2346,7 +2346,7 @@ svg {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  border-radius: 999px;
+  border-radius: 6px;
   background: rgba(255, 255, 255, 0.16);
   border: 1px solid rgba(255, 255, 255, 0.2);
   font-size: 0.74rem;
@@ -2398,7 +2398,7 @@ svg {
 .portal-hero-latest-notice .portal-file-actions .portal-btn {
   min-height: 36px;
   padding: 0 13px;
-  border-radius: 999px;
+  border-radius: 6px;
   font-size: 0.78rem;
 }
 
@@ -2461,7 +2461,7 @@ svg {
 
 .portal-document-type-select__note {
   padding: 12px;
-  border-radius: 12px;
+  border-radius: 6px;
   color: var(--portal-muted);
   background: rgba(248, 251, 255, 0.96);
   font-size: 0.78rem;
@@ -2525,7 +2525,7 @@ svg {
 .portal-hero-latest-notice__meta .portal-file-actions.is-compact .portal-btn {
   min-height: 34px;
   padding: 0 13px;
-  border-radius: 999px;
+  border-radius: 6px;
   font-size: 0.76rem;
 }
 
@@ -2573,7 +2573,7 @@ svg {
 
 .portal-document-type-select__note {
   padding: 12px;
-  border-radius: 12px;
+  border-radius: 6px;
   color: var(--portal-muted);
   background: rgba(248, 251, 255, 0.96);
   font-size: 0.78rem;
@@ -2617,7 +2617,7 @@ svg {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 14px;
+  border-radius: 6px;
   color: var(--portal-primary);
   background: rgba(39, 73, 255, 0.08);
   border: 1px solid rgba(39, 73, 255, 0.1);
@@ -2723,7 +2723,7 @@ svg {
   width: auto !important;
   min-width: 260px;
   padding: 10px;
-  border-radius: 24px;
+  border-radius: 10px;
 }
 
 .portal-document-hover-menu {
@@ -2744,7 +2744,7 @@ svg {
 .portal-document-hover-menu__column {
   min-width: 0;
   padding: 10px;
-  border-radius: 20px;
+  border-radius: 10px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 249, 255, 0.96));
   border: 1px solid rgba(133, 157, 199, 0.16);
   box-shadow: 0 14px 30px rgba(21, 40, 74, 0.07);
@@ -2795,7 +2795,7 @@ svg {
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
-  border-radius: 14px;
+  border-radius: 6px;
   background: rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(133, 157, 199, 0.12);
   color: var(--portal-text);
@@ -2816,7 +2816,7 @@ svg {
 .portal-document-hover-menu__item .portal-dropdown-folder {
   width: 34px;
   height: 34px;
-  border-radius: 12px;
+  border-radius: 6px;
 }
 
 .portal-document-hover-menu__item > span:nth-child(2) {
@@ -2841,7 +2841,7 @@ svg {
   display: grid;
   gap: 9px;
   padding: 10px;
-  border-radius: 16px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.95);
   border: 1px solid rgba(133, 157, 199, 0.13);
   box-shadow: 0 10px 22px rgba(21, 40, 74, 0.06);
@@ -2895,7 +2895,7 @@ svg {
 
 .portal-document-hover-menu .portal-dropdown-empty {
   padding: 14px;
-  border-radius: 14px;
+  border-radius: 6px;
   font-size: 0.8rem;
 }
 
@@ -3058,7 +3058,7 @@ svg {
   max-width: calc(100vw - 24px) !important;
   min-width: min(760px, calc(100vw - 24px)) !important;
   padding: 12px !important;
-  border-radius: 26px !important;
+  border-radius: 10px !important;
   overflow: hidden !important;
   background:
     radial-gradient(circle at top right, rgba(94, 198, 255, 0.14), transparent 28%),
@@ -3106,7 +3106,7 @@ svg {
   min-width: 0 !important;
   height: 100% !important;
   padding: 11px !important;
-  border-radius: 22px !important;
+  border-radius: 10px !important;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 249, 255, 0.95)) !important;
   border: 1px solid rgba(133, 157, 199, 0.16) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 14px 28px rgba(21, 40, 74, 0.07) !important;
@@ -3128,7 +3128,7 @@ svg {
   display: inline-flex;
   align-items: center;
   padding: 0 8px;
-  border-radius: 999px;
+  border-radius: 6px;
   background: rgba(39, 73, 255, 0.08);
   color: var(--portal-primary);
   font-size: 0.68rem !important;
@@ -3149,7 +3149,7 @@ svg {
 .portal-document-hover-menu__item {
   min-height: 43px !important;
   padding: 7px 9px !important;
-  border-radius: 15px !important;
+  border-radius: 6px !important;
   background: rgba(255, 255, 255, 0.88) !important;
   border: 1px solid rgba(133, 157, 199, 0.12) !important;
   box-shadow: none !important;
@@ -3166,7 +3166,7 @@ svg {
 .portal-document-hover-menu__item .portal-dropdown-folder {
   width: 30px !important;
   height: 30px !important;
-  border-radius: 11px !important;
+  border-radius: 5px !important;
 }
 
 .portal-document-hover-menu__item > span:nth-child(2) {
@@ -3185,7 +3185,7 @@ svg {
   align-items: center !important;
   gap: 10px !important;
   padding: 10px !important;
-  border-radius: 17px !important;
+  border-radius: 8px !important;
   background: rgba(255, 255, 255, 0.96) !important;
   border: 1px solid rgba(133, 157, 199, 0.14) !important;
   box-shadow: 0 10px 24px rgba(21, 40, 74, 0.06) !important;
@@ -3226,7 +3226,7 @@ svg {
 .portal-document-hover-file .portal-file-actions.is-compact .portal-btn {
   min-height: 30px !important;
   padding: 0 10px !important;
-  border-radius: 999px !important;
+  border-radius: 6px !important;
   font-size: 0.68rem !important;
   white-space: nowrap !important;
 }
@@ -3237,7 +3237,7 @@ svg {
 
 .portal-document-hover-menu .portal-dropdown-empty {
   padding: 13px !important;
-  border-radius: 15px !important;
+  border-radius: 6px !important;
   font-size: 0.78rem !important;
 }
 
@@ -3447,7 +3447,7 @@ svg {
 .portal-notice-cascade-menu__column {
   min-height: 0 !important;
   padding: 12px !important;
-  border-radius: 20px !important;
+  border-radius: 10px !important;
   background: linear-gradient(180deg, rgba(248, 251, 255, 0.98), rgba(242, 247, 255, 0.94)) !important;
   border: 1px solid rgba(133, 157, 199, 0.16) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92) !important;
@@ -3499,7 +3499,7 @@ svg {
   align-items: center !important;
   gap: 10px !important;
   padding: 8px 10px !important;
-  border-radius: 16px !important;
+  border-radius: 8px !important;
   background: rgba(255, 255, 255, 0.92) !important;
   border: 1px solid rgba(133, 157, 199, 0.12) !important;
   color: var(--portal-text) !important;
@@ -3519,7 +3519,7 @@ svg {
 .portal-notice-cascade-menu__item .portal-dropdown-folder {
   width: 34px !important;
   height: 34px !important;
-  border-radius: 11px !important;
+  border-radius: 5px !important;
 }
 
 .portal-notice-cascade-menu__item > span:nth-child(2) {
@@ -3544,7 +3544,7 @@ svg {
   align-items: center !important;
   gap: 10px !important;
   padding: 10px !important;
-  border-radius: 17px !important;
+  border-radius: 8px !important;
   background: rgba(255, 255, 255, 0.96) !important;
   border: 1px solid rgba(133, 157, 199, 0.14) !important;
   box-shadow: 0 10px 24px rgba(21, 40, 74, 0.06) !important;
@@ -3614,7 +3614,7 @@ svg {
 .portal-notice-cascade-card .portal-file-actions.is-compact .portal-btn {
   min-height: 30px !important;
   padding: 0 10px !important;
-  border-radius: 999px !important;
+  border-radius: 6px !important;
   font-size: 0.68rem !important;
   white-space: nowrap !important;
 }
@@ -3625,7 +3625,7 @@ svg {
 
 .portal-notice-cascade-menu .portal-dropdown-empty {
   padding: 13px !important;
-  border-radius: 15px !important;
+  border-radius: 6px !important;
   font-size: 0.78rem !important;
 }
 
@@ -3688,7 +3688,7 @@ svg {
   grid-area: links !important;
   min-height: 0 !important;
   padding: 12px !important;
-  border-radius: 20px !important;
+  border-radius: 10px !important;
   background: linear-gradient(180deg, rgba(248, 251, 255, 0.98), rgba(242, 247, 255, 0.94)) !important;
   border: 1px solid rgba(133, 157, 199, 0.16) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92) !important;
@@ -3736,7 +3736,7 @@ svg {
   align-items: center !important;
   gap: 10px !important;
   padding: 8px 10px !important;
-  border-radius: 16px !important;
+  border-radius: 8px !important;
   background: rgba(255, 255, 255, 0.92) !important;
   border: 1px solid rgba(133, 157, 199, 0.12) !important;
   color: var(--portal-text) !important;
@@ -3754,7 +3754,7 @@ svg {
 .portal-links-hover-menu__item .portal-dropdown-appicon {
   width: 34px !important;
   height: 34px !important;
-  border-radius: 11px !important;
+  border-radius: 5px !important;
 }
 
 .portal-links-hover-menu__item > span:nth-child(2) {
@@ -3775,7 +3775,7 @@ svg {
 
 .portal-links-hover-menu .portal-dropdown-empty {
   padding: 13px !important;
-  border-radius: 15px !important;
+  border-radius: 6px !important;
   font-size: 0.78rem !important;
 }
 
@@ -3899,7 +3899,7 @@ svg {
   min-width: 0;
   min-height: 0;
   padding: 12px;
-  border-radius: 22px;
+  border-radius: 10px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 248, 255, 0.94));
   border: 1px solid rgba(133, 157, 199, 0.16);
   box-shadow: 0 14px 30px rgba(21, 40, 74, 0.07);
@@ -3946,7 +3946,7 @@ svg {
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
-  border-radius: 16px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.94);
   border: 1px solid rgba(133, 157, 199, 0.13);
   color: var(--portal-text);
@@ -3970,7 +3970,7 @@ svg {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 12px;
+  border-radius: 6px;
   background: linear-gradient(180deg, rgba(248, 250, 253, 0.98), rgba(238, 243, 249, 0.98));
   color: #6f83a1;
   border: 1px solid rgba(149, 164, 189, 0.18);
@@ -4000,7 +4000,7 @@ svg {
   align-items: center;
   gap: 10px;
   padding: 10px;
-  border-radius: 17px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.96);
   border: 1px solid rgba(133, 157, 199, 0.14);
   box-shadow: 0 10px 24px rgba(21, 40, 74, 0.06);
@@ -4059,7 +4059,7 @@ svg {
 .portal-document-workspace-file-row .portal-file-actions.is-compact .portal-btn {
   min-height: 30px;
   padding: 0 10px;
-  border-radius: 999px;
+  border-radius: 6px;
   font-size: 0.68rem;
   white-space: nowrap;
 }
@@ -4119,7 +4119,7 @@ svg {
 .portal-document-workspace-board__section {
   min-width: 0;
   padding: 14px;
-  border-radius: 24px;
+  border-radius: 10px;
   background:
     radial-gradient(circle at top right, rgba(94, 198, 255, 0.12), transparent 26%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 248, 255, 0.94));
@@ -4175,7 +4175,7 @@ svg {
   align-items: center;
   justify-content: center;
   padding: 0 10px;
-  border-radius: 999px;
+  border-radius: 6px;
   background: rgba(39, 73, 255, 0.08);
   color: var(--portal-primary);
   font-size: 0.72rem;
@@ -4218,7 +4218,7 @@ svg {
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  border-radius: 18px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.94);
   border: 1px solid rgba(133, 157, 199, 0.14);
   color: var(--portal-text);
@@ -4244,7 +4244,7 @@ svg {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 13px;
+  border-radius: 6px;
   background: linear-gradient(180deg, rgba(248, 250, 253, 0.98), rgba(238, 243, 249, 0.98));
   color: #6f83a1;
   border: 1px solid rgba(149, 164, 189, 0.18);
@@ -4268,7 +4268,7 @@ svg {
   align-items: center;
   justify-content: center;
   padding: 0 8px;
-  border-radius: 999px;
+  border-radius: 6px;
   background: rgba(118, 137, 169, 0.1);
   color: #5f7392;
   font-size: 0.68rem;
@@ -4319,7 +4319,7 @@ svg {
   display: grid;
   gap: 0;
   padding: 16px;
-  border-radius: 28px;
+  border-radius: 10px;
   background:
     radial-gradient(circle at top right, rgba(94, 198, 255, 0.13), transparent 30%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.95));
@@ -4403,7 +4403,7 @@ svg {
   align-items: center;
   min-height: 24px;
   padding: 0 10px;
-  border-radius: 999px;
+  border-radius: 6px;
   background: rgba(39, 73, 255, 0.07);
   color: #617795;
   font-size: 0.73rem;
@@ -4418,7 +4418,7 @@ svg {
   align-items: center;
   justify-content: center;
   padding: 0 10px;
-  border-radius: 999px;
+  border-radius: 6px;
   background: linear-gradient(135deg, rgba(39, 73, 255, 0.13), rgba(94, 198, 255, 0.14));
   color: var(--portal-primary);
   font-size: 0.74rem;
@@ -4453,7 +4453,7 @@ svg {
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  border-radius: 18px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.86);
   border: 1px solid rgba(133, 157, 199, 0.18);
   color: var(--portal-text);
@@ -4481,7 +4481,7 @@ svg {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 12px;
+  border-radius: 6px;
   color: #607594;
   background: linear-gradient(180deg, rgba(248, 250, 253, 0.98), rgba(236, 242, 250, 0.96));
   border: 1px solid rgba(149, 164, 189, 0.18);
@@ -4512,7 +4512,7 @@ svg {
   align-items: center;
   justify-content: center;
   padding: 0 8px;
-  border-radius: 999px;
+  border-radius: 6px;
   background: rgba(16, 32, 63, 0.06);
   color: #617795;
   font-size: 0.72rem;
@@ -4555,7 +4555,7 @@ svg {
   justify-content: space-between;
   gap: 14px;
   padding: 10px 12px;
-  border-radius: 18px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.92);
   border: 1px solid rgba(133, 157, 199, 0.14);
   box-shadow: 0 10px 20px rgba(21, 40, 74, 0.045);
@@ -4616,7 +4616,7 @@ svg {
 .portal-document-workspace-file-row .portal-file-actions.is-compact .portal-btn {
   min-height: 34px;
   padding: 0 12px;
-  border-radius: 999px;
+  border-radius: 6px;
   font-size: 0.76rem;
 }
 
@@ -4656,7 +4656,7 @@ svg {
   display: grid;
   gap: 14px;
   padding: 16px;
-  border-radius: 28px;
+  border-radius: 10px;
   background:
     radial-gradient(circle at top right, rgba(94, 198, 255, 0.12), transparent 30%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.96));
@@ -4713,7 +4713,7 @@ svg {
   align-items: center;
   justify-content: center;
   padding: 0 12px;
-  border-radius: 999px;
+  border-radius: 6px;
   background: linear-gradient(135deg, rgba(39, 73, 255, 0.13), rgba(94, 198, 255, 0.14));
   color: var(--portal-primary);
   font-style: normal;
@@ -4729,7 +4729,7 @@ svg {
 
 .portal-document-nested-type,
 .portal-document-nested-department {
-  border-radius: 22px;
+  border-radius: 10px;
   background: rgba(255, 255, 255, 0.8);
   border: 1px solid rgba(133, 157, 199, 0.14);
   box-shadow: 0 8px 18px rgba(21, 40, 74, 0.04);
@@ -4782,7 +4782,7 @@ svg {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 14px;
+  border-radius: 6px;
   color: #607594;
   background: linear-gradient(180deg, rgba(248, 250, 253, 0.98), rgba(236, 242, 250, 0.96));
   border: 1px solid rgba(149, 164, 189, 0.18);
@@ -4842,7 +4842,7 @@ svg {
   align-items: center;
   justify-content: center;
   padding: 0 9px;
-  border-radius: 999px;
+  border-radius: 6px;
   background: rgba(16, 32, 63, 0.06);
   color: #617795;
   font-size: 0.74rem;
@@ -4906,7 +4906,7 @@ svg {
   justify-content: space-between;
   gap: 12px;
   padding: 9px 10px;
-  border-radius: 16px;
+  border-radius: 8px;
   background: rgba(248, 251, 255, 0.96);
   border: 1px solid rgba(133, 157, 199, 0.14);
   box-shadow: 0 8px 16px rgba(21, 40, 74, 0.035);
@@ -4967,7 +4967,7 @@ svg {
 .portal-document-nested-file-row .portal-file-actions.is-compact .portal-btn {
   min-height: 34px;
   padding: 0 12px;
-  border-radius: 999px;
+  border-radius: 6px;
   font-size: 0.76rem;
 }
 
@@ -5046,7 +5046,7 @@ svg {
   display: flex;
   align-items: center;
   padding: 0 12px;
-  border-radius: 999px;
+  border-radius: 6px;
   background: rgba(39, 73, 255, 0.07);
   color: #567092;
   font-size: 0.72rem;
@@ -5091,7 +5091,7 @@ svg {
   align-items: center;
   gap: 6px;
   padding: 0 10px;
-  border-radius: 999px;
+  border-radius: 6px;
   background: rgba(39, 73, 255, 0.08);
   color: var(--portal-primary);
   font-size: 0.74rem;
@@ -5137,7 +5137,7 @@ svg {
 .portal-document-nested-file-search .portal-search {
   min-height: 44px;
   margin: 0;
-  border-radius: 14px;
+  border-radius: 6px;
   box-shadow: none;
 }
 
@@ -5221,7 +5221,7 @@ svg {
   gap: 8px;
   margin-top: 8px;
   padding: 8px;
-  border-radius: 14px;
+  border-radius: 6px;
   background: rgba(248, 251, 255, 0.98);
   border: 1px solid rgba(133, 157, 199, 0.16);
 }
@@ -5233,7 +5233,7 @@ svg {
   align-items: center;
   gap: 8px;
   padding: 7px 8px;
-  border-radius: 12px;
+  border-radius: 6px;
   background: #fff;
   border: 1px solid rgba(133, 157, 199, 0.12);
 }
@@ -5258,7 +5258,7 @@ svg {
 .portal-more-file-actions button {
   min-height: 26px;
   padding: 0 9px;
-  border-radius: 999px;
+  border-radius: 6px;
   color: var(--portal-primary);
   background: rgba(39, 73, 255, 0.08);
   font-size: 0.66rem;
@@ -5306,7 +5306,7 @@ svg {
   gap: 6px;
   margin-top: 4px;
   padding: 7px;
-  border-radius: 14px;
+  border-radius: 6px;
   background: rgba(248, 251, 255, 0.98);
   border: 1px solid rgba(133, 157, 199, 0.16);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.9);
@@ -5329,7 +5329,7 @@ svg {
   align-items: center;
   gap: 8px;
   padding: 7px 8px;
-  border-radius: 12px;
+  border-radius: 6px;
   background: #fff;
   border: 1px solid rgba(133, 157, 199, 0.12);
 }
@@ -5357,7 +5357,7 @@ svg {
 .portal-file-actions .portal-more-file-actions button {
   min-height: 25px;
   padding: 0 8px;
-  border-radius: 999px;
+  border-radius: 6px;
   color: var(--portal-primary);
   background: rgba(39, 73, 255, 0.08);
   font-size: 0.64rem;
@@ -5377,7 +5377,7 @@ svg {
 
 .portal-file-actions.is-compact .portal-more-file-item {
   padding: 6px 7px;
-  border-radius: 11px;
+  border-radius: 5px;
 }
 
 .portal-file-actions.is-compact .portal-more-file-name {
@@ -5425,7 +5425,7 @@ svg {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-radius: 24px;
+  border-radius: 10px;
   background: rgba(255, 255, 255, 0.98);
   border: 1px solid rgba(133, 157, 199, 0.2);
   box-shadow: 0 34px 90px rgba(15, 29, 53, 0.26);
@@ -5515,7 +5515,7 @@ svg {
   align-items: center;
   gap: 12px;
   padding: 11px 12px;
-  border-radius: 16px;
+  border-radius: 8px;
   background: rgba(248, 251, 255, 0.94);
   border: 1px solid rgba(133, 157, 199, 0.16);
 }
@@ -5533,7 +5533,7 @@ svg {
   display: inline-flex;
   align-items: center;
   padding: 0 7px;
-  border-radius: 999px;
+  border-radius: 6px;
   color: var(--portal-primary);
   background: rgba(39, 73, 255, 0.08);
   font-size: 0.6rem;
@@ -5561,7 +5561,7 @@ svg {
 .portal-more-file-list--popup .portal-more-file-actions button {
   min-height: 30px;
   padding: 0 11px;
-  border-radius: 999px;
+  border-radius: 6px;
   color: var(--portal-primary);
   background: rgba(39, 73, 255, 0.08);
   font-size: 0.7rem;
@@ -5582,7 +5582,7 @@ svg {
 
   .portal-more-file-popup {
     width: 100%;
-    border-radius: 20px;
+    border-radius: 10px;
   }
 
   .portal-more-file-list--popup .portal-more-file-item {
@@ -5641,7 +5641,7 @@ svg {
 .portal-more-file-list--popup .portal-more-file-item {
   min-height: 66px;
   padding: 14px 16px !important;
-  border-radius: 18px !important;
+  border-radius: 8px !important;
 }
 
 .portal-more-file-list--popup .portal-more-file-name small {
@@ -5793,7 +5793,7 @@ body:has(.portal-more-file-popup-backdrop) {
   align-items: center !important;
   gap: 14px !important;
   padding: 14px 16px !important;
-  border-radius: 18px !important;
+  border-radius: 8px !important;
   background: rgba(248, 251, 255, 0.98) !important;
   border: 1px solid rgba(133, 157, 199, 0.16) !important;
 }
@@ -5811,7 +5811,7 @@ body:has(.portal-more-file-popup-backdrop) {
   padding: 0 9px !important;
   display: inline-flex !important;
   align-items: center !important;
-  border-radius: 999px !important;
+  border-radius: 6px !important;
   color: var(--portal-primary) !important;
   background: rgba(39, 73, 255, 0.08) !important;
   font-size: 0.64rem !important;
@@ -5838,7 +5838,7 @@ body:has(.portal-more-file-popup-backdrop) {
 .portal-more-file-list--popup .portal-more-file-actions button {
   min-height: 36px !important;
   padding: 0 15px !important;
-  border-radius: 999px !important;
+  border-radius: 6px !important;
   color: var(--portal-primary) !important;
   background: rgba(39, 73, 255, 0.08) !important;
   font-size: 0.76rem !important;
@@ -5901,7 +5901,7 @@ body:has(.portal-more-file-popup-backdrop) {
   min-height: 0 !important;
   display: flex !important;
   flex-direction: column !important;
-  border-radius: 24px !important;
+  border-radius: 10px !important;
   border: 1px solid rgba(133, 157, 199, 0.2) !important;
   background: rgba(255, 255, 255, 0.99) !important;
   box-shadow: 0 34px 90px rgba(15, 29, 53, 0.26) !important;
@@ -5998,7 +5998,7 @@ body:has(.portal-more-file-popup-backdrop) {
   align-items: center !important;
   gap: 12px !important;
   padding: 11px 12px !important;
-  border-radius: 16px !important;
+  border-radius: 8px !important;
   background: rgba(248, 251, 255, 0.98) !important;
   border: 1px solid rgba(133, 157, 199, 0.16) !important;
 }
@@ -6016,7 +6016,7 @@ body:has(.portal-more-file-popup-backdrop) {
   padding: 0 8px !important;
   display: inline-flex !important;
   align-items: center !important;
-  border-radius: 999px !important;
+  border-radius: 6px !important;
   color: var(--portal-primary) !important;
   background: rgba(39, 73, 255, 0.08) !important;
   font-size: 0.62rem !important;
@@ -6043,7 +6043,7 @@ body:has(.portal-more-file-popup-backdrop) {
 .portal-more-file-list--popup .portal-more-file-actions button {
   min-height: 31px !important;
   padding: 0 12px !important;
-  border-radius: 999px !important;
+  border-radius: 6px !important;
   color: var(--portal-primary) !important;
   background: rgba(39, 73, 255, 0.08) !important;
   font-size: 0.7rem !important;
@@ -6065,7 +6065,7 @@ body:has(.portal-more-file-popup-backdrop) {
   .portal-more-file-popup {
     width: 100% !important;
     max-height: 82vh !important;
-    border-radius: 20px !important;
+    border-radius: 10px !important;
   }
 
   .portal-more-file-popup__head {
@@ -6275,7 +6275,7 @@ body:has(.portal-more-file-popup-backdrop) {
   align-items: center;
   gap: 6px;
   padding: 0 10px;
-  border-radius: 999px;
+  border-radius: 6px;
   background: rgba(39, 73, 255, 0.08);
   color: var(--portal-primary);
   font-size: 0.72rem;
@@ -6362,7 +6362,7 @@ body:has(.portal-more-file-popup-backdrop) {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-radius: 26px;
+  border-radius: 10px;
   background: rgba(255, 255, 255, 0.98);
   border: 1px solid rgba(133, 157, 199, 0.2);
   box-shadow: 0 34px 90px rgba(15, 29, 53, 0.28);
@@ -6494,7 +6494,7 @@ body:has(.portal-more-file-popup-backdrop) {
 
 .portal-document-type-select__note {
   padding: 12px;
-  border-radius: 12px;
+  border-radius: 6px;
   color: var(--portal-muted);
   background: rgba(248, 251, 255, 0.96);
   font-size: 0.78rem;
@@ -6526,7 +6526,7 @@ body:has(.portal-more-file-popup-backdrop) {
 .portal-notice-more-modal {
   width: min(900px, calc(100vw - 32px)) !important;
   max-height: min(88vh, 820px) !important;
-  border-radius: 18px !important;
+  border-radius: 8px !important;
   background: #ffffff !important;
   border: 1px solid #e5e7eb !important;
   box-shadow: 0 34px 90px rgba(15, 29, 53, 0.28) !important;
@@ -6573,7 +6573,7 @@ body:has(.portal-more-file-popup-backdrop) {
 .portal-notice-more-modal__paper {
   padding: 24px;
   border: 1px solid #e5e7eb;
-  border-radius: 16px;
+  border-radius: 8px;
   background: #ffffff;
   color: #111827;
   font-size: 0.92rem;
@@ -6591,7 +6591,7 @@ body:has(.portal-more-file-popup-backdrop) {
 .portal-notice-more-modal__button {
   min-height: 36px;
   padding: 0 16px;
-  border-radius: 10px;
+  border-radius: 5px;
   background: #111827;
   color: #ffffff;
   font-weight: 800;
@@ -6677,7 +6677,7 @@ body:has(.portal-more-file-popup-backdrop) {
 
 .portal-document-type-select__note {
   padding: 12px;
-  border-radius: 12px;
+  border-radius: 6px;
   color: var(--portal-muted);
   background: rgba(248, 251, 255, 0.96);
   font-size: 0.78rem;
@@ -6800,7 +6800,7 @@ body:has(.portal-more-file-popup-backdrop) {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  border-radius: 16px;
+  border-radius: 8px;
   cursor: pointer;
   color: var(--portal-text);
   background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(246,249,255,0.96));
@@ -6864,7 +6864,7 @@ body:has(.portal-more-file-popup-backdrop) {
   max-height: 340px;
   overflow: auto;
   padding: 8px;
-  border-radius: 18px;
+  border-radius: 8px;
   background: rgba(255,255,255,0.99);
   border: 1px solid rgba(133, 157, 199, 0.18);
   box-shadow: 0 26px 60px rgba(15, 29, 53, 0.18);
@@ -6877,7 +6877,7 @@ body:has(.portal-more-file-popup-backdrop) {
   display: flex;
   align-items: center;
   gap: 10px;
-  border-radius: 14px;
+  border-radius: 6px;
   cursor: pointer;
   background: transparent;
   color: var(--portal-text);
@@ -6898,7 +6898,7 @@ body:has(.portal-more-file-popup-backdrop) {
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  border-radius: 12px;
+  border-radius: 6px;
   color: var(--portal-primary);
   background: rgba(39, 73, 255, 0.08);
 }
@@ -6929,7 +6929,7 @@ body:has(.portal-more-file-popup-backdrop) {
   padding: 0 8px;
   display: inline-flex;
   align-items: center;
-  border-radius: 999px;
+  border-radius: 6px;
   color: #fff;
   background: linear-gradient(135deg, var(--portal-primary), var(--portal-sky));
   font-size: 0.66rem;
@@ -6958,7 +6958,7 @@ body:has(.portal-more-file-popup-backdrop) {
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  border-radius: 18px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.96);
   border: 1px solid rgba(133, 157, 199, 0.15);
   box-shadow: 0 12px 26px rgba(21, 40, 74, 0.07);
@@ -7043,7 +7043,7 @@ body:has(.portal-more-file-popup-backdrop) {
 
 .portal-document-type-select__note {
   padding: 12px;
-  border-radius: 12px;
+  border-radius: 6px;
   color: var(--portal-muted);
   background: rgba(248, 251, 255, 0.96);
   font-size: 0.78rem;
@@ -7119,7 +7119,7 @@ body:has(.portal-more-file-popup-backdrop) {
   width: min(560px, 100%);
   max-height: min(72vh, 640px);
   padding: 16px;
-  border-radius: 22px;
+  border-radius: 10px;
   background: #fff;
   border: 1px solid rgba(133, 157, 199, 0.18);
   box-shadow: 0 30px 80px rgba(15, 29, 53, 0.22);
@@ -7158,7 +7158,7 @@ body:has(.portal-more-file-popup-backdrop) {
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  border-radius: 12px;
+  border-radius: 6px;
   cursor: pointer;
   color: var(--portal-text-soft);
   background: rgba(15, 23, 42, 0.05);
@@ -7186,7 +7186,7 @@ body:has(.portal-more-file-popup-backdrop) {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  border-radius: 16px;
+  border-radius: 8px;
   background: linear-gradient(180deg, rgba(248,251,255,0.98), rgba(243,247,253,0.96));
   border: 1px solid rgba(133, 157, 199, 0.14);
 }
@@ -7204,7 +7204,7 @@ body:has(.portal-more-file-popup-backdrop) {
   padding: 0 8px;
   display: inline-flex;
   align-items: center;
-  border-radius: 999px;
+  border-radius: 6px;
   color: var(--portal-primary);
   background: rgba(39, 73, 255, 0.08);
   font-size: 0.66rem;
@@ -7232,7 +7232,7 @@ body:has(.portal-more-file-popup-backdrop) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 12px;
+  border-radius: 6px;
   cursor: pointer;
   background: rgba(39, 73, 255, 0.08) !important;
   border: 1px solid rgba(39, 73, 255, 0.1) !important;
@@ -7274,7 +7274,7 @@ body:has(.portal-more-file-popup-backdrop) {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  border-radius: 12px !important;
+  border-radius: 6px !important;
   color: var(--portal-primary) !important;
   background: rgba(39, 73, 255, 0.1) !important;
   border: 1px solid rgba(39, 73, 255, 0.18) !important;
@@ -7321,7 +7321,7 @@ body:has(.portal-more-file-popup-backdrop) {
   color: var(--portal-primary) !important;
   background: rgba(39, 73, 255, 0.1) !important;
   border: 1px solid rgba(39, 73, 255, 0.18) !important;
-  border-radius: 12px !important;
+  border-radius: 6px !important;
   opacity: 1 !important;
 }
 
@@ -7718,8 +7718,8 @@ body:has(.portal-more-file-popup-backdrop) {
 /* Nền tối nhẹ, bên trái và bên phải đều đọc chữ rõ */
 .portal-hero__surface::before {
   background:
-    linear-gradient(90deg, rgba(8, 19, 43, 0.38), rgba(8, 19, 43, 0.16) 45%, rgba(8, 19, 43, 0.42)),
-    linear-gradient(180deg, rgba(8, 19, 43, 0.08), rgba(8, 19, 43, 0.22)) !important;
+    linear-gradient(90deg, rgba(8, 19, 43, 0.25), rgba(8, 19, 43, 0.10) 45%, rgba(8, 19, 43, 0.27)),
+    linear-gradient(180deg, rgba(8, 19, 43, 0.04), rgba(8, 19, 43, 0.12)) !important;
 }
 
 .portal-hero__surface::after {
@@ -7955,7 +7955,7 @@ body:has(.portal-more-file-popup-backdrop) {
 .portal-hero__logo-box {
   min-height: 96px !important;
   padding: 16px !important;
-  border-radius: 20px !important;
+  border-radius: 10px !important;
   gap: 14px !important;
 }
 
@@ -7976,7 +7976,7 @@ body:has(.portal-more-file-popup-backdrop) {
 .portal-hero-stat {
   min-height: 88px !important;
   padding: 12px 10px !important;
-  border-radius: 18px !important;
+  border-radius: 8px !important;
 }
 
 .portal-hero-stat small {
@@ -7996,7 +7996,7 @@ body:has(.portal-more-file-popup-backdrop) {
   width: min(500px, calc(50% - 62px)) !important;
   max-width: 500px !important;
   padding: 14px !important;
-  border-radius: 22px !important;
+  border-radius: 10px !important;
 }
 
 .portal-hero-latest-notice__badge {
@@ -8164,7 +8164,7 @@ body:has(.portal-more-file-popup-backdrop) {
   margin: 22px 0 0 0 !important;
 
   padding: 16px !important;
-  border-radius: 24px !important;
+  border-radius: 10px !important;
   z-index: 5 !important;
 }
 
@@ -8419,7 +8419,7 @@ body:has(.portal-core-popup-backdrop) {
   position: relative;
   width: min(1120px, calc(100vw - 40px));
   max-height: calc(100vh - 48px);
-  border-radius: 28px;
+  border-radius: 10px;
   background: rgba(255, 255, 255, 0.98);
   box-shadow: 0 36px 100px rgba(8, 18, 39, 0.36);
   overflow: hidden;
@@ -8481,7 +8481,7 @@ body:has(.portal-core-popup-backdrop) {
   .portal-core-popup-card {
     width: calc(100vw - 24px);
     max-height: calc(100vh - 28px);
-    border-radius: 20px;
+    border-radius: 10px;
   }
 
   .portal-core-popup-image {
@@ -8495,4 +8495,41 @@ body:has(.portal-core-popup-backdrop) {
     height: 38px;
     font-size: 1.45rem;
   }
+}
+
+/* Small NEWEST indicator on the latest-by-date pinned notice.
+   Keep original BSL colors, layout, radius and glass effects unchanged. */
+.portal-pinned-notice__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.portal-pinned-notice__newest {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-height: 26px;
+  padding: 0 10px;
+  border: 1px solid #bde7ce;
+  border-radius: 4px;
+  background: #e9f8ef;
+  color: #166534;
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+/* A gentle outline is enough; no flashing or gradient changes. */
+.portal-hero-latest-notice.is-newest {
+  border-color: rgba(215, 246, 224, 0.65);
+}
+
+.portal-featured-notice.is-newest {
+  box-shadow: inset 0 0 0 1px rgba(215, 246, 224, 0.4), 0 30px 58px rgba(27, 54, 125, 0.26);
 }
