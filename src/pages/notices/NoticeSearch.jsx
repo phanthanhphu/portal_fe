@@ -85,9 +85,9 @@ export default function NoticeSearch({
     <Paper
       elevation={0}
       sx={{
-        p: 2,
-        mb: 2,
-        borderRadius: 2,
+        p: 1.5,
+        mb: 1.5,
+        borderRadius: '8px',
         border: '1px solid #e5e7eb',
         backgroundColor: '#fff',
         overflow: 'hidden',
@@ -98,7 +98,7 @@ export default function NoticeSearch({
         justifyContent="space-between"
         alignItems={{ xs: 'stretch', sm: 'center' }}
         spacing={1.5}
-        sx={{ mb: 1.5 }}
+        sx={{ mb: 1.25 }}
       >
         <Typography variant="subtitle1" fontWeight={600}>
           Notices Filter
@@ -130,7 +130,7 @@ export default function NoticeSearch({
         sx={{
           display: 'flex',
           flexWrap: 'wrap',
-          gap: 2,
+          gap: 1.5,
           alignItems: 'flex-end',
           width: '100%',
         }}

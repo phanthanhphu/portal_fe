@@ -185,6 +185,12 @@ function AnalogClock({ city, timeZone }) {
 }
 
 export default function IndexRoomPage() {
+  // Remove page-level whitespace only while the public TV display is open.
+  useEffect(() => {
+    document.body.classList.add('index-room-kiosk-active');
+    return () => document.body.classList.remove('index-room-kiosk-active');
+  }, []);
+
   const [reservationRows, setReservationRows] = useState([]);
   const [displayConfig, setDisplayConfig] = useState(DEFAULT_DISPLAY_CONFIG);
   const [loadingBookings, setLoadingBookings] = useState(false);

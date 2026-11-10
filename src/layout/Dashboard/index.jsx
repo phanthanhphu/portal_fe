@@ -30,15 +30,28 @@ export default function MainLayout() {
   if (menuMasterLoading) return <Loader />;
 
   return (
-    <Box sx={{ display: 'flex', width: '100%' }}>
+    <Box sx={{ display: 'flex', width: '100%', fontFamily: (theme) => theme.typography.fontFamily }}>
       <Header />
       <Drawer />
 
-      <Box component="main" sx={{ width: `calc(100% - ${DRAWER_WIDTH}px)`, flexGrow: 1, p: { xs: 1, sm: 3 } }}>
+      <Box
+        component="main"
+        sx={{
+          width: `calc(100% - ${DRAWER_WIDTH}px)`,
+          minWidth: 0,
+          flexGrow: 1,
+          p: { xs: 1, sm: 1.5, md: 2 },
+          // Keep the admin layout flat and consistent without affecting the public Index page.
+          '& .MuiPaper-root': { borderRadius: '10px' },
+          '& .MuiCard-root': { borderRadius: '10px' },
+          '& .MuiButton-root, & .MuiOutlinedInput-root, & .MuiToggleButton-root': { borderRadius: '6px' },
+          '& .MuiTableContainer-root, & .MuiAccordion-root': { borderRadius: '8px' }
+        }}
+      >
         <Toolbar sx={{ mt: 'inherit', mb: 'inherit' }} />
         <Box
           sx={{
-            ...{ px: { xs: 0, sm: 3 } },
+            px: 0,
             position: 'relative',
             minHeight: 'calc(100vh - 124px)',
             display: 'flex',

@@ -468,10 +468,10 @@ export default function LoginPage() {
       {/* Main shell */}
       <Box
         sx={{
-          width: 'min(1240px, 94vw)',
-          borderRadius: 4.5,
+          width: 'min(1000px, calc(100vw - 32px))',
+          borderRadius: '8px',
           overflow: 'hidden',
-          boxShadow: '0 28px 90px rgba(0,0,0,0.42)',
+          boxShadow: '0 18px 56px rgba(0,0,0,0.32)',
           border: `1px solid ${alpha('#fff', 0.14)}`,
           backgroundColor: alpha('#0b1220', 0.35)
         }}
@@ -482,7 +482,7 @@ export default function LoginPage() {
             display: 'flex',
             flexDirection: { xs: 'column', md: 'row' },
             flexWrap: { xs: 'wrap', md: 'nowrap' },
-            minHeight: { xs: 760, md: 'min(720px, 88vh)' }
+            minHeight: { xs: 'auto', md: 'min(600px, 88vh)' }
           }}
         >
           {/* LEFT (Intro) */}
@@ -494,7 +494,7 @@ export default function LoginPage() {
               display: { xs: 'none', md: 'flex' },
               alignItems: 'center',
               justifyContent: 'center',
-              p: 5,
+              p: { md: 3.5, lg: 4 },
               color: '#fff',
               background:
                 'linear-gradient(135deg, rgba(15,23,42,0.92) 0%, rgba(2,45,58,0.70) 60%, rgba(15,23,42,0.92) 100%)'
@@ -524,22 +524,22 @@ export default function LoginPage() {
               }}
             />
 
-            <Box sx={{ width: 'min(540px, 92%)', position: 'relative' }}>
+            <Box sx={{ width: 'min(460px, 100%)', position: 'relative' }}>
               {/* Logo */}
-              <Box sx={{ mb: 2.4 }}>
+              <Box sx={{ mb: 1.6 }}>
                 <Box
                   sx={{
                     display: 'inline-flex',
                     alignItems: 'center',
-                    px: 2.2,
-                    py: 1.2,
-                    borderRadius: 2.4,
+                    px: 1.6,
+                    py: 0.9,
+                    borderRadius: '6px',
                     backgroundColor: alpha('#0b1220', 0.35),
                     border: `1px solid ${alpha('#fff', 0.14)}`,
                     backdropFilter: 'blur(10px)'
                   }}
                 >
-                  <img src={logoYoungone} alt="Youngone" style={{ height: 34, display: 'block' }} />
+                  <img src={logoYoungone} alt="Youngone" style={{ height: 30, display: 'block' }} />
                 </Box>
               </Box>
 
@@ -560,7 +560,7 @@ export default function LoginPage() {
 
               <Typography
                 sx={{
-                  mt: 1.3,
+                  mt: 1,
                   fontSize: '0.96rem',
                   color: alpha('#fff', 0.88),
                   lineHeight: 1.65
@@ -570,14 +570,14 @@ export default function LoginPage() {
                 helping users search faster and save time.
               </Typography>
 
-              <Stack direction="row" useFlexGap flexWrap="wrap" spacing={1} sx={{ mt: 2.2 }}>
+              <Stack direction="row" useFlexGap flexWrap="wrap" spacing={0.75} sx={{ mt: 1.5 }}>
                 {portalFeatures.map((item) => (
                   <Box
                     key={item}
                     sx={{
-                      px: 1.4,
-                      py: 0.8,
-                      borderRadius: 999,
+                      px: 1.2,
+                      py: 0.6,
+                      borderRadius: '6px',
                       backgroundColor: alpha('#fff', 0.1),
                       border: `1px solid ${alpha('#fff', 0.16)}`,
                       backdropFilter: 'blur(10px)'
@@ -590,16 +590,16 @@ export default function LoginPage() {
                 ))}
               </Stack>
 
-              <Divider sx={{ my: 2.4, borderColor: alpha('#fff', 0.14) }} />
+              <Divider sx={{ my: 1.6, borderColor: alpha('#fff', 0.14) }} />
 
               <Box
                 sx={{
-                  p: 1.7,
-                  borderRadius: 3,
+                  p: 1.25,
+                  borderRadius: '6px',
                   backgroundColor: alpha('#fff', 0.08),
                   border: `1px solid ${alpha('#fff', 0.14)}`,
                   backdropFilter: 'blur(12px)',
-                  boxShadow: '0 18px 55px rgba(0,0,0,0.22)'
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.16)'
                 }}
               >
                 <Typography sx={{ fontSize: '0.85rem', fontWeight: 950, letterSpacing: 1.2, opacity: 0.82 }}>
@@ -615,22 +615,22 @@ export default function LoginPage() {
 
               <Box
                 sx={{
-                  mt: 1.5,
+                  mt: 1.1,
                   display: 'grid',
                   gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                  gap: 1.1
+                  gap: 0.8
                 }}
               >
                 {companyStats.map((x) => (
                   <Box
                     key={x.t}
                     sx={{
-                      p: 1.35,
-                      borderRadius: 2.4,
+                      p: 1.05,
+                      borderRadius: '6px',
                       backgroundColor: alpha('#fff', 0.08),
                       border: `1px solid ${alpha('#fff', 0.14)}`,
                       backdropFilter: 'blur(12px)',
-                      boxShadow: '0 18px 55px rgba(0,0,0,0.18)'
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.12)'
                     }}
                   >
                     <Typography sx={{ fontSize: '0.76rem', fontWeight: 850, opacity: 0.72 }}>{x.t}</Typography>
@@ -639,7 +639,7 @@ export default function LoginPage() {
                 ))}
               </Box>
 
-              <Typography sx={{ mt: 2.6, fontSize: '0.78rem', opacity: 0.7 }}>
+              <Typography sx={{ mt: 1.5, fontSize: '0.78rem', opacity: 0.7 }}>
                 © {new Date().getFullYear()} Youngone — Internal Portal
               </Typography>
             </Box>
@@ -656,8 +656,8 @@ export default function LoginPage() {
               backgroundColor: alpha('#ffffff', 0.92),
               backdropFilter: 'blur(10px)',
               WebkitBackdropFilter: 'blur(10px)',
-              px: { xs: 2.5, sm: 5.5, md: 7 },
-              py: { xs: 4, md: 0 }
+              px: { xs: 2.5, sm: 4, md: 4.5 },
+              py: { xs: 3.25, md: 2 }
             }}
           >
             {/* Fill full right pane (no small floating card) */}
@@ -670,23 +670,23 @@ export default function LoginPage() {
                 justifyContent: 'center'
               }}
             >
-              <Box sx={{ width: 'min(520px, 100%)' }}>
+              <Box sx={{ width: 'min(430px, 100%)' }}>
                 <ToastContainer position="top-right" autoClose={3000} hideProgressBar />
 
                 <Typography sx={{ fontSize: '1.95rem', fontWeight: 950, letterSpacing: -0.6, color: '#0b1220' }}>
                   Sign in
                 </Typography>
-                <Typography sx={{ mt: 0.6, fontSize: '0.95rem', color: alpha('#0b1220', 0.65), lineHeight: 1.5 }}>
+                <Typography sx={{ mt: 0.45, fontSize: '0.95rem', color: alpha('#0b1220', 0.65), lineHeight: 1.5 }}>
                   Domain login is recommended. Access rights are controlled by your Portal account.
                 </Typography>
 
-                <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 3 }}>
-                  <Stack spacing={2}>
+                <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 2 }}>
+                  <Stack spacing={1.5}>
                     <Box
                       sx={{
                         display: 'grid',
                         gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                        gap: 1.2
+                        gap: 1
                       }}
                     >
                       <Button
@@ -699,11 +699,11 @@ export default function LoginPage() {
                           if (loginError) setLoginError('');
                         }}
                         sx={{
-                          minHeight: 76,
-                          borderRadius: 3,
+                          minHeight: 62,
+                          borderRadius: '6px',
                           textTransform: 'none',
                           justifyContent: 'flex-start',
-                          px: 1.8,
+                          px: 1.5,
                           background: loginType === 'DOMAIN'
                             ? 'linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%)'
                             : alpha('#fff', 0.72)
@@ -725,11 +725,11 @@ export default function LoginPage() {
                           if (loginError) setLoginError('');
                         }}
                         sx={{
-                          minHeight: 76,
-                          borderRadius: 3,
+                          minHeight: 62,
+                          borderRadius: '6px',
                           textTransform: 'none',
                           justifyContent: 'flex-start',
-                          px: 1.8,
+                          px: 1.5,
                           background: loginType === 'SYSTEM'
                             ? 'linear-gradient(135deg, #475569 0%, #334155 100%)'
                             : alpha('#fff', 0.72)
@@ -761,7 +761,7 @@ export default function LoginPage() {
                       InputLabelProps={{ sx: { fontWeight: 700 } }}
                       sx={{
                         '& .MuiOutlinedInput-root': {
-                          borderRadius: 3,
+                          borderRadius: '6px',
                           backgroundColor: alpha('#fff', 0.9)
                         }
                       }}
@@ -796,7 +796,7 @@ export default function LoginPage() {
                       error={Boolean(loginError)}
                       sx={{
                         '& .MuiOutlinedInput-root': {
-                          borderRadius: 3,
+                          borderRadius: '6px',
                           backgroundColor: alpha('#fff', 0.9)
                         }
                       }}
@@ -805,8 +805,8 @@ export default function LoginPage() {
                     {loginError && (
                       <Box
                         sx={{
-                          p: 1.35,
-                          borderRadius: 2.5,
+                          p: 1.05,
+                          borderRadius: '6px',
                           border: `1px solid ${alpha('#ef4444', 0.35)}`,
                           backgroundColor: alpha('#ef4444', 0.08)
                         }}
@@ -822,13 +822,13 @@ export default function LoginPage() {
                       disabled={submitting}
                       variant="contained"
                       sx={{
-                        height: 54,
-                        borderRadius: 999,
+                        height: 46,
+                        borderRadius: '6px',
                         textTransform: 'none',
                         fontWeight: 900,
                         fontSize: '1.02rem',
                         background: 'linear-gradient(90deg, #60a5fa 0%, #a78bfa 50%, #22d3ee 100%)',
-                        boxShadow: '0 18px 55px rgba(2, 132, 199, 0.35)',
+                        boxShadow: '0 6px 18px rgba(2, 132, 199, 0.22)',
                         '&:hover': {
                           filter: 'brightness(1.05)',
                           transform: 'translateY(-1px)'
@@ -846,8 +846,8 @@ export default function LoginPage() {
                     <Box
                       sx={{
                         mt: 1,
-                        p: 1.6,
-                        borderRadius: 3,
+                        p: 1.2,
+                        borderRadius: '6px',
                         border: `1px dashed ${alpha('#0b1220', 0.18)}`,
                         backgroundColor: alpha('#0ea5e9', 0.06)
                       }}
@@ -860,7 +860,7 @@ export default function LoginPage() {
                       </Typography>
                     </Box>
 
-                    <Typography sx={{ mt: 1.2, fontSize: '0.78rem', color: alpha('#0b1220', 0.45) }}>
+                    <Typography sx={{ mt: 0.8, fontSize: '0.78rem', color: alpha('#0b1220', 0.45) }}>
                       By signing in, you agree to internal security policies.
                     </Typography>
                   </Stack>

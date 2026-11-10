@@ -102,8 +102,8 @@ export default function MainDrawer({ window }) {
               ...paperBase,
               width: MOBILE_DRAWER_WIDTH,
               boxShadow: `0 28px 80px ${alpha('#000', 0.55)}`,
-              borderTopRightRadius: 18,
-              borderBottomRightRadius: 18
+              borderTopRightRadius: 8,
+              borderBottomRightRadius: 8
             }
           }}
         >

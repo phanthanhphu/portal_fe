@@ -123,7 +123,7 @@ export default function TabContent({ onRequestClose }) {
 
   const cardSx = {
     width: isMobile ? 280 : 320,
-    borderRadius: 4,
+    borderRadius: '10px',
     overflow: 'hidden',
     border: `1px solid ${alpha(theme.palette.common.white, 0.18)}`,
     backgroundColor: theme.palette.mode === 'dark'
@@ -163,7 +163,7 @@ export default function TabContent({ onRequestClose }) {
   };
 
   const menuItemSx = (tone = 'primary') => ({
-    borderRadius: 2.2,
+    borderRadius: '6px',
     py: 0.9,
     px: 1.1,
     transition: 'transform .15s ease, background-color .15s ease',
@@ -177,7 +177,7 @@ export default function TabContent({ onRequestClose }) {
     '& .MuiTooltip-tooltip': {
       background: alpha('#FFFFFF', 0.92),
       color: theme.palette.text.primary,
-      borderRadius: 12,
+      borderRadius: 8,
       border: `1px solid ${alpha(theme.palette.divider, 0.7)}`,
       boxShadow: `0 16px 40px ${alpha('#000', 0.14)}`,
       backdropFilter: 'blur(10px)',

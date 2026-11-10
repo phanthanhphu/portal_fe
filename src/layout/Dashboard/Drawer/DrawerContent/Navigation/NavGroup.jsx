@@ -80,7 +80,7 @@ function NavCollapse({ item, level = 1, pathname }) {
           py: 0.6,
           mx: drawerOpen ? 1 : 0.75,
           my: drawerOpen ? 0.45 : 0.55,
-          borderRadius: 2,
+          borderRadius: '6px',
           justifyContent: drawerOpen ? 'flex-start' : 'center',
           transition: 'background-color .18s ease, box-shadow .18s ease',
           '&:hover': {
@@ -102,7 +102,7 @@ function NavCollapse({ item, level = 1, pathname }) {
               minWidth: drawerOpen ? 34 : 0,
               color: selected ? theme.palette.primary.main : alpha('#fff', 0.68),
               ...(!drawerOpen && {
-                borderRadius: 2,
+                borderRadius: '6px',
                 width: 40,
                 height: 40,
                 alignItems: 'center',

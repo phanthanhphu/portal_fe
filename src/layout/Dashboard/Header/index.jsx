@@ -47,7 +47,7 @@ export default function Header() {
           width: 40,
           height: 40,
           p: 0,
-          borderRadius: 2,
+          borderRadius: '8px',
           color: theme.palette.primary.main,
           bgcolor: alpha(theme.palette.primary.main, drawerOpen ? 0.10 : 0.14),
           border: `1px solid ${alpha('#fff', 0.10)}`,

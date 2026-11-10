@@ -74,9 +74,9 @@ export default function NavItem({ item, level, isParents = false, setSelectedID,
           pr: drawerOpen ? 1.25 : 1,
           py: 0.6,
 
-          ...(drawerOpen && level === 1 && { mx: 1, my: 0.45, borderRadius: 2 }),
-          ...(drawerOpen && level > 1 && { mx: 1, my: 0.25, borderRadius: 2 }),
-          ...(!drawerOpen && { mx: 0.75, my: 0.55, borderRadius: 2, justifyContent: 'center' }),
+          ...(drawerOpen && level === 1 && { mx: 1, my: 0.45, borderRadius: '6px' }),
+          ...(drawerOpen && level > 1 && { mx: 1, my: 0.25, borderRadius: '6px' }),
+          ...(!drawerOpen && { mx: 0.75, my: 0.55, borderRadius: '6px', justifyContent: 'center' }),
 
           transition: 'background-color .18s ease, box-shadow .18s ease',
 
@@ -100,7 +100,7 @@ export default function NavItem({ item, level, isParents = false, setSelectedID,
 
               ...(!drawerOpen &&
                 level === 1 && {
-                  borderRadius: 2,
+                  borderRadius: '6px',
                   width: ICON_BOX,
                   height: ICON_BOX,
                   alignItems: 'center',

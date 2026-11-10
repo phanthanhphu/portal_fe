@@ -753,9 +753,10 @@ export default function NoticesPage() {
 
   const pageWrapSx = useMemo(
     () => ({
-      bgcolor: '#f7f7f7',
-      minHeight: '100vh',
-      p: 1.5,
+      bgcolor: 'transparent',
+      minHeight: 'auto',
+      width: '100%',
+      p: 0,
       position: 'relative',
     }),
     []
